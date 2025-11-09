@@ -10,7 +10,11 @@ import { toggleToneMapping, setQualityMode } from '../store';
 import { CollapsibleSection } from './CollapsibleSection';
 import './SettingsAdjustments.css';
 
-export const SettingsAdjustments: React.FC = () => {
+interface SettingsAdjustmentsProps {
+  disabled?: boolean;
+}
+
+export const SettingsAdjustments: React.FC<SettingsAdjustmentsProps> = ({ disabled = false }) => {
   const dispatch = useDispatch();
   const { enableToneMapping, qualityMode } = useSelector((state: RootState) => state.ui);
 
@@ -34,6 +38,7 @@ export const SettingsAdjustments: React.FC = () => {
               type="checkbox"
               checked={enableToneMapping}
               onChange={handleToneMappingToggle}
+              disabled={disabled}
               className="settings-adjustments__checkbox"
               aria-label="Enable tone mapping for HDR images"
             />
@@ -62,6 +67,7 @@ export const SettingsAdjustments: React.FC = () => {
             id="quality-mode-select"
             value={qualityMode}
             onChange={handleQualityModeChange}
+            disabled={disabled}
             className="settings-adjustments__select"
             aria-label="Select quality mode"
           >

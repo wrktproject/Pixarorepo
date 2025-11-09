@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import type { RootState } from './store';
 import { Canvas } from './components/Canvas';
-import { EditingPanel } from './components/EditingPanel';
+import { ToolsPanel } from './components/ToolsPanel';
 import { PresetManager } from './components/PresetManager';
 import { PhotoLibrary } from './components/PhotoLibrary';
 import { HistoryIndicator } from './components/HistoryIndicator';
@@ -171,9 +171,11 @@ function App() {
                 <PhotoLibrary />
               </ErrorBoundary>
             )}
-            <ErrorBoundary>
-              <PresetManager />
-            </ErrorBoundary>
+            {hasPhotos && hasImage && (
+              <ErrorBoundary>
+                <PresetManager />
+              </ErrorBoundary>
+            )}
             {/* Ad in sidebar bottom - 300x250 (only if configured) */}
             {import.meta.env.VITE_ADSENSE_PUBLISHER_ID && (
               <ErrorBoundary>
@@ -193,10 +195,10 @@ function App() {
             </ErrorBoundary>
           </section>
 
-          {/* Right Editing Panel */}
-          <aside className="app-editing-panel" role="complementary" aria-label="Editing controls">
+          {/* Tools Panel (right side icons and panels) */}
+          <aside className="app-tools-panel" role="complementary" aria-label="Tools">
             <ErrorBoundary>
-              {hasImage && <EditingPanel />}
+              <ToolsPanel />
             </ErrorBoundary>
           </aside>
         </main>

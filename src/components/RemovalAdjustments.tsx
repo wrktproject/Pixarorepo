@@ -8,7 +8,6 @@ import { useSelector, useDispatch } from 'react-redux';
 import type { RootState } from '../store';
 import { setActiveTool } from '../store/uiSlice';
 import { addRemovalOperation } from '../store/adjustmentsSlice';
-import { CollapsibleSection } from './CollapsibleSection';
 import { RemovalTool } from './RemovalTool';
 import type { RemovalMask, RemovalOperation } from '../types/adjustments';
 import { loadInpaintingModel, isModelLoaded } from '../utils/aiModelLoader';
@@ -20,7 +19,11 @@ import {
 } from '../utils/spotRemoval';
 import './RemovalAdjustments.css';
 
-export const RemovalAdjustments: React.FC = () => {
+interface RemovalAdjustmentsProps {
+  disabled?: boolean;
+}
+
+export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled = false }) => {
   const dispatch = useDispatch();
   const activeTool = useSelector((state: RootState) => state.ui.activeTool);
   const imageState = useSelector((state: RootState) => state.image);
@@ -128,8 +131,7 @@ export const RemovalAdjustments: React.FC = () => {
   );
 
   return (
-    <CollapsibleSection title="AI Removal" defaultExpanded={false}>
-      <div className="removal-adjustments">
+    <div className="removal-adjustments">
         {!isToolActive ? (
           <div className="removal-adjustments__inactive">
             <p className="removal-adjustments__description">
@@ -159,7 +161,7 @@ export const RemovalAdjustments: React.FC = () => {
             <button
               className="removal-adjustments__activate-button"
               onClick={handleActivateTool}
-              disabled={!hasImage || isLoadingModel}
+              disabled={disabled || !hasImage || isLoadingModel}
             >
               {isLoadingModel ? 'Loading Model...' : 'Activate Removal Tool'}
             </button>
@@ -194,7 +196,6 @@ export const RemovalAdjustments: React.FC = () => {
             </button>
           </div>
         )}
-      </div>
-    </CollapsibleSection>
+    </div>
   );
 };

@@ -12,41 +12,45 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  /* Modern dark theme - Inspired by Adobe Lightroom */
-  --color-bg-primary: #0f0f0f;        /* Deep black background */
-  --color-bg-secondary: #1a1a1a;      /* Slightly lighter panels */
-  --color-bg-tertiary: #242424;       /* Inputs, hover states */
+  /* Modern dark theme - Lightroom inspired */
+  --color-bg-primary: #1a1a1a;        /* Dark charcoal background */
+  --color-bg-secondary: #242424;      /* Slightly lighter panels */
+  --color-bg-tertiary: #2a2a2a;       /* Inputs, hover states */
   --color-canvas-surround: #1a1a1a;   /* Dark gray for canvas area */
   
   /* Text colors - High contrast for readability */
-  --color-text-primary: #f5f5f5;      /* Bright white for primary text */
-  --color-text-secondary: #b0b0b0;    /* Medium gray for secondary text */
-  --color-text-tertiary: #808080;     /* Subtle gray for tertiary text */
-  --color-text-inverse: #0f0f0f;      /* For light backgrounds */
+  --color-text-primary: #e8e8e8;      /* Soft white for primary text */
+  --color-text-secondary: #b8b8b8;    /* Medium gray for secondary text */
+  --color-text-tertiary: #888888;     /* Subtle gray for tertiary text */
+  --color-text-inverse: #1a1a1a;      /* For light backgrounds */
   
-  /* Modern accent colors */
-  --color-accent-primary: #3b82f6;    /* Modern blue accent */
-  --color-accent-hover: #60a5fa;      /* Lighter blue for hover */
-  --color-accent-active: #2563eb;     /* Darker blue for active */
-  --color-accent-focus: #3b82f6;      /* Focus ring color */
+  /* Subtle accent colors - Professional blue */
+  --color-accent-primary: #4a9eff;    /* Soft blue accent */
+  --color-accent-hover: #6bb0ff;      /* Lighter blue for hover */
+  --color-accent-active: #3a8eef;     /* Darker blue for active */
+  --color-accent-focus: #4a9eff;      /* Blue focus ring */
+  --color-neon-pink: #ff00ff;         /* Magenta accent (rarely used) */
+  --color-neon-green: #00ff00;        /* Green accent (rarely used) */
+  --color-neon-purple: #9d00ff;       /* Purple accent (rarely used) */
   
-  /* Subtle borders for modern look */
-  --color-border: #2a2a2a;            /* Very subtle borders */
-  --color-border-light: #1f1f1f;      /* Almost invisible borders */
-  --color-border-hover: #3a3a3a;      /* Hover state borders */
-  --color-border-focus: #3b82f6;      /* Focus state borders */
+  /* Subtle borders */
+  --color-border: #333333;            /* Subtle borders */
+  --color-border-light: #2a2a2a;      /* Lighter borders */
+  --color-border-hover: #4a4a4a;      /* Hover state borders */
+  --color-border-focus: #4a9eff;      /* Blue focus borders */
   
   /* Interactive states */
   --color-hover: rgba(255, 255, 255, 0.05);
   --color-active: rgba(255, 255, 255, 0.1);
-  --color-disabled: #404040;
-  --color-disabled-text: #606060;
+  --color-disabled: #2a2a2a;
+  --color-disabled-text: #555555;
   
   /* Slider controls */
   --color-slider-track: #333333;
-  --color-slider-thumb: #e0e0e0;
-  --color-slider-thumb-hover: #ffffff;
+  --color-slider-thumb: #d0d0d0;
+  --color-slider-thumb-hover: #e8e8e8;
   --color-slider-thumb-active: #4a9eff;
+  --color-slider-fill: #4a9eff;
   
   /* Input controls */
   --color-input-bg: #2a2a2a;
@@ -54,15 +58,15 @@
   --color-input-border-focus: #4a9eff;
   
   /* Scrollbar */
-  --color-scrollbar: #333333;
-  --color-scrollbar-hover: #444444;
-  --color-scrollbar-track: #1a1a1a;
+  --color-scrollbar: #444444;
+  --color-scrollbar-hover: #555555;
+  --color-scrollbar-track: #242424;
   
   /* Feedback colors */
   --color-success: #4caf50;
   --color-success-bg: rgba(76, 175, 80, 0.1);
-  --color-warning: #ffc107;
-  --color-warning-bg: rgba(255, 193, 7, 0.1);
+  --color-warning: #ff9800;
+  --color-warning-bg: rgba(255, 152, 0, 0.1);
   --color-error: #f44336;
   --color-error-bg: rgba(244, 67, 54, 0.1);
   --color-info: #2196f3;
@@ -187,7 +191,7 @@ button.button-primary {
 button.button-primary:hover:not(:disabled) {
   background-color: var(--color-accent-hover);
   border-color: var(--color-accent-hover);
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 2px 8px rgba(74, 158, 255, 0.3);
 }
 
 button.button-primary:active:not(:disabled) {

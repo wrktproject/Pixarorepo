@@ -10,6 +10,8 @@ export interface CollapsibleSectionProps {
   title: string;
   children: React.ReactNode;
   defaultExpanded?: boolean;
+  expanded?: boolean;
+  disabled?: boolean;
   onToggle?: (expanded: boolean) => void;
 }
 
@@ -17,15 +19,22 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
   title,
   children,
   defaultExpanded = true,
+  expanded,
+  disabled = false,
   onToggle,
 }) => {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
+  // Use controlled expansion if provided
+  const actualExpanded = expanded !== undefined ? expanded : isExpanded;
+
   const handleToggle = useCallback(() => {
-    const newExpanded = !isExpanded;
-    setIsExpanded(newExpanded);
+    const newExpanded = !actualExpanded;
+    if (expanded === undefined) {
+      setIsExpanded(newExpanded);
+    }
     onToggle?.(newExpanded);
-  }, [isExpanded, onToggle]);
+  }, [actualExpanded, expanded, onToggle]);
 
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
@@ -43,12 +52,13 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
         className="collapsible-section__header"
         onClick={handleToggle}
         onKeyDown={handleKeyDown}
-        aria-expanded={isExpanded}
+        aria-expanded={actualExpanded}
         aria-controls={`section-${title.toLowerCase().replace(/\s+/g, '-')}`}
+        disabled={disabled}
       >
         <span className="collapsible-section__title">{title}</span>
         <svg
-          className={`collapsible-section__icon ${isExpanded ? 'collapsible-section__icon--expanded' : ''}`}
+          className={`collapsible-section__icon ${actualExpanded ? 'collapsible-section__icon--expanded' : ''}`}
           width="16"
           height="16"
           viewBox="0 0 16 16"
@@ -63,8 +73,8 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
       </button>
       <div
         id={`section-${title.toLowerCase().replace(/\s+/g, '-')}`}
-        className={`collapsible-section__content ${isExpanded ? 'collapsible-section__content--expanded' : ''}`}
-        aria-hidden={!isExpanded}
+        className={`collapsible-section__content ${actualExpanded ? 'collapsible-section__content--expanded' : ''}`}
+        aria-hidden={!actualExpanded}
       >
         <div className="collapsible-section__inner">{children}</div>
       </div>

@@ -17,7 +17,12 @@ import {
 import { CollapsibleSection } from './CollapsibleSection';
 import { SliderControl } from './SliderControl';
 
-export const BasicAdjustments: React.FC = () => {
+interface BasicAdjustmentsProps {
+  disabled?: boolean;
+  expanded?: boolean;
+}
+
+export const BasicAdjustments: React.FC<BasicAdjustmentsProps> = ({ disabled = false, expanded }) => {
   const dispatch = useDispatch();
   const adjustments = useSelector((state: RootState) => state.adjustments);
 
@@ -64,7 +69,7 @@ export const BasicAdjustments: React.FC = () => {
   );
 
   return (
-    <CollapsibleSection title="Basic" defaultExpanded={true}>
+    <CollapsibleSection title="Basic" defaultExpanded={false} expanded={expanded} disabled={disabled}>
       <SliderControl
         label="Exposure"
         value={adjustments.exposure}
@@ -74,6 +79,8 @@ export const BasicAdjustments: React.FC = () => {
         precision={2}
         onChange={handleExposureChange}
         tooltip="Adjusts overall brightness in photographic stops. +1 stop doubles brightness, -1 stop halves it. Applied in linear color space for accurate results."
+        disabled={disabled}
+        colorGradient="linear-gradient(to right, #000000, #808080, #ffffff)"
       />
       <SliderControl
         label="Contrast"
@@ -84,6 +91,7 @@ export const BasicAdjustments: React.FC = () => {
         precision={0}
         onChange={handleContrastChange}
         tooltip="Expands or compresses the tonal range around the midpoint. Increases separation between light and dark areas without clipping."
+        disabled={disabled}
       />
       <SliderControl
         label="Highlights"
@@ -94,6 +102,8 @@ export const BasicAdjustments: React.FC = () => {
         precision={0}
         onChange={handleHighlightsChange}
         tooltip="Recovers detail in bright areas using luminance-based masking. Negative values darken highlights, positive values brighten them."
+        disabled={disabled}
+        colorGradient="linear-gradient(to right, #606060, #c0c0c0, #ffffff)"
       />
       <SliderControl
         label="Shadows"
@@ -104,6 +114,8 @@ export const BasicAdjustments: React.FC = () => {
         precision={0}
         onChange={handleShadowsChange}
         tooltip="Recovers detail in dark areas using luminance-based masking. Positive values lift shadows, negative values deepen them."
+        disabled={disabled}
+        colorGradient="linear-gradient(to right, #000000, #404040, #808080)"
       />
       <SliderControl
         label="Whites"
@@ -114,6 +126,8 @@ export const BasicAdjustments: React.FC = () => {
         precision={0}
         onChange={handleWhitesChange}
         tooltip="Adjusts the brightest tones in the image. Affects pixels with luminance above 80%. Use to fine-tune extreme highlights."
+        disabled={disabled}
+        colorGradient="linear-gradient(to right, #a0a0a0, #e0e0e0, #ffffff)"
       />
       <SliderControl
         label="Blacks"
@@ -122,6 +136,8 @@ export const BasicAdjustments: React.FC = () => {
         max={100}
         step={1}
         precision={0}
+        disabled={disabled}
+        colorGradient="linear-gradient(to right, #000000, #202020, #404040)"
         onChange={handleBlacksChange}
         tooltip="Adjusts the darkest tones in the image. Affects pixels with luminance below 15%. Use to fine-tune extreme shadows."
       />

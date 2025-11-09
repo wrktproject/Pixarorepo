@@ -1,0 +1,182 @@
+/**
+ * ToolsPanel Styles - Lightroom-inspired vertical toolbar
+ */
+
+.tools-panel {
+  display: flex;
+  flex-direction: row-reverse;
+  height: 100%;
+  background-color: var(--color-bg-secondary);
+}
+
+/* Icon buttons column */
+.tools-panel__icons {
+  width: 48px;
+  background-color: var(--color-bg-primary);
+  border-left: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--spacing-md) 0;
+  gap: var(--spacing-sm);
+  order: 2;
+}
+
+.tools-panel__icon-button {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background-color: transparent;
+  border: none;
+  border-radius: var(--border-radius-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  position: relative;
+}
+
+.tools-panel__icon-button:hover:not(:disabled) {
+  background-color: var(--color-hover);
+  color: var(--color-text-primary);
+}
+
+.tools-panel__icon-button:hover:not(:disabled)::after {
+  content: attr(title);
+  position: absolute;
+  right: 100%;
+  margin-right: 8px;
+  padding: 6px 10px;
+  background-color: rgba(0, 0, 0, 0.9);
+  color: var(--color-text-primary);
+  font-size: 12px;
+  white-space: nowrap;
+  border-radius: var(--border-radius-sm);
+  border: 1px solid var(--color-border);
+  pointer-events: none;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.tools-panel__icon-button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.tools-panel__icon-button--active {
+  background-color: var(--color-accent-primary);
+  color: white;
+}
+
+.tools-panel__icon-button--active:hover:not(:disabled) {
+  background-color: var(--color-accent-hover);
+}
+
+/* Tool content panel */
+.tools-panel__content {
+  width: 300px;
+  background-color: var(--color-bg-secondary);
+  border-right: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  order: 1;
+}
+
+.tools-panel__content--wide {
+  width: 320px;
+}
+
+.tools-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-lg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tools-panel__title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tools-panel__close {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.tools-panel__close:hover {
+  color: var(--color-text-primary);
+}
+
+.tools-panel__body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--spacing-lg);
+}
+
+/* Scrollbar styling */
+.tools-panel__body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.tools-panel__body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tools-panel__body::-webkit-scrollbar-thumb {
+  background: var(--color-scrollbar);
+  border-radius: 3px;
+}
+
+.tools-panel__body::-webkit-scrollbar-thumb:hover {
+  background: var(--color-scrollbar-hover);
+}
+
+/* Lens Blur Tool Placeholder */
+.lens-blur-tool {
+  padding: var(--spacing-md);
+}
+
+.lens-blur-tool__description {
+  margin: 0 0 var(--spacing-lg) 0;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.lens-blur-tool__button {
+  width: 100%;
+  padding: var(--spacing-md);
+  background-color: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: var(--border-radius-sm);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.lens-blur-tool__note {
+  margin: var(--spacing-lg) 0 0 0;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  font-style: italic;
+  line-height: 1.4;
+}

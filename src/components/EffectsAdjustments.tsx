@@ -17,7 +17,12 @@ import { CollapsibleSection } from './CollapsibleSection';
 import { SliderControl } from './SliderControl';
 import './EffectsAdjustments.css';
 
-export const EffectsAdjustments: React.FC = () => {
+interface EffectsAdjustmentsProps {
+  disabled?: boolean;
+  expanded?: boolean;
+}
+
+export const EffectsAdjustments: React.FC<EffectsAdjustmentsProps> = ({ disabled = false, expanded }) => {
   const dispatch = useDispatch();
   const adjustments = useSelector((state: RootState) => state.adjustments);
 
@@ -57,7 +62,7 @@ export const EffectsAdjustments: React.FC = () => {
   );
 
   return (
-    <CollapsibleSection title="Effects" defaultExpanded={false}>
+    <CollapsibleSection title="Effects" defaultExpanded={false} expanded={expanded} disabled={disabled}>
       <div className="effects-adjustments__group">
         <h4 className="effects-adjustments__subtitle">Vignette</h4>
         <SliderControl
@@ -68,6 +73,7 @@ export const EffectsAdjustments: React.FC = () => {
           step={1}
           precision={0}
           onChange={handleVignetteAmountChange}
+          disabled={disabled}
         />
         <SliderControl
           label="Midpoint"
@@ -77,6 +83,7 @@ export const EffectsAdjustments: React.FC = () => {
           step={1}
           precision={0}
           onChange={handleVignetteMidpointChange}
+          disabled={disabled}
         />
         <SliderControl
           label="Feather"
@@ -86,6 +93,7 @@ export const EffectsAdjustments: React.FC = () => {
           step={1}
           precision={0}
           onChange={handleVignetteFeatherChange}
+          disabled={disabled}
         />
       </div>
 
@@ -99,6 +107,7 @@ export const EffectsAdjustments: React.FC = () => {
           step={1}
           precision={0}
           onChange={handleGrainAmountChange}
+          disabled={disabled}
         />
         <div className="effects-adjustments__dropdown">
           <label
@@ -112,6 +121,7 @@ export const EffectsAdjustments: React.FC = () => {
             className="effects-adjustments__select"
             value={adjustments.grain.size}
             onChange={handleGrainSizeChange}
+            disabled={disabled}
           >
             <option value="fine">Fine</option>
             <option value="medium">Medium</option>

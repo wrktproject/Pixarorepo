@@ -17,6 +17,8 @@ export interface SliderControlProps {
   precision?: number;
   warning?: string;
   tooltip?: string;
+  disabled?: boolean;
+  colorGradient?: string;
 }
 
 export const SliderControl: React.FC<SliderControlProps> = ({
@@ -30,6 +32,8 @@ export const SliderControl: React.FC<SliderControlProps> = ({
   precision = 0,
   warning,
   tooltip,
+  disabled = false,
+  colorGradient,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const sliderRef = useRef<HTMLInputElement>(null);
@@ -102,7 +106,8 @@ export const SliderControl: React.FC<SliderControlProps> = ({
         ref={sliderRef}
         id={`slider-${label}`}
         type="range"
-        className={`slider-control__slider ${isDragging ? 'slider-control__slider--dragging' : ''}`}
+        className={`slider-control__slider ${isDragging ? 'slider-control__slider--dragging' : ''} ${disabled ? 'slider-control__slider--disabled' : ''} ${colorGradient ? 'slider-control__slider--colored' : ''}`}
+        style={colorGradient ? { background: colorGradient } : undefined}
         min={min}
         max={max}
         step={step}
@@ -118,6 +123,7 @@ export const SliderControl: React.FC<SliderControlProps> = ({
         aria-valuemax={max}
         aria-valuenow={value}
         aria-valuetext={formatValue(value)}
+        disabled={disabled}
       />
       {showWarning && (
         <div className="slider-control__warning" role="alert">

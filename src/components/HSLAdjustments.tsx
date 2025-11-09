@@ -26,11 +26,13 @@ const COLOR_CHANNELS: Array<{ key: ColorChannel; label: string }> = [
 interface ColorChannelSectionProps {
   channel: ColorChannel;
   label: string;
+  disabled?: boolean;
 }
 
 const ColorChannelSection: React.FC<ColorChannelSectionProps> = ({
   channel,
   label,
+  disabled = false,
 }) => {
   const dispatch = useDispatch();
   const hslValues = useSelector(
@@ -68,6 +70,7 @@ const ColorChannelSection: React.FC<ColorChannelSectionProps> = ({
         step={1}
         precision={0}
         onChange={handleHueChange}
+        disabled={disabled}
       />
       <SliderControl
         label="Saturation"
@@ -77,6 +80,7 @@ const ColorChannelSection: React.FC<ColorChannelSectionProps> = ({
         step={1}
         precision={0}
         onChange={handleSaturationChange}
+        disabled={disabled}
       />
       <SliderControl
         label="Luminance"
@@ -86,18 +90,24 @@ const ColorChannelSection: React.FC<ColorChannelSectionProps> = ({
         step={1}
         precision={0}
         onChange={handleLuminanceChange}
+        disabled={disabled}
       />
     </CollapsibleSection>
   );
 };
 
-export const HSLAdjustments: React.FC = () => {
+interface HSLAdjustmentsProps {
+  disabled?: boolean;
+  expanded?: boolean;
+}
+
+export const HSLAdjustments: React.FC<HSLAdjustmentsProps> = ({ disabled = false, expanded }) => {
   return (
     <div className="hsl-adjustments">
-      <CollapsibleSection title="HSL / Color" defaultExpanded={false}>
+      <CollapsibleSection title="HSL / Color" defaultExpanded={false} expanded={expanded} disabled={disabled}>
         <div className="hsl-adjustments__channels">
           {COLOR_CHANNELS.map(({ key, label }) => (
-            <ColorChannelSection key={key} channel={key} label={label} />
+            <ColorChannelSection key={key} channel={key} label={label} disabled={disabled} />
           ))}
         </div>
       </CollapsibleSection>

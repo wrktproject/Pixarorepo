@@ -12,7 +12,6 @@ import { ShaderPipelineErrorHandler } from '../engine/shaderPipelineErrorHandler
 import type { RenderMode } from '../engine/shaderPipelineErrorHandler';
 import { Histogram } from './Histogram';
 import { CropTool } from './CropTool';
-import { PerformanceIndicator } from './PerformanceIndicator';
 import { ErrorNotification } from './ErrorNotification';
 import type { PerformanceStats } from '../engine/renderScheduler';
 import type { PixaroError } from '../types/errors';
@@ -144,7 +143,8 @@ export const Canvas: React.FC = () => {
           const result = errorHandlerRef.current.loadImage(image.data);
           if (result.success) {
             console.log('Image reloaded after context restoration');
-            render();
+            // Trigger a re-render by updating state
+            setRenderMode(errorHandlerRef.current.getCurrentMode());
           }
         }
       } catch (error) {
@@ -160,7 +160,7 @@ export const Canvas: React.FC = () => {
       canvas.removeEventListener('webglcontextlost', handleContextLost);
       canvas.removeEventListener('webglcontextrestored', handleContextRestored);
     };
-  }, [image, render]);
+  }, [image]);
 
   /**
    * Load image into pipeline when image changes
@@ -427,10 +427,10 @@ export const Canvas: React.FC = () => {
     const containerWidth = container.clientWidth;
     const containerHeight = container.clientHeight;
 
-    // Calculate zoom to fit
+    // Calculate zoom to fit at 100% (fill the screen)
     const zoomX = containerWidth / imageWidth;
     const zoomY = containerHeight / imageHeight;
-    const fitZoom = Math.min(zoomX, zoomY) * 0.95; // 95% to add some padding
+    const fitZoom = Math.min(zoomX, zoomY); // 100% fit
 
     dispatch(setZoom(fitZoom));
     dispatch(setPan({ x: 0, y: 0 }));
@@ -566,15 +566,6 @@ export const Canvas: React.FC = () => {
             FPS
           </button>
         </div>
-      )}
-
-      {/* Performance Indicator - Requirement 13.4 */}
-      {image && (
-        <PerformanceIndicator
-          stats={performanceStats}
-          showDetails={showPerformanceDetails}
-          position="top-right"
-        />
       )}
 
       {/* Histogram display */}

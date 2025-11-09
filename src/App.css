@@ -87,7 +87,7 @@
 /* Main layout - CSS Grid for three columns */
 .app-main {
   display: grid;
-  grid-template-columns: var(--size-sidebar-width) 1fr var(--size-editing-panel-width);
+  grid-template-columns: var(--size-sidebar-width) 1fr auto;
   grid-template-rows: 1fr;
   flex: 1;
   overflow: hidden;
@@ -146,7 +146,7 @@
 /* Large tablets and smaller desktops */
 @media (max-width: 1280px) {
   .app-main {
-    grid-template-columns: 240px 1fr 280px;
+    grid-template-columns: 240px 1fr auto;
   }
   
   .app-title {
@@ -157,7 +157,7 @@
 /* Tablets */
 @media (max-width: 1024px) {
   .app-main {
-    grid-template-columns: 200px 1fr 260px;
+    grid-template-columns: 200px 1fr auto;
   }
   
   .app-header__content {
@@ -168,9 +168,12 @@
     font-size: 18px;
   }
   
-  .app-sidebar,
-  .app-editing-panel {
+  .app-sidebar {
     padding: var(--spacing-sm);
+  }
+  
+  .app-tools-panel {
+    display: none; /* Hide tools panel on tablets */
   }
 }
 
@@ -315,3 +318,10 @@
  * - Editing panel sections: 1 click to expand, 1 click to adjust
  * - Canvas controls: 1 click to activate
  */
+
+/* Tools Panel (far right) */
+.app-tools-panel {
+  background-color: var(--color-bg-secondary);
+  overflow: hidden;
+  display: flex;
+}

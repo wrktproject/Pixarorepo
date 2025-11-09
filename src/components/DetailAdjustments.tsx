@@ -15,7 +15,12 @@ import {
 import { CollapsibleSection } from './CollapsibleSection';
 import { SliderControl } from './SliderControl';
 
-export const DetailAdjustments: React.FC = () => {
+interface DetailAdjustmentsProps {
+  disabled?: boolean;
+  expanded?: boolean;
+}
+
+export const DetailAdjustments: React.FC<DetailAdjustmentsProps> = ({ disabled = false, expanded }) => {
   const dispatch = useDispatch();
   const adjustments = useSelector((state: RootState) => state.adjustments);
 
@@ -48,7 +53,7 @@ export const DetailAdjustments: React.FC = () => {
   );
 
   return (
-    <CollapsibleSection title="Detail" defaultExpanded={false}>
+    <CollapsibleSection title="Detail" defaultExpanded={false} expanded={expanded} disabled={disabled}>
       <SliderControl
         label="Sharpening"
         value={adjustments.sharpening}
@@ -57,6 +62,7 @@ export const DetailAdjustments: React.FC = () => {
         step={1}
         precision={0}
         onChange={handleSharpeningChange}
+        disabled={disabled}
         warning="High sharpening values may cause artifacts"
         tooltip="Enhances edge detail using unsharp mask technique. Applied in luminance channel only to avoid color fringing. Uses multi-pass rendering with Gaussian blur."
       />
@@ -68,6 +74,7 @@ export const DetailAdjustments: React.FC = () => {
         step={1}
         precision={0}
         onChange={handleClarityChange}
+        disabled={disabled}
         tooltip="Enhances local contrast and mid-tone detail using high-pass filtering. Positive values add punch and definition, negative values create a softer look. Uses two-pass rendering."
       />
       <SliderControl
@@ -78,6 +85,7 @@ export const DetailAdjustments: React.FC = () => {
         step={1}
         precision={0}
         onChange={handleNoiseReductionLumaChange}
+        disabled={disabled}
         tooltip="Reduces brightness noise using bilateral filtering. Smooths grainy areas while preserving edges. Higher values provide stronger noise reduction but may soften detail."
       />
       <SliderControl
@@ -88,6 +96,7 @@ export const DetailAdjustments: React.FC = () => {
         step={1}
         precision={0}
         onChange={handleNoiseReductionColorChange}
+        disabled={disabled}
         tooltip="Reduces color noise and chromatic artifacts using bilateral filtering. Removes color speckles common in high-ISO images. Higher values provide stronger smoothing."
       />
     </CollapsibleSection>

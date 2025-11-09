@@ -38,7 +38,6 @@
 
 .file-uploader__dropzone--dragging {
   border-color: var(--color-accent-primary);
-  background-color: var(--color-accent-primary);
   background-color: rgba(74, 158, 255, 0.1);
   transform: scale(1.02);
 }
