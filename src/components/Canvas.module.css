@@ -1,0 +1,153 @@
+/**
+ * Canvas Component Styles
+ */
+
+.container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background-color: var(--color-canvas-surround);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.canvas {
+  display: block;
+  max-width: 95%;
+  max-height: 95%;
+  width: auto;
+  height: auto;
+  transform-origin: center center;
+  transition: transform 0.1s ease-out;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.controls {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background-color: rgba(0, 0, 0, 0.7);
+  padding: 8px 12px;
+  border-radius: 6px;
+  backdrop-filter: blur(4px);
+}
+
+.controlButton {
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: background-color var(--transition-fast),
+              border-color var(--transition-fast),
+              transform var(--transition-fast);
+}
+
+.controlButton:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.controlButton:focus-visible {
+  outline: 2px solid var(--color-accent-focus);
+  outline-offset: 2px;
+}
+
+.controlButton:active {
+  transform: scale(0.95);
+}
+
+.zoomDisplay {
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 500;
+  min-width: 45px;
+  text-align: center;
+}
+
+.placeholder {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: rgba(255, 255, 255, 0.6);
+  pointer-events: none;
+}
+
+.placeholder p {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.placeholderHint {
+  margin-top: 8px !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  opacity: 0.7;
+}
+
+.comparisonControls {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  gap: 8px;
+  background-color: rgba(0, 0, 0, 0.7);
+  padding: 8px 12px;
+  border-radius: 6px;
+  backdrop-filter: blur(4px);
+}
+
+.controlButton.active {
+  background-color: rgba(59, 130, 246, 0.5);
+  border-color: rgba(59, 130, 246, 0.7);
+}
+
+.splitDivider {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background-color: rgba(255, 255, 255, 0.8);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.splitHandle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 40px;
+  height: 40px;
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.splitHandle::before {
+  content: '⟷';
+  font-size: 20px;
+  color: #000;
+}
+
+.histogramContainer {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  width: 256px;
+  z-index: 10;
+}

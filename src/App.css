@@ -1,0 +1,317 @@
+/**
+ * Pixaro - Main Application Layout
+ * Three-column layout: sidebar (left), canvas (center), editing panel (right)
+ */
+
+/* Screen reader only content */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Skip to content link for keyboard navigation */
+.skip-to-content {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--color-accent);
+  color: var(--color-text-primary);
+  padding: var(--spacing-sm) var(--spacing-md);
+  text-decoration: none;
+  z-index: var(--z-index-modal);
+  border-radius: 0 0 var(--border-radius) 0;
+  font-weight: 600;
+  transition: top 0.2s ease;
+}
+
+.skip-to-content:focus {
+  top: 0;
+}
+
+/* Root container */
+#root {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Main app container */
+.app {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  overflow: hidden;
+}
+
+/* Header */
+.app-header {
+  height: var(--size-header-height);
+  background-color: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+  z-index: var(--z-index-base);
+}
+
+.app-header__content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 100%;
+  padding: 0 var(--spacing-lg);
+}
+
+.app-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  letter-spacing: -0.3px;
+}
+
+.app-header__controls {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-lg);
+}
+
+/* Main layout - CSS Grid for three columns */
+.app-main {
+  display: grid;
+  grid-template-columns: var(--size-sidebar-width) 1fr var(--size-editing-panel-width);
+  grid-template-rows: 1fr;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* Left Sidebar */
+.app-sidebar {
+  background-color: var(--color-bg-secondary);
+  border-right: 1px solid var(--color-border);
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+  padding: var(--spacing-lg);
+}
+
+/* Modern scrollbar styling */
+.app-sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.app-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.app-sidebar::-webkit-scrollbar-thumb {
+  background: var(--color-scrollbar);
+  border-radius: 3px;
+}
+
+.app-sidebar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-scrollbar-hover);
+}
+
+/* Center Canvas Area */
+.app-canvas-area {
+  background-color: var(--color-canvas-surround);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Right Editing Panel */
+.app-editing-panel {
+  background-color: var(--color-bg-secondary);
+  border-left: 1px solid var(--color-border);
+  overflow: hidden;
+}
+
+/* Responsive Design */
+
+/* Large tablets and smaller desktops */
+@media (max-width: 1280px) {
+  .app-main {
+    grid-template-columns: 240px 1fr 280px;
+  }
+  
+  .app-title {
+    font-size: 20px;
+  }
+}
+
+/* Tablets */
+@media (max-width: 1024px) {
+  .app-main {
+    grid-template-columns: 200px 1fr 260px;
+  }
+  
+  .app-header__content {
+    padding: 0 var(--spacing-md);
+  }
+  
+  .app-title {
+    font-size: 18px;
+  }
+  
+  .app-sidebar,
+  .app-editing-panel {
+    padding: var(--spacing-sm);
+  }
+}
+
+/* Small tablets and large phones (landscape) */
+@media (max-width: 768px) {
+  .app-main {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr auto;
+  }
+  
+  .app-sidebar {
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  
+  .app-editing-panel {
+    border-left: none;
+    border-top: 1px solid var(--color-border);
+    max-height: 300px;
+    overflow-y: auto;
+  }
+  
+  .app-canvas-area {
+    order: 2;
+  }
+  
+  .app-bottom-bar {
+    display: none; /* Hide bottom ad on mobile */
+  }
+  
+  .app-header__content {
+    padding: 0 var(--spacing-sm);
+  }
+}
+
+/* Mobile phones (portrait) */
+@media (max-width: 480px) {
+  .app-title {
+    font-size: 16px;
+  }
+  
+  .app-sidebar {
+    max-height: 150px;
+  }
+  
+  .app-editing-panel {
+    max-height: 250px;
+  }
+  
+  /* Increase touch target sizes */
+  button,
+  input[type="range"],
+  select {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Adjust spacing for mobile */
+  .app-header {
+    height: 48px;
+  }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+  /* Increase touch targets */
+  button,
+  .slider-control,
+  .preset-item {
+    min-height: 44px;
+    padding: var(--spacing-sm) var(--spacing-md);
+  }
+  
+  /* Remove hover effects on touch devices */
+  button:hover,
+  .preset-item:hover {
+    transform: none;
+  }
+  
+  /* Add active states for touch feedback */
+  button:active,
+  .preset-item:active {
+    transform: scale(0.98);
+    opacity: 0.9;
+  }
+}
+
+/* High DPI displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  /* Ensure crisp rendering on retina displays */
+  .app {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Landscape orientation on mobile */
+@media (max-width: 768px) and (orientation: landscape) {
+  .app-sidebar {
+    max-height: 120px;
+  }
+  
+  .app-editing-panel {
+    max-height: 180px;
+  }
+}
+
+/* Print styles */
+@media print {
+  .app-sidebar,
+  .app-editing-panel,
+  .app-header,
+  .app-bottom-bar {
+    display: none;
+  }
+  
+  .app-main {
+    grid-template-columns: 1fr;
+  }
+  
+  .app-canvas-area {
+    background-color: white;
+  }
+}
+
+/* Bottom Bar for Ad */
+.app-bottom-bar {
+  background-color: var(--color-bg-secondary);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-height: 110px; /* 90px ad + padding */
+}
+
+/* Ensure all controls accessible within 2 clicks */
+/* This is achieved through the flat structure of the layout */
+/* - Sidebar presets: 1 click to apply
+ * - Editing panel sections: 1 click to expand, 1 click to adjust
+ * - Canvas controls: 1 click to activate
+ */

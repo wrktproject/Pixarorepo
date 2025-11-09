@@ -1,0 +1,89 @@
+/**
+ * SettingsAdjustments Styles
+ */
+
+.settings-adjustments {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 0.5rem 0;
+}
+
+.settings-adjustments__control {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.settings-adjustments__label {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.settings-adjustments__label-text {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary, #e0e0e0);
+  cursor: help;
+}
+
+.settings-adjustments__checkbox {
+  width: 1.125rem;
+  height: 1.125rem;
+  cursor: pointer;
+  accent-color: var(--accent-color, #4a9eff);
+}
+
+.settings-adjustments__checkbox:focus {
+  outline: 2px solid var(--accent-color, #4a9eff);
+  outline-offset: 2px;
+}
+
+.settings-adjustments__select {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background-color: var(--bg-secondary, #2a2a2a);
+  color: var(--text-primary, #e0e0e0);
+  border: 1px solid var(--border-color, #404040);
+  border-radius: 4px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.settings-adjustments__select:hover {
+  border-color: var(--accent-color, #4a9eff);
+}
+
+.settings-adjustments__select:focus {
+  outline: none;
+  border-color: var(--accent-color, #4a9eff);
+  box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);
+}
+
+.settings-adjustments__description {
+  font-size: 0.75rem;
+  color: var(--text-secondary, #a0a0a0);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Dark theme adjustments */
+@media (prefers-color-scheme: dark) {
+  .settings-adjustments__label-text {
+    color: #e0e0e0;
+  }
+
+  .settings-adjustments__select {
+    background-color: #2a2a2a;
+    color: #e0e0e0;
+    border-color: #404040;
+  }
+
+  .settings-adjustments__description {
+    color: #a0a0a0;
+  }
+}

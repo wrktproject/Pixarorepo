@@ -1,0 +1,201 @@
+.dashboard {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.9);
+  color: #fff;
+  padding: 12px;
+  border-radius: 8px;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  min-width: 300px;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+  z-index: 10000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.toggleButton,
+.actionButton {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  transition: background 0.2s;
+}
+
+.toggleButton:hover,
+.actionButton:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.metric {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 8px;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.metric.good {
+  border-left: 3px solid #4caf50;
+}
+
+.metric.warning {
+  border-left: 3px solid #ff9800;
+}
+
+.metric.critical {
+  border-left: 3px solid #f44336;
+}
+
+.label {
+  font-size: 10px;
+  opacity: 0.7;
+  text-transform: uppercase;
+}
+
+.value {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.target {
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.details {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.section {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.section h4 {
+  margin: 0 0 8px 0;
+  font-size: 12px;
+  font-weight: bold;
+  opacity: 0.8;
+}
+
+.stats {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.stat:last-child {
+  border-bottom: none;
+}
+
+.stat span:first-child {
+  opacity: 0.7;
+}
+
+.stat span:last-child {
+  font-weight: bold;
+}
+
+.passes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pass {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  padding: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 2px;
+  align-items: center;
+}
+
+.passName {
+  font-weight: bold;
+}
+
+.passTime {
+  color: #4caf50;
+}
+
+.passCalls {
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+.recommendations {
+  margin: 0;
+  padding-left: 20px;
+  list-style: disc;
+}
+
+.recommendations li {
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+
+/* Scrollbar styling */
+.dashboard::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dashboard::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+}
+
+.dashboard::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.dashboard::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}

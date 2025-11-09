@@ -1,0 +1,61 @@
+/**
+ * EffectsAdjustments Styles
+ * Styling for effects section with grouped controls
+ */
+
+.effects-adjustments__group {
+  margin-bottom: 20px;
+}
+
+.effects-adjustments__group:last-child {
+  margin-bottom: 0;
+}
+
+.effects-adjustments__subtitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary, #a0a0a0);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 12px 0;
+}
+
+.effects-adjustments__dropdown {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.effects-adjustments__dropdown-label {
+  font-size: 13px;
+  color: var(--color-text-primary, #e0e0e0);
+  font-weight: 500;
+}
+
+.effects-adjustments__select {
+  padding: 6px 12px;
+  background-color: var(--color-input-bg, #2a2a2a);
+  color: var(--color-text-primary, #e0e0e0);
+  border: 1px solid var(--color-border, #333);
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.effects-adjustments__select:hover {
+  border-color: var(--color-border-hover, #4a4a4a);
+}
+
+.effects-adjustments__select:focus {
+  border-color: var(--color-focus, #4a9eff);
+  outline: 2px solid var(--color-focus, #4a9eff);
+  outline-offset: 1px;
+}
+
+.effects-adjustments__select option {
+  background-color: var(--color-input-bg, #2a2a2a);
+  color: var(--color-text-primary, #e0e0e0);
+}

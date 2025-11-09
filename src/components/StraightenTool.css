@@ -1,0 +1,131 @@
+/**
+ * StraightenTool Styles
+ */
+
+.straighten-tool {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* Grid overlay */
+.straighten-tool__grid-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.straighten-tool__grid {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.straighten-tool__grid-line {
+  position: absolute;
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.straighten-tool__grid-line--vertical {
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+
+.straighten-tool__grid-line--horizontal {
+  left: 0;
+  right: 0;
+  height: 1px;
+}
+
+.straighten-tool__grid-line--center-v {
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background-color: rgba(255, 255, 255, 0.6);
+}
+
+.straighten-tool__grid-line--center-h {
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background-color: rgba(255, 255, 255, 0.6);
+}
+
+/* Controls panel */
+.straighten-tool__controls {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background-color: rgba(30, 30, 30, 0.95);
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 16px;
+  min-width: 250px;
+  z-index: 100;
+}
+
+.straighten-tool__section {
+  margin-bottom: 16px;
+}
+
+.straighten-tool__section:last-child {
+  margin-bottom: 0;
+}
+
+.straighten-tool__section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0 0 12px 0;
+}
+
+.straighten-tool__info {
+  padding: 12px;
+  background-color: rgba(0, 102, 204, 0.1);
+  border: 1px solid rgba(0, 102, 204, 0.3);
+  border-radius: 4px;
+  margin-bottom: 16px;
+}
+
+.straighten-tool__info-text {
+  font-size: 12px;
+  color: #cccccc;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.straighten-tool__actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid #444;
+}
+
+.straighten-tool__button {
+  flex: 1;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.straighten-tool__button--secondary {
+  background-color: #2a2a2a;
+  color: #ffffff;
+  border: 1px solid #444;
+}
+
+.straighten-tool__button--secondary:hover {
+  background-color: #3a3a3a;
+  border-color: #666;
+}

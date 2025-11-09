@@ -1,0 +1,299 @@
+/**
+ * CropTool Styles
+ */
+
+.crop-tool {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.crop-tool__overlay-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.crop-tool__overlay {
+  position: absolute;
+  pointer-events: all;
+  cursor: move;
+}
+
+/* Darkened mask areas */
+.crop-tool__mask {
+  position: absolute;
+  background-color: rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+.crop-tool__mask--top {
+  top: -100vh;
+  left: -100vw;
+  right: -100vw;
+  height: 100vh;
+}
+
+.crop-tool__mask--right {
+  top: 0;
+  left: 100%;
+  width: 100vw;
+  height: 100%;
+}
+
+.crop-tool__mask--bottom {
+  top: 100%;
+  left: -100vw;
+  right: -100vw;
+  height: 100vh;
+}
+
+.crop-tool__mask--left {
+  top: 0;
+  right: 100%;
+  width: 100vw;
+  height: 100%;
+}
+
+/* Crop border */
+.crop-tool__border {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+/* Grid overlay (rule of thirds) */
+.crop-tool__grid {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.crop-tool__grid-line {
+  position: absolute;
+  background-color: rgba(255, 255, 255, 0.5);
+}
+
+.crop-tool__grid-line--v1 {
+  left: 33.333%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+
+.crop-tool__grid-line--v2 {
+  left: 66.666%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+
+.crop-tool__grid-line--h1 {
+  top: 33.333%;
+  left: 0;
+  right: 0;
+  height: 1px;
+}
+
+.crop-tool__grid-line--h2 {
+  top: 66.666%;
+  left: 0;
+  right: 0;
+  height: 1px;
+}
+
+/* Drag handles */
+.crop-tool__handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background-color: #ffffff;
+  border: 2px solid #000000;
+  border-radius: 50%;
+  pointer-events: all;
+  z-index: 10;
+}
+
+.crop-tool__handle--nw {
+  top: -6px;
+  left: -6px;
+  cursor: nw-resize;
+}
+
+.crop-tool__handle--n {
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  cursor: n-resize;
+}
+
+.crop-tool__handle--ne {
+  top: -6px;
+  right: -6px;
+  cursor: ne-resize;
+}
+
+.crop-tool__handle--e {
+  top: 50%;
+  right: -6px;
+  transform: translateY(-50%);
+  cursor: e-resize;
+}
+
+.crop-tool__handle--se {
+  bottom: -6px;
+  right: -6px;
+  cursor: se-resize;
+}
+
+.crop-tool__handle--s {
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  cursor: s-resize;
+}
+
+.crop-tool__handle--sw {
+  bottom: -6px;
+  left: -6px;
+  cursor: sw-resize;
+}
+
+.crop-tool__handle--w {
+  top: 50%;
+  left: -6px;
+  transform: translateY(-50%);
+  cursor: w-resize;
+}
+
+/* Move area (center) */
+.crop-tool__move-area {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  cursor: move;
+  pointer-events: all;
+}
+
+/* Controls panel */
+.crop-tool__controls {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background-color: rgba(30, 30, 30, 0.95);
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 16px;
+  min-width: 200px;
+  z-index: 100;
+}
+
+.crop-tool__section {
+  margin-bottom: 16px;
+}
+
+.crop-tool__section:last-child {
+  margin-bottom: 0;
+}
+
+.crop-tool__section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0 0 8px 0;
+}
+
+.crop-tool__preset-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.crop-tool__preset-button {
+  padding: 6px 12px;
+  background-color: #2a2a2a;
+  color: #ffffff;
+  border: 1px solid #444;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.crop-tool__preset-button:hover {
+  background-color: #3a3a3a;
+  border-color: #666;
+}
+
+.crop-tool__preset-button--active {
+  background-color: #0066cc;
+  border-color: #0066cc;
+}
+
+.crop-tool__checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #ffffff;
+  font-size: 14px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.crop-tool__checkbox input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.crop-tool__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #444;
+}
+
+.crop-tool__button {
+  flex: 1;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.crop-tool__button--primary {
+  background-color: #0066cc;
+  color: #ffffff;
+}
+
+.crop-tool__button--primary:hover {
+  background-color: #0052a3;
+}
+
+.crop-tool__button--secondary {
+  background-color: #2a2a2a;
+  color: #ffffff;
+  border: 1px solid #444;
+}
+
+.crop-tool__button--secondary:hover {
+  background-color: #3a3a3a;
+  border-color: #666;
+}

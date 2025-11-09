@@ -1,0 +1,85 @@
+/**
+ * FileUploader Styles
+ * Dark theme styling for file upload component
+ */
+
+.file-uploader {
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.file-uploader__input {
+  display: none;
+}
+
+.file-uploader__dropzone {
+  border: 2px dashed var(--color-border);
+  border-radius: var(--size-border-radius-lg);
+  padding: 48px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color var(--transition-normal),
+              background-color var(--transition-normal),
+              transform var(--transition-fast);
+  background-color: var(--color-bg-tertiary);
+}
+
+.file-uploader__dropzone:hover {
+  border-color: var(--color-border-hover);
+  background-color: var(--color-hover);
+}
+
+.file-uploader__dropzone:focus-visible {
+  outline: 2px solid var(--color-accent-focus);
+  outline-offset: 2px;
+  border-color: var(--color-accent-focus);
+}
+
+.file-uploader__dropzone--dragging {
+  border-color: var(--color-accent-primary);
+  background-color: var(--color-accent-primary);
+  background-color: rgba(74, 158, 255, 0.1);
+  transform: scale(1.02);
+}
+
+.file-uploader__content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.file-uploader__icon {
+  color: var(--color-text-secondary);
+  transition: color var(--transition-normal);
+}
+
+.file-uploader__dropzone:hover .file-uploader__icon,
+.file-uploader__dropzone--dragging .file-uploader__icon {
+  color: var(--color-accent-primary);
+}
+
+.file-uploader__text {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.file-uploader__hint {
+  margin: 0;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.file-uploader__error {
+  margin-top: var(--spacing-lg);
+  padding: var(--spacing-md) var(--spacing-lg);
+  background-color: var(--color-error-bg);
+  border: 1px solid var(--color-error);
+  border-radius: var(--size-border-radius-md);
+  color: var(--color-error);
+  font-size: 14px;
+  text-align: center;
+}

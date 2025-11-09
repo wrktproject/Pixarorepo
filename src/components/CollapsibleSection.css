@@ -1,0 +1,66 @@
+/**
+ * CollapsibleSection Styles - Lightroom-inspired design
+ */
+
+.collapsible-section {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.collapsible-section__header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-md) var(--spacing-lg);
+  background: transparent;
+  border: none;
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+  letter-spacing: 0.3px;
+}
+
+.collapsible-section__header:hover {
+  background-color: var(--color-hover);
+}
+
+.collapsible-section__header:focus-visible {
+  outline: 2px solid var(--color-accent-focus);
+  outline-offset: -2px;
+}
+
+.collapsible-section__title {
+  flex: 1;
+  user-select: none;
+}
+
+.collapsible-section__icon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  transition: transform var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
+  transform: rotate(180deg);
+  opacity: 0.6;
+}
+
+.collapsible-section__icon--expanded {
+  transform: rotate(0deg);
+  opacity: 1;
+}
+
+.collapsible-section__content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.collapsible-section__content--expanded {
+  max-height: 2000px;
+}
+
+.collapsible-section__inner {
+  padding: var(--spacing-md) var(--spacing-lg) var(--spacing-lg);
+}

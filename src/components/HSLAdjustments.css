@@ -1,0 +1,26 @@
+/**
+ * HSLAdjustments Styles
+ * Styling for HSL color channel sections
+ */
+
+.hsl-adjustments__channels {
+  /* Nested sections within the main HSL section */
+}
+
+.hsl-adjustments__channels .collapsible-section {
+  border-bottom: 1px solid var(--color-border-light, #2a2a2a);
+}
+
+.hsl-adjustments__channels .collapsible-section:last-child {
+  border-bottom: none;
+}
+
+.hsl-adjustments__channels .collapsible-section__header {
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.hsl-adjustments__channels .collapsible-section__inner {
+  padding: 12px;
+}

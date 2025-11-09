@@ -1,0 +1,148 @@
+/**
+ * Redux Store Configuration
+ * Configures the Redux store with all slices and middleware
+ */
+
+import { configureStore } from '@reduxjs/toolkit';
+import imageReducer from './imageSlice';
+import adjustmentsReducer from './adjustmentsSlice';
+import uiReducer from './uiSlice';
+import historyReducer from './historySlice';
+import presetReducer from './presetSlice';
+import libraryReducer from './librarySlice';
+import { historyMiddleware } from './historyMiddleware';
+
+export function makeStore() {
+  return configureStore({
+    reducer: {
+      image: imageReducer,
+      adjustments: adjustmentsReducer,
+      ui: uiReducer,
+      history: historyReducer,
+      presets: presetReducer,
+      library: libraryReducer,
+    },
+    middleware: (getDefaultMiddleware) =>
+      getDefaultMiddleware({
+        serializableCheck: {
+          // Ignore these paths in the state for serialization checks
+          // ImageData and Uint8Array are not serializable but necessary
+          ignoredActions: [
+            'image/setOriginalImage',
+            'image/setCurrentImage',
+            'image/setPreviewImage',
+            'image/setMetadata',
+            'adjustments/addRemovalOperation',
+            'adjustments/setAllAdjustments',
+            'library/addPhoto',
+            'library/updatePhotoAdjustments',
+            'history/setPresent',
+            'history/resetHistory',
+          ],
+          ignoredPaths: [
+            'image.original.data',
+            'image.current.data',
+            'image.preview.data',
+            'adjustments.removals',
+            'history.past',
+            'history.present.removals',
+            'history.future',
+            'library.photos',
+          ],
+        },
+      }).concat(historyMiddleware),
+  });
+}
+
+export const store = makeStore();
+
+// Infer types from the store
+export type RootState = ReturnType<typeof store.getState>;
+export type AppDispatch = typeof store.dispatch;
+
+// Export all actions for convenience
+export {
+  setLoading as setImageLoading,
+  setOriginalImage,
+  setCurrentImage,
+  setMetadata,
+  clearImage,
+} from './imageSlice';
+
+export {
+  setExposure,
+  setContrast,
+  setHighlights,
+  setShadows,
+  setWhites,
+  setBlacks,
+  setTemperature,
+  setTint,
+  setVibrance,
+  setSaturation,
+  setSharpening,
+  setClarity,
+  setNoiseReductionLuma,
+  setNoiseReductionColor,
+  setHSLHue,
+  setHSLSaturation,
+  setHSLLuminance,
+  setCrop,
+  setStraighten,
+  setVignetteAmount,
+  setVignetteMidpoint,
+  setVignetteFeather,
+  setGrainAmount,
+  setGrainSize,
+  addRemovalOperation,
+  removeRemovalOperation,
+  clearRemovalOperations,
+  setAllAdjustments,
+  resetAdjustments,
+} from './adjustmentsSlice';
+
+export {
+  setActiveSection,
+  setZoom,
+  setPan,
+  resetView,
+  setShowHistogram,
+  toggleHistogram,
+  setShowComparison,
+  toggleComparison,
+  setExportDialogOpen,
+  setActiveTool,
+  setBrushSize,
+  setLoadingState,
+  clearLoadingState,
+  setEnableToneMapping,
+  toggleToneMapping,
+  setQualityMode,
+} from './uiSlice';
+
+export {
+  addToHistory,
+  undo,
+  redo,
+  setPresent,
+  clearHistory,
+  resetHistory,
+} from './historySlice';
+
+export {
+  setLoading as setPresetLoading,
+  setBuiltInPresets,
+  saveCustomPreset,
+  deleteCustomPreset,
+  updateCustomPreset,
+  loadCustomPresets,
+  clearCustomPresets,
+} from './presetSlice';
+
+export {
+  addPhoto,
+  setCurrentPhoto,
+  updatePhotoAdjustments,
+  removePhoto,
+  clearLibrary,
+} from './librarySlice';

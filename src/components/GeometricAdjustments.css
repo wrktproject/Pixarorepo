@@ -1,0 +1,49 @@
+/**
+ * GeometricAdjustments Styles
+ */
+
+.geometric-adjustments {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.geometric-adjustments__tool {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.geometric-adjustments__tool-button {
+  width: 100%;
+  padding: 10px 16px;
+  background-color: #2a2a2a;
+  color: #ffffff;
+  border: 1px solid #444;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.geometric-adjustments__tool-button:hover {
+  background-color: #3a3a3a;
+  border-color: #666;
+}
+
+.geometric-adjustments__tool-button--active {
+  background-color: #0066cc;
+  border-color: #0066cc;
+}
+
+.geometric-adjustments__tool-info {
+  font-size: 12px;
+  color: #999;
+  margin: 0;
+  text-align: center;
+}
+
+.geometric-adjustments__straighten {
+  /* Slider control styles are handled by SliderControl component */
+}
