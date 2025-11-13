@@ -51,9 +51,11 @@ export interface RemovalOperation {
 
 export interface SigmoidSettings {
   enabled: boolean;
-  contrast: number;    // 0.5 to 2.0
-  skew: number;        // -1.0 to 1.0
-  middleGrey: number;  // 0.1 to 0.3
+  contrast: number;         // 0.5 to 2.0
+  skew: number;             // -1.0 to 1.0
+  middleGrey: number;       // 0.1 to 0.3
+  mode: 'per-channel' | 'rgb-ratio';  // Processing mode
+  huePreservation: number;  // 0.0 to 1.0
 }
 
 export interface FilmicSettings {
@@ -136,6 +138,11 @@ export interface LocalLaplacianSettings {
   levels: number;      // Number of pyramid levels (3 or 4)
 }
 
+export interface ChromaticAberrationSettings {
+  enabled: boolean;
+  strength: number;    // Correction strength (-1.0 to 1.0)
+}
+
 export interface AdjustmentState {
   // Basic adjustments
   exposure: number;        // -5 to +5
@@ -180,6 +187,7 @@ export interface AdjustmentState {
   // Effects
   vignette: VignetteSettings;
   grain: GrainSettings;
+  chromaticAberration: ChromaticAberrationSettings;
 
   // Removal operations (stored as history)
   removals: RemovalOperation[];

@@ -32,6 +32,8 @@ export const createInitialAdjustmentState = (): AdjustmentState => ({
     contrast: 1.0,
     skew: 0.0,
     middleGrey: 0.1845, // 18.45% grey (photographic standard)
+    mode: 'per-channel',
+    huePreservation: 0.0,
   },
   filmic: {
     enabled: false,
@@ -135,6 +137,10 @@ export const createInitialAdjustmentState = (): AdjustmentState => ({
   grain: {
     amount: 0,
     size: 'medium',
+  },
+  chromaticAberration: {
+    enabled: false,
+    strength: 0.0,
   },
 
   // Removal operations

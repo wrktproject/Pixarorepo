@@ -18,6 +18,7 @@ export * from './effects';
 export * from './hsl';
 export * from './geometric';
 export * from './output';
+export * from './chromatic';
 
 // Multi-pass shaders
 export * from './gaussianBlur';

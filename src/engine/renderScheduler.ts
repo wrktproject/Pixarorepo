@@ -63,7 +63,7 @@ export class RenderScheduler {
     this.config = {
       targetFPS: config.targetFPS ?? 60,
       minFPS: config.minFPS ?? 30,
-      batchDelay: config.batchDelay ?? 16, // ~1 frame at 60fps
+      batchDelay: config.batchDelay ?? 0, // Immediate for Lightroom-like responsiveness
       enableFrameSkipping: config.enableFrameSkipping ?? true,
       enablePerformanceMonitoring: config.enablePerformanceMonitoring ?? true,
     };
@@ -80,6 +80,7 @@ export class RenderScheduler {
    * Schedule a render with batching
    * Multiple calls within batchDelay will be batched into a single render
    * Requirement 13.2: Batch multiple slider changes into single render
+   * OPTIMIZED: Immediate scheduling (batchDelay=0) for Lightroom-like responsiveness
    */
   public scheduleRender(): void {
     // If already rendering, mark as pending
@@ -91,6 +92,12 @@ export class RenderScheduler {
     // Clear existing batch timeout
     if (this.batchTimeoutId !== null) {
       clearTimeout(this.batchTimeoutId);
+    }
+
+    // For immediate response (batchDelay=0), skip timeout and go straight to requestRender
+    if (this.config.batchDelay === 0) {
+      this.requestRender();
+      return;
     }
 
     // Batch multiple changes within the delay window

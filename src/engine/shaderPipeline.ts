@@ -135,10 +135,11 @@ export class ShaderPipeline {
     };
 
     // Initialize render scheduler (Requirement 13.1, 13.2, 13.3, 13.4)
+    // OPTIMIZED: batchDelay=0 for immediate Lightroom-like responsiveness
     this.renderScheduler = new RenderScheduler({
       targetFPS: this.config.targetFPS,
       minFPS: this.config.minFPS,
-      batchDelay: 16, // ~1 frame at 60fps for batching slider changes
+      batchDelay: 0, // Immediate response for smooth, real-time previews like Lightroom
       enableFrameSkipping: true,
       enablePerformanceMonitoring: this.config.enablePerformanceMonitoring,
     });

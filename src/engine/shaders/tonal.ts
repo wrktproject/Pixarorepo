@@ -83,12 +83,13 @@ vec3 applyContrast(vec3 color, float contrast) {
   
   // Convert -100..+100 to a more subtle range
   // Reduce intensity by 50% for more gradual adjustments
-  float normalized = (contrast / 100.0) * 0.5; // -0.5 to +0.5
+  // FIXED: Negate to match Lightroom behavior (right = more contrast)
+  float normalized = -(contrast / 100.0) * 0.5; // +0.5 to -0.5 (inverted)
   
   // Calculate gamma: smaller gamma = more contrast
   // At 0: gamma = 1.0 (no change)
-  // At +100: gamma = 0.67 (moderate contrast increase)
-  // At -100: gamma = 1.5 (moderate contrast decrease)
+  // At +100: gamma = 0.67 (MORE contrast - correct!)
+  // At -100: gamma = 1.5 (LESS contrast - correct!)
   float gamma = 1.0 / (1.0 + normalized);
   
   // Apply power function around grey fulcrum

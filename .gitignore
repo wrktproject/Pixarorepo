@@ -28,3 +28,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Darktable Inspiration (source reference, too large for repo)
+Darktable Inspiration/

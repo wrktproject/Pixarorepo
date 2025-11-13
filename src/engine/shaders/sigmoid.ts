@@ -27,6 +27,8 @@ uniform sampler2D u_texture;
 uniform float u_contrast;     // 0.5 to 2.0 (steepness of S-curve)
 uniform float u_skew;         // -1.0 to 1.0 (shift toward shadows or highlights)
 uniform float u_middleGrey;   // 0.1 to 0.3 (target middle grey, default 0.1845)
+uniform int u_mode;           // 0 = per channel, 1 = RGB ratio (luminance-based)
+uniform float u_huePreservation; // 0.0 to 1.0 (0 = per channel, 1 = preserve hue)
 uniform bool u_enabled;       // Enable/disable sigmoid
 
 out vec4 fragColor;
@@ -94,15 +96,57 @@ float sigmoidCurve(float x, float contrast, float skew, float middleGrey) {
 }
 
 /**
+ * Calculate luminance for RGB ratio mode
+ */
+float getLuminance(vec3 rgb) {
+  return dot(rgb, vec3(0.2126, 0.7152, 0.0722));
+}
+
+/**
  * Apply sigmoid tone mapping per-channel
  * Per-channel processing preserves color ratios better than luminance-based
  */
-vec3 applySigmoid(vec3 rgb, float contrast, float skew, float middleGrey) {
+vec3 applySigmoidPerChannel(vec3 rgb, float contrast, float skew, float middleGrey) {
   vec3 result;
   result.r = sigmoidCurve(rgb.r, contrast, skew, middleGrey);
   result.g = sigmoidCurve(rgb.g, contrast, skew, middleGrey);
   result.b = sigmoidCurve(rgb.b, contrast, skew, middleGrey);
   return result;
+}
+
+/**
+ * Apply sigmoid tone mapping using RGB ratio method
+ * Maps luminance through sigmoid curve, then preserves color ratios
+ * Better for preserving hue but may desaturate
+ */
+vec3 applySigmoidRGBRatio(vec3 rgb, float contrast, float skew, float middleGrey) {
+  // Calculate luminance
+  float lum = getLuminance(rgb);
+  
+  // Apply sigmoid to luminance
+  float mappedLum = sigmoidCurve(lum, contrast, skew, middleGrey);
+  
+  // Preserve color ratios
+  float ratio = mappedLum / max(lum, EPSILON);
+  return rgb * ratio;
+}
+
+/**
+ * Apply sigmoid with hue preservation blending
+ * Blends between per-channel and RGB ratio modes
+ * 
+ * @param rgb Input color
+ * @param contrast Curve steepness
+ * @param skew Curve shift
+ * @param middleGrey Target middle grey
+ * @param huePreservation 0.0 = per channel, 1.0 = preserve hue
+ */
+vec3 applySigmoidHuePreserve(vec3 rgb, float contrast, float skew, float middleGrey, float huePreservation) {
+  vec3 perChannel = applySigmoidPerChannel(rgb, contrast, skew, middleGrey);
+  vec3 rgbRatio = applySigmoidRGBRatio(rgb, contrast, skew, middleGrey);
+  
+  // Blend between modes based on hue preservation amount
+  return mix(perChannel, rgbRatio, huePreservation);
 }
 
 void main() {
@@ -113,8 +157,19 @@ void main() {
     // Convert to linear space for accurate tone mapping
     color = srgbToLinear(color);
     
-    // Apply sigmoid tone curve per-channel
-    color = applySigmoid(color, u_contrast, u_skew, u_middleGrey);
+    // Apply sigmoid tone curve based on mode
+    if (u_mode == 0) {
+      // Per-channel mode (default)
+      color = applySigmoidPerChannel(color, u_contrast, u_skew, u_middleGrey);
+    } else if (u_mode == 1) {
+      // RGB ratio mode (better hue preservation)
+      color = applySigmoidRGBRatio(color, u_contrast, u_skew, u_middleGrey);
+    }
+    
+    // Apply hue preservation blending if needed
+    if (u_huePreservation > 0.0 && u_huePreservation < 1.0) {
+      color = applySigmoidHuePreserve(color, u_contrast, u_skew, u_middleGrey, u_huePreservation);
+    }
     
     // Clamp to valid range
     color = clamp(color, 0.0, 1.0);
@@ -128,13 +183,20 @@ void main() {
 `;
 
 /**
+ * Sigmoid tone mapping mode
+ */
+export type SigmoidMode = 'per-channel' | 'rgb-ratio';
+
+/**
  * Sigmoid tone mapping parameters
  */
 export interface SigmoidParams {
-  contrast: number;    // 0.5 to 2.0 (steepness of S-curve)
-  skew: number;        // -1.0 to 1.0 (shift toward shadows or highlights)
-  middleGrey: number;  // 0.1 to 0.3 (target middle grey, default 0.1845)
-  enabled: boolean;    // Enable/disable sigmoid
+  contrast: number;         // 0.5 to 2.0 (steepness of S-curve)
+  skew: number;             // -1.0 to 1.0 (shift toward shadows or highlights)
+  middleGrey: number;       // 0.1 to 0.3 (target middle grey, default 0.1845)
+  mode: SigmoidMode;        // Processing mode: per-channel or rgb-ratio
+  huePreservation: number;  // 0.0 to 1.0 (0 = per channel, 1 = preserve hue)
+  enabled: boolean;         // Enable/disable sigmoid
 }
 
 /**
@@ -144,6 +206,8 @@ export const defaultSigmoidParams: SigmoidParams = {
   contrast: 1.0,
   skew: 0.0,
   middleGrey: 0.1845, // 18.45% grey (photographic standard)
+  mode: 'per-channel',
+  huePreservation: 0.0,
   enabled: false,
 };
 
@@ -168,6 +232,17 @@ export function applySigmoidUniforms(
   const middleGreyLocation = uniforms.get('u_middleGrey');
   if (middleGreyLocation) {
     gl.uniform1f(middleGreyLocation, params.middleGrey);
+  }
+
+  const modeLocation = uniforms.get('u_mode');
+  if (modeLocation) {
+    const modeValue = params.mode === 'per-channel' ? 0 : 1;
+    gl.uniform1i(modeLocation, modeValue);
+  }
+
+  const huePreservationLocation = uniforms.get('u_huePreservation');
+  if (huePreservationLocation) {
+    gl.uniform1f(huePreservationLocation, params.huePreservation);
   }
 
   const enabledLocation = uniforms.get('u_enabled');
