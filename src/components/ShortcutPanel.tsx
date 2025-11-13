@@ -55,6 +55,7 @@ export const ShortcutPanel: React.FC = () => {
     view: 'View',
     navigation: 'Navigation',
     tools: 'Tools',
+    adjustments: 'Adjustments',
   };
 
   return (

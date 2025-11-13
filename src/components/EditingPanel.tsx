@@ -13,6 +13,8 @@ import { DetailAdjustments } from './DetailAdjustments';
 import { HSLAdjustments } from './HSLAdjustments';
 import { EffectsAdjustments } from './EffectsAdjustments';
 import { SettingsAdjustments } from './SettingsAdjustments';
+import { PipelineControls } from './PipelineControls';
+import { PresetSelector } from './PresetSelector';
 import './EditingPanel.css';
 
 export const EditingPanel: React.FC = () => {
@@ -53,10 +55,20 @@ export const EditingPanel: React.FC = () => {
   return (
     <div className="editing-panel" role="region" aria-label="Editing adjustments panel">
       <div className="editing-panel__sections" role="group">
-        {/* Adjustments Section */}
+        {/* Presets Section */}
+        <div className="editing-panel__section-group">
+          <PresetSelector disabled={disabled} />
+        </div>
+
+        {/* Pipeline Controls (Darktable-inspired) */}
+        <div className="editing-panel__section-group">
+          <PipelineControls disabled={disabled} expanded={sectionsExpanded} />
+        </div>
+
+        {/* Legacy Adjustments Section */}
         <div className="editing-panel__section-group">
           <div className="editing-panel__section-header">
-            <h2 className="editing-panel__section-title">Adjustments</h2>
+            <h2 className="editing-panel__section-title">Legacy Adjustments</h2>
           </div>
           
           {/* Auto Controls */}

@@ -1,0 +1,219 @@
+/**
+ * Pipeline Controls Styles
+ * Unified UI for Darktable-inspired pipeline
+ */
+
+.pipeline-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--color-bg-secondary, #1e1e1e);
+  border-radius: 8px;
+}
+
+/* Header */
+.pipeline-controls__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--color-border, #333);
+}
+
+.pipeline-controls__title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--color-text-primary, #fff);
+}
+
+.pipeline-controls__mode-toggle {
+  padding: 0.5rem 1rem;
+  background: var(--color-bg-tertiary, #2a2a2a);
+  border: 1px solid var(--color-border, #333);
+  border-radius: 4px;
+  color: var(--color-text-secondary, #aaa);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pipeline-controls__mode-toggle:hover:not(:disabled) {
+  background: var(--color-bg-hover, #333);
+  border-color: var(--color-primary, #4a9eff);
+}
+
+.pipeline-controls__mode-toggle.active {
+  background: var(--color-primary, #4a9eff);
+  border-color: var(--color-primary, #4a9eff);
+  color: #fff;
+}
+
+.pipeline-controls__mode-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Pipeline Visualization */
+.pipeline-controls__visualization {
+  padding: 1rem;
+  background: var(--color-bg-tertiary, #2a2a2a);
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
+.pipeline-flow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: max-content;
+}
+
+.pipeline-node {
+  padding: 0.5rem 1rem;
+  background: var(--color-bg-secondary, #1e1e1e);
+  border: 2px solid var(--color-border, #333);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-secondary, #aaa);
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.pipeline-node.active {
+  background: var(--color-primary-dark, #2563eb);
+  border-color: var(--color-primary, #4a9eff);
+  color: #fff;
+  box-shadow: 0 0 8px rgba(74, 158, 255, 0.3);
+}
+
+.pipeline-arrow {
+  color: var(--color-text-tertiary, #666);
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+/* Module Groups */
+.pipeline-controls__groups {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.pipeline-group {
+  border: 1px solid var(--color-border, #333);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--color-bg-tertiary, #2a2a2a);
+}
+
+.pipeline-group__header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: var(--color-bg-tertiary, #2a2a2a);
+  border: none;
+  color: var(--color-text-primary, #fff);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.pipeline-group__header:hover:not(:disabled) {
+  background: var(--color-bg-hover, #333);
+}
+
+.pipeline-group__header.active {
+  background: var(--color-bg-hover, #333);
+  border-bottom: 1px solid var(--color-border, #333);
+}
+
+.pipeline-group__header:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pipeline-group__title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pipeline-group__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.375rem;
+  background: var(--color-primary, #4a9eff);
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.pipeline-group__icon {
+  color: var(--color-text-secondary, #aaa);
+  font-size: 0.75rem;
+  transition: transform 0.2s ease;
+}
+
+.pipeline-group__content {
+  padding: 1rem;
+  background: var(--color-bg-secondary, #1e1e1e);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Help Text */
+.pipeline-controls__help {
+  padding: 1rem;
+  background: var(--color-bg-info, #1a2332);
+  border-left: 3px solid var(--color-primary, #4a9eff);
+  border-radius: 4px;
+}
+
+.pipeline-controls__help-text {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--color-text-secondary, #aaa);
+}
+
+.pipeline-controls__help-text strong {
+  color: var(--color-text-primary, #fff);
+  font-weight: 600;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .pipeline-controls {
+    padding: 0.75rem;
+  }
+
+  .pipeline-controls__visualization {
+    padding: 0.75rem;
+  }
+
+  .pipeline-flow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pipeline-arrow {
+    transform: rotate(90deg);
+    align-self: center;
+  }
+
+  .pipeline-node {
+    text-align: center;
+  }
+}

@@ -420,19 +420,8 @@ export const Canvas: React.FC = () => {
   const handleFitToScreen = useCallback(() => {
     if (!canvasRef.current || !containerRef.current || !errorHandlerRef.current) return;
 
-    const container = containerRef.current;
-    const { width: imageWidth, height: imageHeight } =
-      errorHandlerRef.current.getPreviewDimensions();
-
-    const containerWidth = container.clientWidth;
-    const containerHeight = container.clientHeight;
-
-    // Calculate zoom to fit at 100% (fill the screen)
-    const zoomX = containerWidth / imageWidth;
-    const zoomY = containerHeight / imageHeight;
-    const fitZoom = Math.min(zoomX, zoomY); // 100% fit
-
-    dispatch(setZoom(fitZoom));
+    // Set zoom to 1.0 (100% actual size)
+    dispatch(setZoom(1.0));
     dispatch(setPan({ x: 0, y: 0 }));
   }, [dispatch]);
 

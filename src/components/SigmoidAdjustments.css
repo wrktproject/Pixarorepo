@@ -1,0 +1,108 @@
+/**
+ * SigmoidAdjustments Component Styles
+ */
+
+.sigmoid-adjustments {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sigmoid-adjustments__toggle {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-color, #e0e0e0);
+  margin-bottom: 4px;
+}
+
+.sigmoid-adjustments__toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  user-select: none;
+}
+
+.sigmoid-adjustments__checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.sigmoid-adjustments__checkbox:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.sigmoid-adjustments__presets {
+  display: flex;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.sigmoid-adjustments__preset-button {
+  flex: 1;
+  padding: 8px 12px;
+  background: var(--button-bg, #f5f5f5);
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sigmoid-adjustments__preset-button:hover:not(:disabled) {
+  background: var(--button-hover-bg, #e8e8e8);
+  border-color: var(--border-hover-color, #d0d0d0);
+}
+
+.sigmoid-adjustments__preset-button:active:not(:disabled) {
+  background: var(--button-active-bg, #d8d8d8);
+  transform: translateY(1px);
+}
+
+.sigmoid-adjustments__preset-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sigmoid-adjustments__info {
+  padding: 10px;
+  background: var(--info-bg, #f0f7ff);
+  border: 1px solid var(--info-border, #b3d9ff);
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--info-text, #0066cc);
+  margin-top: 4px;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .sigmoid-adjustments__toggle {
+    border-bottom-color: #333;
+  }
+
+  .sigmoid-adjustments__preset-button {
+    background: #2a2a2a;
+    border-color: #444;
+    color: #e0e0e0;
+  }
+
+  .sigmoid-adjustments__preset-button:hover:not(:disabled) {
+    background: #333;
+    border-color: #555;
+  }
+
+  .sigmoid-adjustments__preset-button:active:not(:disabled) {
+    background: #3a3a3a;
+  }
+
+  .sigmoid-adjustments__info {
+    background: #1a2332;
+    border-color: #2a4a6a;
+    color: #6ba3ff;
+  }
+}

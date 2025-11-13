@@ -13,6 +13,7 @@ export interface SliderControlProps {
   max: number;
   step: number;
   onChange: (value: number) => void;
+  onChangeComplete?: (value: number) => void;
   unit?: string;
   precision?: number;
   warning?: string;
@@ -28,6 +29,7 @@ export const SliderControl: React.FC<SliderControlProps> = ({
   max,
   step,
   onChange,
+  onChangeComplete,
   unit = '',
   precision = 0,
   warning,
@@ -37,6 +39,7 @@ export const SliderControl: React.FC<SliderControlProps> = ({
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const sliderRef = useRef<HTMLInputElement>(null);
+  const initialValueRef = useRef<number>(value);
 
   const clamp = useCallback(
     (val: number): number => {
@@ -82,11 +85,16 @@ export const SliderControl: React.FC<SliderControlProps> = ({
 
   const handleMouseDown = useCallback(() => {
     setIsDragging(true);
-  }, []);
+    initialValueRef.current = value;
+  }, [value]);
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
-  }, []);
+    // Only trigger onChangeComplete if value actually changed
+    if (onChangeComplete && initialValueRef.current !== value) {
+      onChangeComplete(value);
+    }
+  }, [value, onChangeComplete]);
 
   const showWarning = warning && value > (max * 0.66);
 
@@ -99,32 +107,50 @@ export const SliderControl: React.FC<SliderControlProps> = ({
           title={tooltip}
         >
           {label}
+          {tooltip && (
+            <span className="slider-control__info-icon" title={tooltip} aria-label="More information">
+              ⓘ
+            </span>
+          )}
         </label>
         <span className="slider-control__value">{formatValue(value)}</span>
       </div>
-      <input
-        ref={sliderRef}
-        id={`slider-${label}`}
-        type="range"
-        className={`slider-control__slider ${isDragging ? 'slider-control__slider--dragging' : ''} ${disabled ? 'slider-control__slider--disabled' : ''} ${colorGradient ? 'slider-control__slider--colored' : ''}`}
-        style={colorGradient ? { background: colorGradient } : undefined}
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={handleChange}
-        onKeyDown={handleKeyDown}
-        onMouseDown={handleMouseDown}
-        onMouseUp={handleMouseUp}
-        onTouchStart={handleMouseDown}
-        onTouchEnd={handleMouseUp}
-        aria-label={`${label} slider`}
-        aria-valuemin={min}
-        aria-valuemax={max}
-        aria-valuenow={value}
-        aria-valuetext={formatValue(value)}
-        disabled={disabled}
-      />
+      <div className="slider-control__track-container">
+        <input
+          ref={sliderRef}
+          id={`slider-${label}`}
+          type="range"
+          className={`slider-control__slider ${isDragging ? 'slider-control__slider--dragging' : ''} ${disabled ? 'slider-control__slider--disabled' : ''} ${colorGradient ? 'slider-control__slider--colored' : ''}`}
+          style={colorGradient ? { background: colorGradient } : undefined}
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
+          onMouseDown={handleMouseDown}
+          onMouseUp={handleMouseUp}
+          onTouchStart={handleMouseDown}
+          onTouchEnd={handleMouseUp}
+          aria-label={`${label} slider`}
+          aria-valuemin={min}
+          aria-valuemax={max}
+          aria-valuenow={value}
+          aria-valuetext={formatValue(value)}
+          aria-describedby={tooltip ? `${label}-tooltip` : undefined}
+          disabled={disabled}
+        />
+        {isDragging && (
+          <div className="slider-control__value-popup">
+            {formatValue(value)}
+          </div>
+        )}
+      </div>
+      {tooltip && (
+        <div id={`${label}-tooltip`} className="slider-control__tooltip sr-only">
+          {tooltip}
+        </div>
+      )}
       {showWarning && (
         <div className="slider-control__warning" role="alert">
           {warning}

@@ -22,6 +22,12 @@ const createDefaultAdjustments = (): AdjustmentState => ({
   clarity: 0,
   noiseReductionLuma: 0,
   noiseReductionColor: 0,
+  sigmoid: {
+    enabled: false,
+    contrast: 1.0,
+    skew: 0.0,
+    middleGrey: 0.1845,
+  },
   hsl: {
     red: { hue: 0, saturation: 0, luminance: 0 },
     orange: { hue: 0, saturation: 0, luminance: 0 },

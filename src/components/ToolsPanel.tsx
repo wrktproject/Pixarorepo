@@ -99,16 +99,6 @@ export const ToolsPanel: React.FC = () => {
       {/* Adjustments Panel */}
       {activeTool === 'adjustments' && (
         <div className="tools-panel__content tools-panel__content--wide">
-          <div className="tools-panel__header">
-            <h3 className="tools-panel__title">Adjustments</h3>
-            <button
-              className="tools-panel__close"
-              onClick={() => setActiveTool('none')}
-              aria-label="Close panel"
-            >
-              ×
-            </button>
-          </div>
           <div className="tools-panel__body">
             <Suspense fallback={<div className="loading-section">Loading...</div>}>
               <EditingPanel />
@@ -122,13 +112,6 @@ export const ToolsPanel: React.FC = () => {
         <div className="tools-panel__content">
           <div className="tools-panel__header">
             <h3 className="tools-panel__title">Crop & Transform</h3>
-            <button
-              className="tools-panel__close"
-              onClick={() => setActiveTool('none')}
-              aria-label="Close panel"
-            >
-              ×
-            </button>
           </div>
           <div className="tools-panel__body">
             <Suspense fallback={<div className="loading-section">Loading...</div>}>
@@ -143,13 +126,6 @@ export const ToolsPanel: React.FC = () => {
         <div className="tools-panel__content">
           <div className="tools-panel__header">
             <h3 className="tools-panel__title">Healing Brush</h3>
-            <button
-              className="tools-panel__close"
-              onClick={() => setActiveTool('none')}
-              aria-label="Close panel"
-            >
-              ×
-            </button>
           </div>
           <div className="tools-panel__body">
             <Suspense fallback={<div className="loading-section">Loading AI tools...</div>}>
@@ -164,13 +140,6 @@ export const ToolsPanel: React.FC = () => {
         <div className="tools-panel__content">
           <div className="tools-panel__header">
             <h3 className="tools-panel__title">Lens Blur</h3>
-            <button
-              className="tools-panel__close"
-              onClick={() => setActiveTool('none')}
-              aria-label="Close panel"
-            >
-              ×
-            </button>
           </div>
           <div className="tools-panel__body">
             <div className="lens-blur-tool">

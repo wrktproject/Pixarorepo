@@ -4,9 +4,18 @@
  */
 
 import { useEffect, useCallback } from 'react';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
+import type { RootState } from '../store';
 import { undo, redo } from '../store/historySlice';
 import { toggleComparison, toggleHistogram, resetView } from '../store/uiSlice';
+import {
+  setExposure,
+  setContrast,
+  setSaturation,
+  setHighlights,
+  setShadows,
+  resetAdjustments,
+} from '../store';
 
 export interface KeyboardShortcut {
   key: string;
@@ -16,11 +25,17 @@ export interface KeyboardShortcut {
   meta?: boolean;
   description: string;
   action: () => void;
-  category: 'editing' | 'view' | 'navigation' | 'tools';
+  category: 'editing' | 'view' | 'navigation' | 'tools' | 'adjustments';
 }
 
 export const useKeyboardShortcuts = () => {
   const dispatch = useDispatch();
+  const hasImage = useSelector((state: RootState) => state.image.current !== null);
+  const exposure = useSelector((state: RootState) => state.adjustments.exposure);
+  const contrast = useSelector((state: RootState) => state.adjustments.contrast);
+  const saturation = useSelector((state: RootState) => state.adjustments.saturation);
+  const highlights = useSelector((state: RootState) => state.adjustments.highlights);
+  const shadows = useSelector((state: RootState) => state.adjustments.shadows);
 
   // Define all keyboard shortcuts
   const shortcuts: KeyboardShortcut[] = [
@@ -47,6 +62,17 @@ export const useKeyboardShortcuts = () => {
       action: () => dispatch(redo()),
       category: 'editing',
     },
+    {
+      key: 'r',
+      ctrl: true,
+      description: 'Reset all adjustments',
+      action: () => {
+        if (hasImage) {
+          dispatch(resetAdjustments());
+        }
+      },
+      category: 'editing',
+    },
     // View shortcuts
     {
       key: ' ',
@@ -67,6 +93,124 @@ export const useKeyboardShortcuts = () => {
       action: () => dispatch(resetView()),
       category: 'view',
     },
+    {
+      key: 'f',
+      description: 'Fit image to view',
+      action: () => dispatch(resetView()),
+      category: 'view',
+    },
+    // Adjustment shortcuts (only work when image is loaded)
+    {
+      key: 'e',
+      shift: true,
+      description: 'Increase exposure (+5)',
+      action: () => {
+        if (hasImage) {
+          dispatch(setExposure(Math.min(100, exposure + 5)));
+        }
+      },
+      category: 'adjustments',
+    },
+    {
+      key: 'e',
+      ctrl: true,
+      description: 'Decrease exposure (-5)',
+      action: () => {
+        if (hasImage) {
+          dispatch(setExposure(Math.max(-100, exposure - 5)));
+        }
+      },
+      category: 'adjustments',
+    },
+    {
+      key: 'c',
+      shift: true,
+      description: 'Increase contrast (+5)',
+      action: () => {
+        if (hasImage) {
+          dispatch(setContrast(Math.min(100, contrast + 5)));
+        }
+      },
+      category: 'adjustments',
+    },
+    {
+      key: 'c',
+      ctrl: true,
+      description: 'Decrease contrast (-5)',
+      action: () => {
+        if (hasImage) {
+          dispatch(setContrast(Math.max(-100, contrast - 5)));
+        }
+      },
+      category: 'adjustments',
+    },
+    {
+      key: 's',
+      shift: true,
+      description: 'Increase saturation (+5)',
+      action: () => {
+        if (hasImage) {
+          dispatch(setSaturation(Math.min(100, saturation + 5)));
+        }
+      },
+      category: 'adjustments',
+    },
+    {
+      key: 's',
+      ctrl: true,
+      description: 'Decrease saturation (-5)',
+      action: () => {
+        if (hasImage) {
+          dispatch(setSaturation(Math.max(-100, saturation - 5)));
+        }
+      },
+      category: 'adjustments',
+    },
+    {
+      key: 'ArrowUp',
+      shift: true,
+      description: 'Increase highlights (+5)',
+      action: () => {
+        if (hasImage) {
+          dispatch(setHighlights(Math.min(100, highlights + 5)));
+        }
+      },
+      category: 'adjustments',
+    },
+    {
+      key: 'ArrowDown',
+      shift: true,
+      description: 'Decrease highlights (-5)',
+      action: () => {
+        if (hasImage) {
+          dispatch(setHighlights(Math.max(-100, highlights - 5)));
+        }
+      },
+      category: 'adjustments',
+    },
+    {
+      key: 'ArrowUp',
+      ctrl: true,
+      description: 'Increase shadows (+5)',
+      action: () => {
+        if (hasImage) {
+          dispatch(setShadows(Math.min(100, shadows + 5)));
+        }
+      },
+      category: 'adjustments',
+    },
+    {
+      key: 'ArrowDown',
+      ctrl: true,
+      description: 'Decrease shadows (-5)',
+      action: () => {
+        if (hasImage) {
+          dispatch(setShadows(Math.max(-100, shadows - 5)));
+        }
+      },
+      category: 'adjustments',
+    },
+    // Navigation shortcuts
     {
       key: '?',
       description: 'Show keyboard shortcuts',

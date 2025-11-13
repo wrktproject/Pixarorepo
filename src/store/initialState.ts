@@ -26,6 +26,90 @@ export const createInitialAdjustmentState = (): AdjustmentState => ({
   noiseReductionLuma: 0,
   noiseReductionColor: 0,
 
+  // Tone mapping
+  sigmoid: {
+    enabled: false,
+    contrast: 1.0,
+    skew: 0.0,
+    middleGrey: 0.1845, // 18.45% grey (photographic standard)
+  },
+  filmic: {
+    enabled: false,
+    whitePoint: 4.0,
+    blackPoint: -8.0,
+    latitude: 0.5,  // 50%
+    balance: 0.0,
+    shadowsContrast: 'soft',
+    highlightsContrast: 'soft',
+  },
+  exposureModule: {
+    enabled: true,
+    exposure: 0.0,
+    blackPoint: 0.0,
+    highlightReconstruction: false,
+    reconstructionThreshold: 0.95,
+  },
+  whiteBalanceModule: {
+    enabled: true,
+    temperature: 6500,  // D65 daylight
+    tint: 0.0,
+  },
+  colorBalanceRGB: {
+    enabled: false,
+    shadows: {
+      luminance: 0.0,
+      chroma: 0.0,
+      hue: 0.0,
+    },
+    midtones: {
+      luminance: 0.0,
+      chroma: 0.0,
+      hue: 0.0,
+    },
+    highlights: {
+      luminance: 0.0,
+      chroma: 0.0,
+      hue: 0.0,
+    },
+    global: {
+      luminance: 0.0,
+      chroma: 0.0,
+      hue: 0.0,
+    },
+    shadowsWeight: 1.0,
+    highlightsWeight: 1.0,
+    maskGreyFulcrum: 0.1845, // 18.45% grey (photographic standard)
+    contrast: 1.0,
+    contrastFulcrum: 0.1845,
+    vibrance: 0.0,
+  },
+  saturationModule: {
+    enabled: false,
+    saturation: 0.0,
+    vibrance: 0.0,
+    skinToneProtection: true,
+    skinProtectionStrength: 0.5,
+  },
+  gamutMapping: {
+    enabled: false,
+    targetGamut: 'sRGB',
+    mappingMethod: 'perceptual',
+    compressionAmount: 0.8,
+  },
+  guidedFilter: {
+    enabled: false,
+    radius: 5,
+    epsilon: 0.01,
+    strength: 0.0,
+  },
+  localLaplacian: {
+    enabled: false,
+    detail: 0.0,
+    coarse: 0.0,
+    strength: 1.0,
+    levels: 4,
+  },
+
   // HSL adjustments
   hsl: {
     red: { hue: 0, saturation: 0, luminance: 0 },

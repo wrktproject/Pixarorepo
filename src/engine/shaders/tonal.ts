@@ -78,6 +78,7 @@ vec3 applyExposure(vec3 color, float exposure) {
 // Uses power function around 18% grey fulcrum for photographic accuracy
 vec3 applyContrast(vec3 color, float contrast) {
   // Grey fulcrum at 18% (photographic middle grey in linear space)
+  // This matches Darktable's approach for perceptually correct contrast
   const float grey_fulcrum = 0.1845;
   
   // Convert -100..+100 to a more subtle range

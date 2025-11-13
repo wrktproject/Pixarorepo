@@ -18,6 +18,32 @@
   color: var(--color-text-secondary);
   font-weight: 500;
   letter-spacing: 0.2px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: help;
+  transition: color var(--transition-fast);
+}
+
+.slider-control__label:hover {
+  color: var(--color-text-primary);
+}
+
+.slider-control__info-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+  opacity: 0.6;
+  transition: opacity var(--transition-fast), color var(--transition-fast);
+}
+
+.slider-control__label:hover .slider-control__info-icon {
+  opacity: 1;
+  color: var(--color-accent-primary);
 }
 
 .slider-control__value {
@@ -27,6 +53,57 @@
   min-width: 50px;
   text-align: right;
   font-weight: 500;
+  transition: color var(--transition-fast);
+}
+
+.slider-control__track-container {
+  position: relative;
+}
+
+.slider-control__value-popup {
+  position: absolute;
+  top: -32px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  background-color: rgba(30, 30, 30, 0.95);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 4px;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 100;
+  animation: popupFadeIn 0.15s ease-out;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+@keyframes popupFadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.slider-control__tooltip {
+  /* Hidden but accessible to screen readers */
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
 }
 
 .slider-control__slider {
@@ -38,11 +115,13 @@
   border-radius: 2px;
   outline: none;
   cursor: pointer;
-  transition: background var(--transition-fast);
+  transition: background var(--transition-fast), box-shadow var(--transition-fast);
+  position: relative;
 }
 
 .slider-control__slider:hover {
   background: var(--color-border-hover);
+  box-shadow: 0 0 0 1px rgba(74, 158, 255, 0.2);
 }
 
 .slider-control__slider:focus-visible {

@@ -1,0 +1,127 @@
+/**
+ * White Balance Adjustments Styles
+ */
+
+.white-balance-adjustments {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.white-balance-adjustments__toggle {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 0;
+}
+
+.white-balance-adjustments__toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.white-balance-adjustments__checkbox {
+  cursor: pointer;
+  width: 1rem;
+  height: 1rem;
+}
+
+.white-balance-adjustments__presets {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: var(--color-bg-secondary, #f5f5f5);
+  border-radius: 0.375rem;
+}
+
+.white-balance-adjustments__presets-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-secondary, #666);
+  margin-bottom: 0.25rem;
+}
+
+.white-balance-adjustments__presets-buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.5rem;
+}
+
+.white-balance-adjustments__preset-button {
+  padding: 0.5rem 0.75rem;
+  background: var(--color-bg-primary, #ffffff);
+  border: 1px solid var(--color-border, #ddd);
+  border-radius: 0.25rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.white-balance-adjustments__preset-button:hover:not(:disabled) {
+  background: var(--color-primary, #007bff);
+  color: white;
+  border-color: var(--color-primary, #007bff);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.white-balance-adjustments__preset-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.white-balance-adjustments__preset-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.white-balance-adjustments__info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: var(--color-info-bg, #e3f2fd);
+  border-left: 3px solid var(--color-info, #2196f3);
+  border-radius: 0.25rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.white-balance-adjustments__info-section {
+  margin: 0;
+}
+
+.white-balance-adjustments__info-section strong {
+  font-weight: 600;
+  color: var(--color-text-primary, #333);
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .white-balance-adjustments__presets {
+    background: var(--color-bg-secondary, #2a2a2a);
+  }
+
+  .white-balance-adjustments__presets-label {
+    color: var(--color-text-secondary, #aaa);
+  }
+
+  .white-balance-adjustments__preset-button {
+    background: var(--color-bg-primary, #1a1a1a);
+    border-color: var(--color-border, #444);
+    color: var(--color-text-primary, #eee);
+  }
+
+  .white-balance-adjustments__info {
+    background: var(--color-info-bg, #1a2332);
+    border-left-color: var(--color-info, #42a5f5);
+  }
+
+  .white-balance-adjustments__info-section strong {
+    color: var(--color-text-primary, #eee);
+  }
+}

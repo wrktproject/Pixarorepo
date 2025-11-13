@@ -30,7 +30,7 @@ export const SettingsAdjustments: React.FC<SettingsAdjustmentsProps> = ({ disabl
   );
 
   return (
-    <CollapsibleSection title="Settings" defaultExpanded={false}>
+    <CollapsibleSection title="Settings" defaultExpanded={false} disabled={disabled}>
       <div className="settings-adjustments">
         <div className="settings-adjustments__control">
           <label className="settings-adjustments__label">

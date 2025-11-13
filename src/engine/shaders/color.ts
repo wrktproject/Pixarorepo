@@ -121,11 +121,12 @@ vec3 applyTint(vec3 color, float tint) {
   return color * tintMatrix;
 }
 
-// Apply vibrance (Lightroom-style: boosts muted colors more)
+// Apply vibrance (Darktable-style: boosts muted colors more)
 vec3 applyVibrance(vec3 color, float vibrance) {
   vec3 hsl = rgbToHSL(color);
   
-  // Reduce intensity by 50% for more subtle adjustments
+  // Darktable uses SAT_EFFECT = 2.0 for saturation adjustments
+  // Reduce by 50% for UI range compatibility (2.0 * 0.5 = 1.0 effective)
   float adjustment = (vibrance / 100.0) * 0.5;
   
   // Vibrance boosts low-saturation colors more than high-saturation
@@ -135,11 +136,12 @@ vec3 applyVibrance(vec3 color, float vibrance) {
   return hslToRGB(hsl);
 }
 
-// Apply saturation (uniform boost/reduction)
+// Apply saturation (Darktable-style uniform boost/reduction)
 vec3 applySaturation(vec3 color, float saturation) {
   vec3 hsl = rgbToHSL(color);
   
-  // Reduce intensity by 50% for more subtle adjustments
+  // Darktable uses SAT_EFFECT = 2.0 multiplier
+  // We use 0.5 to keep UI range reasonable (2.0 * 0.5 = 1.0 effective)
   float adjustment = (saturation / 100.0) * 0.5;
   
   hsl.y = clamp(hsl.y * (1.0 + adjustment), 0.0, 1.0);

@@ -14,6 +14,7 @@ import {
 } from '../store';
 import { CollapsibleSection } from './CollapsibleSection';
 import { SliderControl } from './SliderControl';
+import { addToHistory } from '../store/historySlice';
 
 interface ColorAdjustmentsProps {
   disabled?: boolean;
@@ -23,6 +24,10 @@ interface ColorAdjustmentsProps {
 export const ColorAdjustments: React.FC<ColorAdjustmentsProps> = ({ disabled = false, expanded }) => {
   const dispatch = useDispatch();
   const adjustments = useSelector((state: RootState) => state.adjustments);
+
+  const handleChangeComplete = useCallback(() => {
+    dispatch(addToHistory(adjustments));
+  }, [dispatch, adjustments]);
 
   const handleTemperatureChange = useCallback(
     (value: number) => {
@@ -63,6 +68,7 @@ export const ColorAdjustments: React.FC<ColorAdjustmentsProps> = ({ disabled = f
         precision={0}
         unit="K"
         onChange={handleTemperatureChange}
+        onChangeComplete={handleChangeComplete}
         tooltip="Adjusts color temperature to simulate different lighting conditions. Lower values add cool (blue) tones, higher values add warm (orange) tones. Uses accurate color matrices for natural results."
         disabled={disabled}
         colorGradient="linear-gradient(to right, #0066ff, #ffffff, #ffaa00)"
@@ -75,6 +81,7 @@ export const ColorAdjustments: React.FC<ColorAdjustmentsProps> = ({ disabled = f
         step={1}
         precision={0}
         onChange={handleTintChange}
+        onChangeComplete={handleChangeComplete}
         tooltip="Corrects color cast by shifting between magenta and green. Negative values add green, positive values add magenta. Useful for correcting fluorescent lighting."
         disabled={disabled}
         colorGradient="linear-gradient(to right, #00ff00, #808080, #ff00ff)"
@@ -87,6 +94,7 @@ export const ColorAdjustments: React.FC<ColorAdjustmentsProps> = ({ disabled = f
         step={1}
         precision={0}
         onChange={handleVibranceChange}
+        onChangeComplete={handleChangeComplete}
         tooltip="Smart saturation that boosts muted colors more than already-saturated colors. Protects skin tones and prevents oversaturation. Ideal for natural-looking color enhancement."
         disabled={disabled}
       />
@@ -98,6 +106,7 @@ export const ColorAdjustments: React.FC<ColorAdjustmentsProps> = ({ disabled = f
         step={1}
         precision={0}
         onChange={handleSaturationChange}
+        onChangeComplete={handleChangeComplete}
         tooltip="Uniformly adjusts color intensity across the entire image. Positive values make colors more vivid, negative values move toward grayscale. Applied in HSL color space."
         disabled={disabled}
         colorGradient="linear-gradient(to right, #808080, #ff0000)"

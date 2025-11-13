@@ -49,6 +49,93 @@ export interface RemovalOperation {
   timestamp: number;
 }
 
+export interface SigmoidSettings {
+  enabled: boolean;
+  contrast: number;    // 0.5 to 2.0
+  skew: number;        // -1.0 to 1.0
+  middleGrey: number;  // 0.1 to 0.3
+}
+
+export interface FilmicSettings {
+  enabled: boolean;
+  whitePoint: number;      // 0.5 to 8.0 EV
+  blackPoint: number;      // -8.0 to -0.5 EV
+  latitude: number;        // 0.1 to 1.0 (10-100%)
+  balance: number;         // -0.5 to 0.5 (-50 to 50)
+  shadowsContrast: 'hard' | 'soft' | 'safe';
+  highlightsContrast: 'hard' | 'soft' | 'safe';
+}
+
+export interface ExposureSettings {
+  enabled: boolean;
+  exposure: number;                    // -10 to 10 EV
+  blackPoint: number;                  // 0.0 to 0.1
+  highlightReconstruction: boolean;    // Enable highlight recovery
+  reconstructionThreshold: number;     // 0.9 to 1.0
+}
+
+export interface WhiteBalanceSettings {
+  enabled: boolean;
+  temperature: number;  // 2000 to 25000 Kelvin
+  tint: number;         // -1.0 to 1.0
+}
+
+export interface ColorBalanceZoneAdjustment {
+  luminance: number;  // -1.0 to 1.0
+  chroma: number;     // -1.0 to 1.0
+  hue: number;        // -PI to PI (radians)
+}
+
+export interface ColorBalanceRGBSettings {
+  enabled: boolean;
+  
+  // Per-zone adjustments
+  shadows: ColorBalanceZoneAdjustment;
+  midtones: ColorBalanceZoneAdjustment;
+  highlights: ColorBalanceZoneAdjustment;
+  global: ColorBalanceZoneAdjustment;
+  
+  // Mask controls
+  shadowsWeight: number;      // 0.5 to 3.0 (falloff)
+  highlightsWeight: number;   // 0.5 to 3.0 (falloff)
+  maskGreyFulcrum: number;    // 0.1 to 0.3 (default 0.1845)
+  
+  // Advanced controls
+  contrast: number;           // 0.5 to 2.0
+  contrastFulcrum: number;    // 0.1 to 0.3
+  vibrance: number;           // -1.0 to 1.0
+}
+
+export interface SaturationSettings {
+  enabled: boolean;
+  saturation: number;              // -1.0 to 1.0 (global saturation)
+  vibrance: number;                // -1.0 to 1.0 (adaptive saturation)
+  skinToneProtection: boolean;     // Enable skin tone protection
+  skinProtectionStrength: number;  // 0.0 to 1.0 (protection strength)
+}
+
+export interface GamutMappingSettings {
+  enabled: boolean;
+  targetGamut: 'sRGB' | 'Display P3' | 'Rec2020';
+  mappingMethod: 'perceptual' | 'saturation' | 'relative';
+  compressionAmount: number;       // 0.0 to 1.0 (for perceptual method)
+}
+
+export interface GuidedFilterSettings {
+  enabled: boolean;
+  radius: number;      // Filter radius in pixels (1-20)
+  epsilon: number;     // Edge threshold (0.001 - 1.0)
+  strength: number;    // Detail enhancement strength (-2.0 to 2.0)
+}
+
+export interface LocalLaplacianSettings {
+  enabled: boolean;
+  detail: number;      // Fine detail enhancement (-1.0 to 1.0)
+  coarse: number;      // Coarse structure enhancement (-1.0 to 1.0)
+  strength: number;    // Overall strength multiplier (0.0 to 2.0)
+  levels: number;      // Number of pyramid levels (3 or 4)
+}
+
 export interface AdjustmentState {
   // Basic adjustments
   exposure: number;        // -5 to +5
@@ -69,6 +156,17 @@ export interface AdjustmentState {
   clarity: number;        // -100 to +100
   noiseReductionLuma: number;    // 0 to 100
   noiseReductionColor: number;   // 0 to 100
+
+  // Tone mapping
+  sigmoid: SigmoidSettings;
+  filmic: FilmicSettings;
+  exposureModule: ExposureSettings;
+  whiteBalanceModule: WhiteBalanceSettings;
+  colorBalanceRGB: ColorBalanceRGBSettings;
+  saturationModule: SaturationSettings;
+  gamutMapping: GamutMappingSettings;
+  guidedFilter: GuidedFilterSettings;
+  localLaplacian: LocalLaplacianSettings;
 
   // HSL adjustments
   hsl: {

@@ -1,0 +1,57 @@
+/**
+ * DetailAdjustments Component Styles
+ */
+
+.detail-adjustments {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 0.5rem 0;
+}
+
+.detail-adjustments__toggle {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 0;
+}
+
+.detail-adjustments__toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.detail-adjustments__checkbox {
+  width: 1.2rem;
+  height: 1.2rem;
+  cursor: pointer;
+  accent-color: var(--primary-color, #007bff);
+}
+
+.detail-adjustments__checkbox:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.detail-adjustments__info {
+  padding: 0.75rem;
+  background-color: var(--info-bg, rgba(0, 123, 255, 0.1));
+  border-left: 3px solid var(--info-border, #007bff);
+  border-radius: 4px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--text-secondary, #666);
+  margin-top: 0.5rem;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .detail-adjustments__info {
+    background-color: rgba(0, 123, 255, 0.15);
+    color: var(--text-secondary-dark, #aaa);
+  }
+}

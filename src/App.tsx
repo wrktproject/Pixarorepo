@@ -11,6 +11,7 @@ import { ToolsPanel } from './components/ToolsPanel';
 import { PresetManager } from './components/PresetManager';
 import { PhotoLibrary } from './components/PhotoLibrary';
 import { HistoryIndicator } from './components/HistoryIndicator';
+import { SavePresetButton } from './components/SavePresetButton';
 import { ImageUploadContainer } from './components/ImageUploadContainer';
 import { AdContainer } from './components/AdContainer';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -26,6 +27,7 @@ import { adNetworkManager } from './utils/adNetwork';
 import { detectWebGLCapabilities, getWebGLWarningMessage } from './utils/webglDetection';
 import { detectBrowser, getCompatibilityWarning } from './utils/browserCompatibility';
 import './App.css';
+import './components/VisualFeedback.css';
 
 function App() {
   const hasImage = useSelector((state: RootState) => state.image.current !== null);
@@ -152,13 +154,16 @@ function App() {
         <header className="app-header" role="banner">
           <div className="app-header__content">
             <h1 className="app-title">Pixaro</h1>
-            {hasImage && (
-              <div className="app-header__controls">
+            <div className="app-header__controls">
+              <ErrorBoundary>
+                <SavePresetButton />
+              </ErrorBoundary>
+              {hasImage && (
                 <ErrorBoundary>
                   <HistoryIndicator />
                 </ErrorBoundary>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </header>
 
