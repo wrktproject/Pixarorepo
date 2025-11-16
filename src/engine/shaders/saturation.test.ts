@@ -21,7 +21,8 @@ describe('Perceptual Saturation', () => {
   describe('Shader Content Validation', () => {
     it('should include sRGB conversion functions', () => {
       expect(saturationFragmentShader).toContain('srgbToLinear');
-      expect(saturationFragmentShader).toContain('linearToSrgb');
+      // Saturation stays in Linear space (output shader converts to sRGB)
+      expect(saturationFragmentShader).toContain('Keep in Linear space');
     });
 
     it('should include JzAzBz color space conversions', () => {

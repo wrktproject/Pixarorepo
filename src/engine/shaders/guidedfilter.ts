@@ -220,11 +220,10 @@ void main() {
   // Apply guided filter
   vec3 filtered = applyGuidedFilter(color, guide);
   
-  // Clamp to valid range
-  filtered = clamp(filtered, 0.0, 1.0);
+  // Clamp to valid range (allow HDR values for later processing)
+  filtered = max(filtered, vec3(0.0));
   
-  // Convert back to sRGB
-  filtered = linearToSrgb(filtered);
+  // IMPORTANT: Keep in Linear space! Output shader will convert to sRGB
   
   fragColor = vec4(filtered, texColor.a);
 }
@@ -308,11 +307,10 @@ void main() {
     // Apply detail enhancement
     color = enhanceDetail(original, filtered, u_strength);
     
-    // Clamp to valid range
-    color = clamp(color, 0.0, 1.0);
+    // Clamp to valid range (allow HDR values for later processing)
+    color = max(color, vec3(0.0));
     
-    // Convert back to sRGB
-    color = linearToSrgb(color);
+    // IMPORTANT: Keep in Linear space! Output shader will convert to sRGB
   }
   
   fragColor = vec4(color, originalColor.a);

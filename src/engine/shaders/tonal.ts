@@ -164,11 +164,11 @@ void main() {
   // 4. CONTRAST (around midpoint, applied last)
   color = applyContrast(color, u_contrast);
   
-  // Clamp to valid range
-  color = clamp(color, 0.0, 1.0);
+  // Clamp to valid range (but allow HDR values for filmic/sigmoid tone mapping later)
+  color = max(color, vec3(0.0));
   
-  // Convert back to sRGB for display
-  color = linearToSrgb(color);
+  // IMPORTANT: Keep in Linear space! Output shader will convert to sRGB
+  // This prevents double gamma correction which causes washed out colors
   
   fragColor = vec4(color, texColor.a);
 }

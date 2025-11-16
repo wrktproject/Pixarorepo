@@ -38,7 +38,8 @@ describe('Exposure Shader', () => {
 
     it('should include color space conversion functions', () => {
       expect(exposureFragmentShader).toContain('vec3 srgbToLinear');
-      expect(exposureFragmentShader).toContain('vec3 linearToSrgb');
+      // Exposure stays in Linear space (output shader converts to sRGB)
+      expect(exposureFragmentShader).toContain('srgbToLinear');
     });
 
     it('should include exposure functions', () => {
@@ -125,8 +126,8 @@ describe('Exposure Shader', () => {
     it('should work in linear RGB space', () => {
       // Verify conversion to linear before processing
       expect(exposureFragmentShader).toContain('srgbToLinear(color)');
-      // Verify conversion back to sRGB after processing
-      expect(exposureFragmentShader).toContain('linearToSrgb(color)');
+      // Verify stays in Linear space for pipeline processing
+      expect(exposureFragmentShader).toContain('Keep in Linear space');
     });
 
     it('should preserve color ratios', () => {

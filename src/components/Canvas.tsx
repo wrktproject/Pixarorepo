@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import type { RootState } from '../store';
-import { setZoom, setPan, resetView, toggleComparison, toggleHistogram } from '../store';
+import { store, setZoom, setPan, resetView, toggleComparison, toggleHistogram, setAllAdjustments, addToHistory } from '../store';
 import { ShaderPipelineErrorHandler } from '../engine/shaderPipelineErrorHandler';
 import type { RenderMode } from '../engine/shaderPipelineErrorHandler';
 import { Histogram } from './Histogram';
@@ -41,6 +41,7 @@ export const Canvas: React.FC = () => {
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [splitPosition] = useState(50); // For split-view mode (percentage) - TODO: implement drag to adjust
   const [isSplitView, setIsSplitView] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false); // For preset drag-and-drop
 
   // Performance monitoring state (Requirement 13.4)
   const [performanceStats, setPerformanceStats] = useState<PerformanceStats | null>(null);
@@ -248,6 +249,14 @@ export const Canvas: React.FC = () => {
   useEffect(() => {
     if (!image) return;
 
+    console.log('📸 Canvas rendering with new adjustments:', {
+      exposure: adjustments.exposure,
+      contrast: adjustments.contrast,
+      saturation: adjustments.saturation,
+      temperature: adjustments.temperature,
+      showComparison,
+    });
+
     // RenderScheduler handles requestAnimationFrame and batching internally
     // Multiple rapid calls to render() will be batched into a single frame
     render();
@@ -310,6 +319,7 @@ export const Canvas: React.FC = () => {
 
   /**
    * Handle canvas resize
+   * IMPORTANT: Account for device pixel ratio for high-quality display on Retina/high-DPI screens
    */
   useEffect(() => {
     const handleResize = () => {
@@ -317,6 +327,7 @@ export const Canvas: React.FC = () => {
 
       const container = containerRef.current;
       const canvas = canvasRef.current;
+      const dpr = window.devicePixelRatio || 1; // Account for high-DPI displays (Retina, 4K, etc.)
 
       // Calculate size to fit image in container while maintaining aspect ratio
       const containerWidth = container.clientWidth;
@@ -324,20 +335,25 @@ export const Canvas: React.FC = () => {
       const imageAspect = image.width / image.height;
       const containerAspect = containerWidth / containerHeight;
 
-      let canvasWidth, canvasHeight;
+      let canvasDisplayWidth, canvasDisplayHeight;
       if (imageAspect > containerAspect) {
         // Image is wider than container
-        canvasWidth = containerWidth;
-        canvasHeight = containerWidth / imageAspect;
+        canvasDisplayWidth = containerWidth;
+        canvasDisplayHeight = containerWidth / imageAspect;
       } else {
         // Image is taller than container
-        canvasHeight = containerHeight;
-        canvasWidth = containerHeight * imageAspect;
+        canvasDisplayHeight = containerHeight;
+        canvasDisplayWidth = containerHeight * imageAspect;
       }
 
-      // Only resize if dimensions actually changed (avoid unnecessary re-renders)
-      const newWidth = Math.floor(canvasWidth);
-      const newHeight = Math.floor(canvasHeight);
+      // Set CSS display size (what user sees)
+      canvas.style.width = `${canvasDisplayWidth}px`;
+      canvas.style.height = `${canvasDisplayHeight}px`;
+
+      // Set actual buffer size (scaled by device pixel ratio for sharpness)
+      // This ensures high quality on Retina displays
+      const newWidth = Math.floor(canvasDisplayWidth * dpr);
+      const newHeight = Math.floor(canvasDisplayHeight * dpr);
       
       if (canvas.width !== newWidth || canvas.height !== newHeight) {
         canvas.width = newWidth;
@@ -461,10 +477,52 @@ export const Canvas: React.FC = () => {
     setShowPerformanceDetails((prev) => !prev);
   }, []);
 
+  /**
+   * Handle preset drag-and-drop onto canvas
+   */
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    setIsDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    
+    const presetId = e.dataTransfer.getData('text/plain');
+    if (presetId) {
+      // Get preset from Redux state
+      const allPresets = [
+        ...(store.getState() as RootState).presets.builtIn,
+        ...(store.getState() as RootState).presets.custom,
+      ];
+      const preset = allPresets.find(p => p.id === presetId);
+      
+      if (preset) {
+        // Add current state to history before applying preset
+        dispatch(addToHistory(adjustments));
+        // Apply the preset
+        dispatch(setAllAdjustments(preset.adjustments));
+      }
+    }
+  }, [dispatch, adjustments]);
+
   // Keyboard shortcuts are now handled centrally by useKeyboardShortcuts hook
 
   return (
-    <div ref={containerRef} className={styles.container}>
+    <div 
+      ref={containerRef} 
+      className={`${styles.container} ${isDragOver ? styles.dragOver : ''}`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       <canvas
         ref={canvasRef}
         className={styles.canvas}

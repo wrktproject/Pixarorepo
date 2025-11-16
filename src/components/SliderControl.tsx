@@ -38,7 +38,10 @@ export const SliderControl: React.FC<SliderControlProps> = ({
   colorGradient,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState('');
   const sliderRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const initialValueRef = useRef<number>(value);
 
   const clamp = useCallback(
@@ -96,6 +99,50 @@ export const SliderControl: React.FC<SliderControlProps> = ({
     }
   }, [value, onChangeComplete]);
 
+  const handleValueClick = useCallback(() => {
+    if (disabled) return;
+    setIsEditing(true);
+    setEditValue(value.toFixed(precision));
+  }, [value, precision, disabled]);
+
+  const handleInputChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      setEditValue(event.target.value);
+    },
+    []
+  );
+
+  const handleInputBlur = useCallback(() => {
+    const numValue = parseFloat(editValue);
+    if (!isNaN(numValue)) {
+      const clampedValue = clamp(numValue);
+      onChange(clampedValue);
+      if (onChangeComplete) {
+        onChangeComplete(clampedValue);
+      }
+    }
+    setIsEditing(false);
+  }, [editValue, onChange, onChangeComplete, clamp]);
+
+  const handleInputKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === 'Enter') {
+        handleInputBlur();
+      } else if (event.key === 'Escape') {
+        setIsEditing(false);
+      }
+    },
+    [handleInputBlur]
+  );
+
+  // Focus input when entering edit mode
+  React.useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+
   const showWarning = warning && value > (max * 0.66);
 
   return (
@@ -113,7 +160,26 @@ export const SliderControl: React.FC<SliderControlProps> = ({
             </span>
           )}
         </label>
-        <span className="slider-control__value">{formatValue(value)}</span>
+        {isEditing ? (
+          <input
+            ref={inputRef}
+            type="text"
+            className="slider-control__value-input"
+            value={editValue}
+            onChange={handleInputChange}
+            onBlur={handleInputBlur}
+            onKeyDown={handleInputKeyDown}
+            disabled={disabled}
+          />
+        ) : (
+          <span 
+            className="slider-control__value slider-control__value--clickable" 
+            onClick={handleValueClick}
+            title="Click to edit"
+          >
+            {formatValue(value)}
+          </span>
+        )}
       </div>
       <div className="slider-control__track-container">
         <input

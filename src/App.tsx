@@ -8,10 +8,8 @@ import { useSelector } from 'react-redux';
 import type { RootState } from './store';
 import { Canvas } from './components/Canvas';
 import { ToolsPanel } from './components/ToolsPanel';
-import { PresetManager } from './components/PresetManager';
 import { PhotoLibrary } from './components/PhotoLibrary';
 import { HistoryIndicator } from './components/HistoryIndicator';
-import { SavePresetButton } from './components/SavePresetButton';
 import { ImageUploadContainer } from './components/ImageUploadContainer';
 import { AdContainer } from './components/AdContainer';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -155,9 +153,6 @@ function App() {
           <div className="app-header__content">
             <h1 className="app-title">Pixaro</h1>
             <div className="app-header__controls">
-              <ErrorBoundary>
-                <SavePresetButton />
-              </ErrorBoundary>
               {hasImage && (
                 <ErrorBoundary>
                   <HistoryIndicator />
@@ -170,15 +165,10 @@ function App() {
         {/* Main Layout */}
         <main className="app-main" role="main">
           {/* Left Sidebar */}
-          <aside className="app-sidebar" role="complementary" aria-label="Presets and library sidebar">
+          <aside className="app-sidebar" role="complementary" aria-label="Photo library sidebar">
             {hasPhotos && (
               <ErrorBoundary>
                 <PhotoLibrary />
-              </ErrorBoundary>
-            )}
-            {hasPhotos && hasImage && (
-              <ErrorBoundary>
-                <PresetManager />
               </ErrorBoundary>
             )}
             {/* Ad in sidebar bottom - 300x250 (only if configured) */}

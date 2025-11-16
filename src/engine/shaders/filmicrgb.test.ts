@@ -22,7 +22,8 @@ describe('Filmic RGB Tone Mapping', () => {
   describe('Shader Content Validation', () => {
     it('should include sRGB conversion functions', () => {
       expect(filmicFragmentShader).toContain('srgbToLinear');
-      expect(filmicFragmentShader).toContain('linearToSrgb');
+      // Filmic stays in Linear space (output shader converts to sRGB)
+      expect(filmicFragmentShader).toContain('Keep in Linear space');
     });
 
     it('should include rational spline functions', () => {
@@ -295,8 +296,8 @@ describe('Filmic RGB Tone Mapping', () => {
     it('should work in linear RGB space', () => {
       // Should convert to linear before processing
       expect(filmicFragmentShader).toContain('color = srgbToLinear(color)');
-      // Should convert back to sRGB after processing
-      expect(filmicFragmentShader).toContain('color = linearToSrgb(color)');
+      // Should stay in Linear space for pipeline processing
+      expect(filmicFragmentShader).toContain('Keep in Linear space');
     });
 
     it('should not introduce hue shifts', () => {

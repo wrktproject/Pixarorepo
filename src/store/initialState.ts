@@ -45,14 +45,14 @@ export const createInitialAdjustmentState = (): AdjustmentState => ({
     highlightsContrast: 'soft',
   },
   exposureModule: {
-    enabled: true,
+    enabled: false,  // Disabled by default - use basic exposure slider instead
     exposure: 0.0,
     blackPoint: 0.0,
     highlightReconstruction: false,
     reconstructionThreshold: 0.95,
   },
   whiteBalanceModule: {
-    enabled: true,
+    enabled: false,  // Disabled by default - use basic temperature/tint sliders instead
     temperature: 6500,  // D65 daylight
     tint: 0.0,
   },

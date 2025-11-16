@@ -635,7 +635,7 @@ export class ShaderPipeline {
 
       case 'tonal':
         applyTonalUniforms(this.gl, pass.program.uniforms, {
-          exposure: adjustments.exposure,
+          exposure: adjustments.exposureModule.enabled ? adjustments.exposureModule.exposure : adjustments.exposure,
           contrast: adjustments.contrast,
           highlights: adjustments.highlights,
           shadows: adjustments.shadows,
@@ -646,10 +646,10 @@ export class ShaderPipeline {
 
       case 'color':
         applyColorUniforms(this.gl, pass.program.uniforms, {
-          temperature: adjustments.temperature,
-          tint: adjustments.tint,
-          vibrance: adjustments.vibrance,
-          saturation: adjustments.saturation,
+          temperature: adjustments.whiteBalanceModule.enabled ? adjustments.whiteBalanceModule.temperature : adjustments.temperature,
+          tint: adjustments.whiteBalanceModule.enabled ? adjustments.whiteBalanceModule.tint * 150 : adjustments.tint, // Convert from -1..1 to -150..150
+          vibrance: adjustments.saturationModule.enabled ? adjustments.saturationModule.vibrance * 100 : adjustments.vibrance, // Convert from 0..1 to 0..100
+          saturation: adjustments.saturationModule.enabled ? adjustments.saturationModule.saturation * 100 : adjustments.saturation, // Convert from 0..1 to 0..100
         });
         break;
 
@@ -707,13 +707,16 @@ export class ShaderPipeline {
     }
 
     // Check tonal adjustments
+    // CRITICAL: ALWAYS mark tonal as dirty because it does sRGB→Linear conversion
+    // Skipping this pass causes color space bugs (image brightness changes)
     if (
       prev.exposure !== adjustments.exposure ||
       prev.contrast !== adjustments.contrast ||
       prev.highlights !== adjustments.highlights ||
       prev.shadows !== adjustments.shadows ||
       prev.whites !== adjustments.whites ||
-      prev.blacks !== adjustments.blacks
+      prev.blacks !== adjustments.blacks ||
+      true // ALWAYS mark dirty for color space conversion
     ) {
       this.markPassDirty('tonal');
     }

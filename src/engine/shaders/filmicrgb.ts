@@ -264,11 +264,10 @@ void main() {
     // Apply filmic tone curve per-channel
     color = applyFilmic(color);
     
-    // Clamp to valid range
-    color = clamp(color, 0.0, 1.0);
+    // Clamp to valid range (allow HDR values for later processing)
+    color = max(color, vec3(0.0));
     
-    // Convert back to sRGB for display
-    color = linearToSrgb(color);
+    // IMPORTANT: Keep in Linear space! Output shader will convert to sRGB
   }
   
   fragColor = vec4(color, texColor.a);

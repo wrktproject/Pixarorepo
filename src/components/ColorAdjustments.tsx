@@ -62,16 +62,16 @@ export const ColorAdjustments: React.FC<ColorAdjustmentsProps> = ({ disabled = f
       <SliderControl
         label="Temperature"
         value={adjustments.temperature}
-        min={2000}
-        max={50000}
+        min={2500}
+        max={25000}
         step={50}
         precision={0}
         unit="K"
         onChange={handleTemperatureChange}
         onChangeComplete={handleChangeComplete}
-        tooltip="Adjusts color temperature to simulate different lighting conditions. Lower values add cool (blue) tones, higher values add warm (orange) tones. Uses accurate color matrices for natural results."
+        tooltip="Color temperature white balance. 2500K = tungsten/warm lighting (adds blue correction). 6500K = daylight neutral. 25000K = shade/cool lighting (adds orange correction). Uses Bradford chromatic adaptation."
         disabled={disabled}
-        colorGradient="linear-gradient(to right, #0066ff, #ffffff, #ffaa00)"
+        colorGradient="linear-gradient(to right, #4d9aff, #ffffff, #ffb366)"
       />
       <SliderControl
         label="Tint"

@@ -42,7 +42,8 @@ describe('White Balance Shader', () => {
 
     it('should include color space conversion functions', () => {
       expect(whiteBalanceFragmentShader).toContain('vec3 srgbToLinear');
-      expect(whiteBalanceFragmentShader).toContain('vec3 linearToSrgb');
+      // White balance stays in Linear space (output shader converts to sRGB)
+      expect(whiteBalanceFragmentShader).toContain('srgbToLinear');
       expect(whiteBalanceFragmentShader).toContain('vec3 linearRGBToXYZ_D65');
       expect(whiteBalanceFragmentShader).toContain('vec3 xyzD65ToLinearRGB');
     });
@@ -255,7 +256,8 @@ describe('White Balance Shader', () => {
   describe('Color Preservation', () => {
     it('should work in linear RGB space', () => {
       expect(whiteBalanceFragmentShader).toContain('srgbToLinear');
-      expect(whiteBalanceFragmentShader).toContain('linearToSrgb');
+      // White balance stays in Linear space (output shader converts to sRGB)
+      expect(whiteBalanceFragmentShader).toContain('Keep in Linear space');
     });
 
     it('should preserve alpha channel', () => {

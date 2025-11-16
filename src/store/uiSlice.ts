@@ -59,7 +59,7 @@ const uiSlice = createSlice({
     },
     setActiveTool: (
       state,
-      action: PayloadAction<'none' | 'crop' | 'removal'>
+      action: PayloadAction<'none' | 'crop' | 'removal' | 'blur' | 'presets'>
     ) => {
       state.activeTool = action.payload;
     },

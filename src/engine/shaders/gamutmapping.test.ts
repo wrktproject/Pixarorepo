@@ -16,7 +16,8 @@ describe('Gamut Mapping Shader', () => {
   describe('Shader Content Validation', () => {
     it('should include sRGB conversion functions', () => {
       expect(gamutMappingFragmentShader).toContain('srgbToLinear');
-      expect(gamutMappingFragmentShader).toContain('linearToSrgb');
+      // Gamut mapping stays in Linear space (output shader converts to sRGB)
+      expect(gamutMappingFragmentShader).toContain('Keep in Linear space');
     });
 
     it('should include Lab color space conversions', () => {

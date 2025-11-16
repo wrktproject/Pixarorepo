@@ -24,9 +24,10 @@ describe('Guided Filter', () => {
   describe('Shader Content Validation', () => {
     it('should include sRGB conversion functions', () => {
       expect(guidedFilterFragmentShader).toContain('srgbToLinear');
-      expect(guidedFilterFragmentShader).toContain('linearToSrgb');
+      // Stays in Linear space (output shader converts to sRGB)
+      expect(guidedFilterFragmentShader).toContain('Keep in Linear space');
       expect(detailEnhancementFragmentShader).toContain('srgbToLinear');
-      expect(detailEnhancementFragmentShader).toContain('linearToSrgb');
+      expect(detailEnhancementFragmentShader).toContain('Keep in Linear space');
     });
 
     it('should include luminance calculation', () => {
@@ -415,9 +416,10 @@ describe('Guided Filter', () => {
       expect(detailEnhancementFragmentShader).toContain('clamp(color, 0.0, 1.0)');
     });
 
-    it('should convert back to sRGB for display', () => {
-      expect(guidedFilterFragmentShader).toContain('linearToSrgb(filtered)');
-      expect(detailEnhancementFragmentShader).toContain('linearToSrgb(color)');
+    it('should stay in Linear space for pipeline processing', () => {
+      // Pipeline keeps data in Linear space - only output shader converts to sRGB
+      expect(guidedFilterFragmentShader).toContain('Keep in Linear space');
+      expect(detailEnhancementFragmentShader).toContain('Keep in Linear space');
     });
 
     it('should preserve alpha channel', () => {

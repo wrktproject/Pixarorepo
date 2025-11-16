@@ -90,8 +90,10 @@ export class ShaderPipelineErrorHandler {
       this.setupContextLossHandlers();
 
       // Initialize shader pipeline
+      // Use 8192px max (or full resolution) for Lightroom-quality previews
+      // Modern GPUs easily handle 6000-8000px images without performance issues
       this.pipeline = new ShaderPipeline(this.contextManager, {
-        maxPreviewSize: 2048,
+        maxPreviewSize: 8192, // Full quality - no downscaling for most images (Lightroom-like)
         enableRenderScheduler: true,
         enablePerformanceMonitoring: true,
         targetFPS: 60,

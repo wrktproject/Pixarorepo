@@ -431,7 +431,7 @@ vec3 applyGamutMapping(vec3 rgb) {
   
   // If already in gamut, no mapping needed
   if (inGamut && u_mappingMethod != METHOD_RELATIVE) {
-    return linearToSrgb(rgb);
+    return rgb;  // IMPORTANT: Keep in Linear space!
   }
   
   // Apply gamut mapping based on selected method
@@ -468,8 +468,8 @@ vec3 applyGamutMapping(vec3 rgb) {
     mappedRGB = relativeColorimetricMapping(rgb);
   }
   
-  // Convert back to sRGB for display
-  return linearToSrgb(mappedRGB);
+  // IMPORTANT: Keep in Linear space! Output shader will convert to sRGB
+  return mappedRGB;
 }
 
 void main() {

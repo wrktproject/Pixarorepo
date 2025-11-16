@@ -177,8 +177,7 @@ void main() {
     // Clamp to valid range (allow values > 1.0 for HDR pipeline)
     color = max(color, 0.0);
     
-    // Convert back to sRGB for display
-    color = linearToSrgb(color);
+    // IMPORTANT: Keep in Linear space! Output shader will convert to sRGB
   }
   
   fragColor = vec4(color, texColor.a);

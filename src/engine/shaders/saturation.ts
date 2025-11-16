@@ -348,11 +348,11 @@ vec3 applyPerceptualSaturation(vec3 rgb) {
   // Convert back to linear RGB
   rgb = jzAzBzToLinearRGB(jab);
   
-  // Clamp to valid range
-  rgb = clamp(rgb, 0.0, 1.0);
+  // Clamp to valid range (allow HDR values for later processing)
+  rgb = max(rgb, vec3(0.0));
   
-  // Convert back to sRGB for display
-  return linearToSrgb(rgb);
+  // IMPORTANT: Keep in Linear space! Output shader will convert to sRGB
+  return rgb;
 }
 
 void main() {

@@ -41,7 +41,8 @@ describe('Color Balance RGB', () => {
   describe('Shader Content Validation', () => {
     it('should include sRGB conversion functions', () => {
       expect(colorBalanceRGBFragmentShader).toContain('srgbToLinear');
-      expect(colorBalanceRGBFragmentShader).toContain('linearToSrgb');
+      // Color balance stays in Linear space (output shader converts to sRGB)
+      expect(colorBalanceRGBFragmentShader).toContain('Keep in Linear space');
     });
 
     it('should include DT UCS color space conversions', () => {

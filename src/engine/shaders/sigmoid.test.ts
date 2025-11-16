@@ -38,7 +38,8 @@ describe('Sigmoid Tone Mapping', () => {
   describe('Shader Content Validation', () => {
     it('should include sRGB conversion functions', () => {
       expect(sigmoidFragmentShader).toContain('srgbToLinear');
-      expect(sigmoidFragmentShader).toContain('linearToSrgb');
+      // Sigmoid stays in Linear space (output shader converts to sRGB)
+      expect(sigmoidFragmentShader).toContain('Keep in Linear space');
     });
 
     it('should include sigmoid curve function', () => {

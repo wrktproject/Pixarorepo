@@ -4,53 +4,10 @@
  */
 
 import type { Preset } from '../types/store';
-import type { AdjustmentState } from '../types/adjustments';
+import { createInitialAdjustmentState } from '../store/initialState';
 
-// Helper to create default adjustment state
-const createDefaultAdjustments = (): AdjustmentState => ({
-  exposure: 0,
-  contrast: 0,
-  highlights: 0,
-  shadows: 0,
-  whites: 0,
-  blacks: 0,
-  temperature: 6500,
-  tint: 0,
-  vibrance: 0,
-  saturation: 0,
-  sharpening: 0,
-  clarity: 0,
-  noiseReductionLuma: 0,
-  noiseReductionColor: 0,
-  sigmoid: {
-    enabled: false,
-    contrast: 1.0,
-    skew: 0.0,
-    middleGrey: 0.1845,
-  },
-  hsl: {
-    red: { hue: 0, saturation: 0, luminance: 0 },
-    orange: { hue: 0, saturation: 0, luminance: 0 },
-    yellow: { hue: 0, saturation: 0, luminance: 0 },
-    green: { hue: 0, saturation: 0, luminance: 0 },
-    aqua: { hue: 0, saturation: 0, luminance: 0 },
-    blue: { hue: 0, saturation: 0, luminance: 0 },
-    purple: { hue: 0, saturation: 0, luminance: 0 },
-    magenta: { hue: 0, saturation: 0, luminance: 0 },
-  },
-  crop: null,
-  straighten: 0,
-  vignette: {
-    amount: 0,
-    midpoint: 50,
-    feather: 50,
-  },
-  grain: {
-    amount: 0,
-    size: 'medium',
-  },
-  removals: [],
-});
+// Use the centralized initial state creator to ensure all new modules are included
+const createDefaultAdjustments = createInitialAdjustmentState;
 
 // Built-in preset definitions
 export const builtInPresets: Preset[] = [
@@ -67,8 +24,8 @@ export const builtInPresets: Preset[] = [
       temperature: 6800,
       vibrance: 15,
       saturation: -5,
-      clarity: 15,
-      sharpening: 40,
+      clarity: 5,        // Reduced from 15
+      sharpening: 10,    // Reduced from 40
       hsl: {
         ...createDefaultAdjustments().hsl,
         orange: { hue: 0, saturation: 10, luminance: 5 },
@@ -88,8 +45,8 @@ export const builtInPresets: Preset[] = [
       shadows: 15,
       vibrance: 30,
       saturation: 10,
-      clarity: 25,
-      sharpening: 50,
+      clarity: 10,       // Reduced from 25
+      sharpening: 15,    // Reduced from 50
       hsl: {
         ...createDefaultAdjustments().hsl,
         blue: { hue: 0, saturation: 20, luminance: -5 },
@@ -107,8 +64,8 @@ export const builtInPresets: Preset[] = [
       highlights: -10,
       shadows: 10,
       saturation: -100,
-      clarity: 20,
-      sharpening: 45,
+      clarity: 8,        // Reduced from 20
+      sharpening: 12,    // Reduced from 45
     },
   },
   {
@@ -130,7 +87,7 @@ export const builtInPresets: Preset[] = [
         feather: 60,
       },
       grain: {
-        amount: 25,
+        amount: 8,       // Reduced from 25
         size: 'fine',
       },
     },
@@ -147,8 +104,8 @@ export const builtInPresets: Preset[] = [
       shadows: 20,
       vibrance: 50,
       saturation: 20,
-      clarity: 20,
-      sharpening: 40,
+      clarity: 8,        // Reduced from 20
+      sharpening: 12,    // Reduced from 40
     },
   },
   {
@@ -181,9 +138,9 @@ export const builtInPresets: Preset[] = [
       highlights: -40,
       shadows: -20,
       blacks: -30,
-      clarity: 40,
+      clarity: 15,       // Reduced from 40
       saturation: 15,
-      sharpening: 60,
+      sharpening: 18,    // Reduced from 60
       vignette: {
         amount: -50,
         midpoint: 30,
@@ -203,7 +160,7 @@ export const builtInPresets: Preset[] = [
       shadows: 30,
       temperature: 7000,
       saturation: -15,
-      clarity: -30,
+      clarity: -10,      // Reduced from -30 (less blur)
     },
   },
   {
@@ -273,8 +230,8 @@ export const builtInPresets: Preset[] = [
       whites: 20,
       blacks: -40,
       saturation: -100,
-      clarity: 30,
-      sharpening: 60,
+      clarity: 12,       // Reduced from 30
+      sharpening: 18,    // Reduced from 60
     },
   },
   {
@@ -346,7 +303,7 @@ export const builtInPresets: Preset[] = [
       blacks: -25,
       temperature: 5500,
       saturation: -15,
-      clarity: 25,
+      clarity: 10,       // Reduced from 25
       vignette: {
         amount: -60,
         midpoint: 30,
@@ -386,8 +343,8 @@ export const builtInPresets: Preset[] = [
       contrast: 10,
       highlights: -10,
       shadows: 10,
-      clarity: 10,
-      sharpening: 30,
+      clarity: 5,        // Reduced from 10
+      sharpening: 10,    // Reduced from 30
     },
   },
   {
@@ -403,8 +360,8 @@ export const builtInPresets: Preset[] = [
       temperature: 7200,
       vibrance: 30,
       saturation: 15,
-      clarity: 20,
-      sharpening: 50,
+      clarity: 8,        // Reduced from 20
+      sharpening: 15,    // Reduced from 50
       hsl: {
         ...createDefaultAdjustments().hsl,
         orange: { hue: 0, saturation: 25, luminance: 5 },
@@ -423,9 +380,9 @@ export const builtInPresets: Preset[] = [
       contrast: 30,
       highlights: -20,
       shadows: 10,
-      clarity: 30,
+      clarity: 12,       // Reduced from 30
       saturation: -10,
-      sharpening: 55,
+      sharpening: 18,    // Reduced from 55
     },
   },
   {
@@ -440,7 +397,7 @@ export const builtInPresets: Preset[] = [
       shadows: 35,
       temperature: 6800,
       saturation: -20,
-      clarity: -20,
+      clarity: -8,       // Reduced from -20 (less blur)
       hsl: {
         ...createDefaultAdjustments().hsl,
         red: { hue: 0, saturation: -15, luminance: 10 },
@@ -510,7 +467,7 @@ export const builtInPresets: Preset[] = [
       temperature: 5000,
       tint: -10,
       saturation: -20,
-      clarity: 20,
+      clarity: 8,        // Reduced from 20
       noiseReductionLuma: 30,
       hsl: {
         ...createDefaultAdjustments().hsl,

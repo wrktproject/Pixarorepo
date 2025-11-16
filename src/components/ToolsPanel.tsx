@@ -22,7 +22,11 @@ const GeometricAdjustments = React.lazy(() =>
   import('./GeometricAdjustments').then(module => ({ default: module.GeometricAdjustments }))
 );
 
-type ActiveTool = 'none' | 'adjustments' | 'crop' | 'removal' | 'blur';
+const PresetAdjustments = React.lazy(() => 
+  import('./PresetAdjustments').then(module => ({ default: module.PresetAdjustments }))
+);
+
+type ActiveTool = 'none' | 'adjustments' | 'crop' | 'removal' | 'blur' | 'presets';
 
 export const ToolsPanel: React.FC = () => {
   const hasImage = useSelector((state: RootState) => state.image.current !== null);
@@ -48,6 +52,26 @@ export const ToolsPanel: React.FC = () => {
             <line x1="4" y1="6" x2="20" y2="6" />
             <line x1="4" y1="12" x2="20" y2="12" />
             <line x1="4" y1="18" x2="20" y2="18" />
+          </svg>
+        </button>
+
+        {/* Presets Tool */}
+        <button
+          className={`tools-panel__icon-button ${activeTool === 'presets' ? 'tools-panel__icon-button--active' : ''}`}
+          onClick={() => handleToolClick('presets')}
+          disabled={disabled}
+          title="Presets"
+          aria-label="Presets"
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 2v4" />
+            <path d="M12 18v4" />
+            <path d="M4.93 4.93l2.83 2.83" />
+            <path d="M16.24 16.24l2.83 2.83" />
+            <path d="M2 12h4" />
+            <path d="M18 12h4" />
+            <path d="M4.93 19.07l2.83-2.83" />
+            <path d="M16.24 7.76l2.83-2.83" />
           </svg>
         </button>
 
@@ -102,6 +126,20 @@ export const ToolsPanel: React.FC = () => {
           <div className="tools-panel__body">
             <Suspense fallback={<div className="loading-section">Loading...</div>}>
               <EditingPanel />
+            </Suspense>
+          </div>
+        </div>
+      )}
+
+      {/* Presets Panel */}
+      {activeTool === 'presets' && (
+        <div className="tools-panel__content">
+          <div className="tools-panel__header">
+            <h2 className="tools-panel__title">Presets</h2>
+          </div>
+          <div className="tools-panel__body">
+            <Suspense fallback={<div className="loading-section">Loading...</div>}>
+              <PresetAdjustments disabled={disabled} />
             </Suspense>
           </div>
         </div>

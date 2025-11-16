@@ -11,6 +11,13 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  transition: background-color 0.2s ease;
+}
+
+.dragOver {
+  background-color: rgba(74, 158, 255, 0.1);
+  outline: 2px dashed rgba(74, 158, 255, 0.5);
+  outline-offset: -10px;
 }
 
 .canvas {
@@ -22,6 +29,11 @@
   transform-origin: center center;
   transition: transform 0.1s ease-out;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  
+  /* High-quality photo rendering - smooth, anti-aliased display */
+  /* With high-DPI buffer (devicePixelRatio scaling), this ensures crisp text and smooth images */
+  image-rendering: auto; /* Default smooth rendering (best for photos) */
+  image-rendering: high-quality; /* High-quality scaling when needed */
 }
 
 .controls {
@@ -148,6 +160,18 @@
   position: absolute;
   bottom: 20px;
   left: 20px;
-  width: 256px;
+  width: 280px;
   z-index: 10;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
