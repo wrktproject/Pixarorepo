@@ -627,9 +627,12 @@ export class ShaderPipeline {
     switch (pass.name) {
       case 'geometric':
         applyGeometricUniforms(this.gl, pass.program.uniforms, {
-          imageSize: { width: this.previewWidth, height: this.previewHeight },
+          imageSize: { width: this.imageWidth, height: this.imageHeight },
           cropBounds: adjustments.crop,
           rotationAngle: adjustments.straighten,
+          rotation90: adjustments.rotation,
+          flipHorizontal: adjustments.flipHorizontal,
+          flipVertical: adjustments.flipVertical,
         });
         break;
 
@@ -701,7 +704,10 @@ export class ShaderPipeline {
     // Check geometric adjustments
     if (
       JSON.stringify(prev.crop) !== JSON.stringify(adjustments.crop) ||
-      prev.straighten !== adjustments.straighten
+      prev.straighten !== adjustments.straighten ||
+      prev.rotation !== adjustments.rotation ||
+      prev.flipHorizontal !== adjustments.flipHorizontal ||
+      prev.flipVertical !== adjustments.flipVertical
     ) {
       this.markPassDirty('geometric');
     }

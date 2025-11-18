@@ -58,20 +58,26 @@ export function usePhotoSync() {
           }));
         }
 
-        // Load the new photo's data
+        console.log('🔄 Switching to photo:', {
+          id: photo.id,
+          dimensions: `${photo.original.width}x${photo.original.height}`,
+          hasCrop: !!photo.adjustments.crop,
+          rotation: photo.adjustments.rotation,
+        });
+
+        // IMPORTANT: Update adjustments FIRST before loading image
+        // This prevents the canvas from rendering the new image with old adjustments
+        dispatch(setAllAdjustments(photo.adjustments));
+        dispatch(setPresent(photo.adjustments));
+        dispatch(resetHistory(photo.adjustments));
+
+        // Then load the new photo's data
         dispatch(setOriginalImage(photo.original));
         if (photo.preview) {
           dispatch(setPreviewImage(photo.preview));
         }
         dispatch(setCurrentImage(photo.original));
         dispatch(setMetadata(photo.metadata));
-
-        // Load the new photo's adjustments
-        dispatch(setAllAdjustments(photo.adjustments));
-        dispatch(setPresent(photo.adjustments));
-
-        // Reset history for the new photo
-        dispatch(resetHistory(photo.adjustments));
 
         // Update the ref
         previousPhotoIdRef.current = currentPhotoId;

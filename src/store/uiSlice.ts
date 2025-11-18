@@ -15,6 +15,7 @@ const initialState: UIState = {
   isExportDialogOpen: false,
   activeTool: 'none',
   brushSize: 50,
+  showGrid: true,
   loadingState: {
     isLoading: false,
     operation: null,
@@ -99,6 +100,9 @@ const uiSlice = createSlice({
     setQualityMode: (state, action: PayloadAction<'preview' | 'export'>) => {
       state.qualityMode = action.payload;
     },
+    setShowGrid: (state, action: PayloadAction<boolean>) => {
+      state.showGrid = action.payload;
+    },
   },
 });
 
@@ -119,6 +123,7 @@ export const {
   setEnableToneMapping,
   toggleToneMapping,
   setQualityMode,
+  setShowGrid,
 } = uiSlice.actions;
 
 export default uiSlice.reducer;

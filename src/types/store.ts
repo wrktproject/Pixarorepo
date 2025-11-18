@@ -53,6 +53,7 @@ export interface UIState {
   isExportDialogOpen: boolean;
   activeTool: 'none' | 'crop' | 'removal';
   brushSize: number;
+  showGrid: boolean;
   loadingState: LoadingState;
   enableToneMapping: boolean;
   qualityMode: 'preview' | 'export';

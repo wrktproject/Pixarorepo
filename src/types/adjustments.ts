@@ -183,6 +183,9 @@ export interface AdjustmentState {
   // Geometric
   crop: CropBounds | null;
   straighten: number;     // -45 to +45 degrees
+  flipHorizontal: boolean;
+  flipVertical: boolean;
+  rotation: number;       // 0, 90, 180, 270 degrees
 
   // Effects
   vignette: VignetteSettings;

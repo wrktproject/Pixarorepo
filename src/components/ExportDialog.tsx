@@ -1,331 +1,267 @@
 /**
- * ExportDialog Component
- * Modal dialog for configuring export settings with error handling
+ * Export Dialog Component
+ * Allows users to export their edited images with various options
  */
 
-import React, { useState, useEffect } from 'react';
-import type { ExportDialogProps, ExportSettings, ExportFormat } from '../types/components';
-import { useExport } from '../utils/useExport';
+import React, { useState } from 'react';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../store';
+import {
+  exportCanvasToFile,
+  copyCanvasToClipboard,
+  getRecommendedExportSettings,
+  estimateExportSize,
+  formatFileSize,
+  type ExportOptions,
+} from '../utils/export';
 import './ExportDialog.css';
 
+export interface ExportDialogProps {
+  /** Canvas ref to export from */
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  
+  /** Called when export is complete */
+  onExportComplete?: () => void;
+  
+  /** Called when dialog should close */
+  onClose: () => void;
+}
+
 export const ExportDialog: React.FC<ExportDialogProps> = ({
-  isOpen,
+  canvasRef,
+  onExportComplete,
   onClose,
-  onExport,
-  currentImage,
 }) => {
-  const [format, setFormat] = useState<ExportFormat>('jpeg');
-  const [quality, setQuality] = useState<number>(90);
-  const [width, setWidth] = useState<number>(0);
-  const [height, setHeight] = useState<number>(0);
-  const [maintainAspectRatio, setMaintainAspectRatio] = useState<boolean>(true);
-  const [includeMetadata, setIncludeMetadata] = useState<boolean>(true);
+  const image = useSelector((state: RootState) => state.image.current);
+  const adjustments = useSelector((state: RootState) => state.adjustments);
+  
+  // Calculate final dimensions after crop and rotation
+  let finalWidth = image?.width || 0;
+  let finalHeight = image?.height || 0;
+  
+  if (adjustments.crop) {
+    finalWidth = adjustments.crop.width;
+    finalHeight = adjustments.crop.height;
+  }
+  
+  if (adjustments.rotation === 90 || adjustments.rotation === 270) {
+    [finalWidth, finalHeight] = [finalHeight, finalWidth];
+  }
+  
+  const [format, setFormat] = useState<'jpeg' | 'png' | 'webp'>('jpeg');
+  const [quality, setQuality] = useState(95);
+  const [filename, setFilename] = useState(`pixaro-export-${Date.now()}`);
+  const [isExporting, setIsExporting] = useState(false);
+  const [preset, setPreset] = useState<'custom' | 'web' | 'print' | 'social'>('custom');
 
-  // Use export hook for handling export process
-  const { exportImage, isExporting, progress, error, clearError, cancelExport } = useExport();
+  const estimatedSize = estimateExportSize(finalWidth, finalHeight, format, quality / 100);
 
-  // Initialize dimensions from current image
-  useEffect(() => {
-    if (currentImage) {
-      setWidth(currentImage.width);
-      setHeight(currentImage.height);
-    }
-  }, [currentImage]);
-
-  // Handle width change with aspect ratio lock
-  const handleWidthChange = (newWidth: number) => {
-    if (!currentImage) return;
-
-    setWidth(newWidth);
-
-    if (maintainAspectRatio) {
-      const aspectRatio = currentImage.width / currentImage.height;
-      setHeight(Math.round(newWidth / aspectRatio));
-    }
-  };
-
-  // Handle height change with aspect ratio lock
-  const handleHeightChange = (newHeight: number) => {
-    if (!currentImage) return;
-
-    setHeight(newHeight);
-
-    if (maintainAspectRatio) {
-      const aspectRatio = currentImage.width / currentImage.height;
-      setWidth(Math.round(newHeight * aspectRatio));
+  const handlePresetChange = (newPreset: typeof preset) => {
+    setPreset(newPreset);
+    
+    if (newPreset !== 'custom' && image) {
+      const recommended = getRecommendedExportSettings(image.width, image.height);
+      const settings = recommended[newPreset];
+      
+      setFormat(settings.format);
+      setQuality((settings.quality || 0.95) * 100);
     }
   };
 
-  // Handle aspect ratio lock toggle
-  const handleAspectRatioToggle = () => {
-    setMaintainAspectRatio(!maintainAspectRatio);
-  };
-
-  // Handle export button click
   const handleExport = async () => {
-    const settings: ExportSettings = {
-      format,
-      quality,
-      width,
-      height,
-      maintainAspectRatio,
-      includeMetadata,
-    };
+    if (!canvasRef.current) {
+      alert('Canvas not available');
+      return;
+    }
+
+    setIsExporting(true);
 
     try {
-      await exportImage(settings);
-      // Close dialog on successful export
-      if (!error) {
-        onClose();
-      }
-    } catch (err) {
-      // Error is handled by the hook
-      console.error('Export failed:', err);
+      const options: ExportOptions = {
+        format,
+        quality: quality / 100,
+        filename,
+      };
+
+      await exportCanvasToFile(canvasRef.current, options);
+      
+      console.log('✅ Export complete');
+      onExportComplete?.();
+      onClose();
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('Failed to export image. Please try again.');
+    } finally {
+      setIsExporting(false);
     }
   };
 
-  // Handle retry after error
-  const handleRetry = () => {
-    clearError();
-    handleExport();
-  };
-
-  // Handle reduce resolution option
-  const handleReduceResolution = () => {
-    clearError();
-    // Reduce to 50% of current dimensions
-    setWidth(Math.floor(width * 0.5));
-    setHeight(Math.floor(height * 0.5));
-  };
-
-  // Handle cancel during export
-  const handleCancel = () => {
-    if (isExporting) {
-      cancelExport();
+  const handleCopyToClipboard = async () => {
+    if (!canvasRef.current) {
+      alert('Canvas not available');
+      return;
     }
-    onClose();
-  };
 
-  // Reset to original dimensions
-  const handleResetDimensions = () => {
-    if (currentImage) {
-      setWidth(currentImage.width);
-      setHeight(currentImage.height);
+    try {
+      await copyCanvasToClipboard(canvasRef.current);
+      alert('Image copied to clipboard!');
+    } catch (error) {
+      console.error('Copy to clipboard failed:', error);
+      alert('Failed to copy to clipboard. Your browser may not support this feature.');
     }
   };
 
-  if (!isOpen || !currentImage) {
-    return null;
-  }
+  const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
 
   return (
-    <div 
-      className="export-dialog-overlay" 
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="export-dialog-title"
-    >
-      <div className="export-dialog" onClick={(e) => e.stopPropagation()}>
-        <div className="export-dialog-header">
-          <h2 id="export-dialog-title">Export Image</h2>
+    <div className="export-dialog-overlay" onClick={handleOverlayClick}>
+      <div className="export-dialog" role="dialog" aria-labelledby="export-title" aria-modal="true">
+        <div className="export-dialog__header">
+          <h2 id="export-title" className="export-dialog__title">Export Image</h2>
           <button
-            className="export-dialog-close"
+            className="export-dialog__close"
             onClick={onClose}
-            aria-label="Close dialog"
+            aria-label="Close export dialog"
           >
-            ×
+            ✕
           </button>
         </div>
 
-        <div className="export-dialog-content">
-          {/* Format Selection */}
-          <div className="export-section">
-            <label className="export-label" id="format-label">Format</label>
-            <div className="export-format-buttons" role="group" aria-labelledby="format-label">
+        <div className="export-dialog__content">
+          {/* Image Info */}
+          <div className="export-dialog__info">
+            <p>
+              <strong>Dimensions:</strong> {finalWidth} × {finalHeight} px
+            </p>
+            <p>
+              <strong>Estimated size:</strong> {formatFileSize(estimatedSize)}
+            </p>
+          </div>
+
+          {/* Preset Selection */}
+          <div className="export-dialog__field">
+            <label className="export-dialog__label">Preset</label>
+            <div className="export-dialog__presets">
               <button
-                className={`export-format-button ${format === 'jpeg' ? 'active' : ''}`}
-                onClick={() => setFormat('jpeg')}
-                aria-pressed={format === 'jpeg'}
-                aria-label="Export as JPEG format"
+                className={`export-dialog__preset ${preset === 'custom' ? 'export-dialog__preset--active' : ''}`}
+                onClick={() => handlePresetChange('custom')}
               >
-                JPEG
+                Custom
               </button>
               <button
-                className={`export-format-button ${format === 'png' ? 'active' : ''}`}
-                onClick={() => setFormat('png')}
-                aria-pressed={format === 'png'}
-                aria-label="Export as PNG format"
+                className={`export-dialog__preset ${preset === 'web' ? 'export-dialog__preset--active' : ''}`}
+                onClick={() => handlePresetChange('web')}
+                title="Optimized for web (2048px max, 85% quality)"
               >
-                PNG
+                Web
               </button>
               <button
-                className={`export-format-button ${format === 'tiff' ? 'active' : ''}`}
-                onClick={() => setFormat('tiff')}
-                aria-pressed={format === 'tiff'}
-                aria-label="Export as TIFF format"
+                className={`export-dialog__preset ${preset === 'print' ? 'export-dialog__preset--active' : ''}`}
+                onClick={() => handlePresetChange('print')}
+                title="High quality for printing (full resolution, 95% quality)"
               >
-                TIFF
+                Print
+              </button>
+              <button
+                className={`export-dialog__preset ${preset === 'social' ? 'export-dialog__preset--active' : ''}`}
+                onClick={() => handlePresetChange('social')}
+                title="Optimized for social media (1080px max, 80% quality)"
+              >
+                Social
               </button>
             </div>
           </div>
 
-          {/* Quality Slider (JPEG only) */}
-          {format === 'jpeg' && (
-            <div className="export-section">
-              <label className="export-label" htmlFor="quality-slider">
-                Quality: {quality}
+          {/* Format Selection */}
+          <div className="export-dialog__field">
+            <label className="export-dialog__label" htmlFor="export-format">
+              Format
+            </label>
+            <select
+              id="export-format"
+              className="export-dialog__select"
+              value={format}
+              onChange={(e) => {
+                setFormat(e.target.value as any);
+                setPreset('custom');
+              }}
+            >
+              <option value="jpeg">JPEG (smaller file)</option>
+              <option value="png">PNG (lossless)</option>
+              <option value="webp">WebP (modern)</option>
+            </select>
+          </div>
+
+          {/* Quality Slider (for JPEG/WebP) */}
+          {format !== 'png' && (
+            <div className="export-dialog__field">
+              <label className="export-dialog__label" htmlFor="export-quality">
+                Quality: {quality}%
               </label>
               <input
-                id="quality-slider"
+                id="export-quality"
                 type="range"
-                min="1"
+                min="60"
                 max="100"
-                step="1"
                 value={quality}
-                onChange={(e) => setQuality(Number(e.target.value))}
-                className="export-slider"
-                aria-label="JPEG quality"
-                aria-valuemin={1}
-                aria-valuemax={100}
-                aria-valuenow={quality}
-                aria-valuetext={`Quality ${quality}`}
+                onChange={(e) => {
+                  setQuality(Number(e.target.value));
+                  setPreset('custom');
+                }}
+                className="export-dialog__slider"
               />
-              <div className="export-quality-labels" aria-hidden="true">
-                <span>Low</span>
-                <span>High</span>
+              <div className="export-dialog__slider-labels">
+                <span>Smaller</span>
+                <span>Better</span>
               </div>
             </div>
           )}
 
-          {/* Resolution Settings */}
-          <div className="export-section">
-            <label className="export-label">Resolution</label>
-            <div className="export-resolution">
-              <div className="export-dimension-input">
-                <label htmlFor="export-width">Width</label>
-                <input
-                  id="export-width"
-                  type="number"
-                  min="1"
-                  max={currentImage.width}
-                  value={width}
-                  onChange={(e) => handleWidthChange(Number(e.target.value))}
-                  className="export-input"
-                />
-                <span className="export-unit">px</span>
-              </div>
-
-              <button
-                className={`export-aspect-lock ${maintainAspectRatio ? 'locked' : ''}`}
-                onClick={handleAspectRatioToggle}
-                aria-label={maintainAspectRatio ? 'Unlock aspect ratio' : 'Lock aspect ratio'}
-                title={maintainAspectRatio ? 'Unlock aspect ratio' : 'Lock aspect ratio'}
-              >
-                {maintainAspectRatio ? '🔒' : '🔓'}
-              </button>
-
-              <div className="export-dimension-input">
-                <label htmlFor="export-height">Height</label>
-                <input
-                  id="export-height"
-                  type="number"
-                  min="1"
-                  max={currentImage.height}
-                  value={height}
-                  onChange={(e) => handleHeightChange(Number(e.target.value))}
-                  className="export-input"
-                />
-                <span className="export-unit">px</span>
-              </div>
-            </div>
-
-            <button
-              className="export-reset-button"
-              onClick={handleResetDimensions}
-            >
-              Reset to Original ({currentImage.width} × {currentImage.height})
-            </button>
-          </div>
-
-          {/* Metadata Preservation */}
-          <div className="export-section">
-            <label className="export-checkbox-label">
-              <input
-                type="checkbox"
-                checked={includeMetadata}
-                onChange={(e) => setIncludeMetadata(e.target.checked)}
-                className="export-checkbox"
-                aria-label="Preserve EXIF metadata in exported image"
-              />
-              <span>Preserve EXIF metadata</span>
+          {/* Filename */}
+          <div className="export-dialog__field">
+            <label className="export-dialog__label" htmlFor="export-filename">
+              Filename
             </label>
+            <input
+              id="export-filename"
+              type="text"
+              className="export-dialog__input"
+              value={filename}
+              onChange={(e) => setFilename(e.target.value)}
+              placeholder="my-photo"
+            />
+            <span className="export-dialog__filename-ext">.{format}</span>
           </div>
         </div>
 
-        {/* Progress Indicator */}
-        {isExporting && progress && (
-          <div className="export-progress" role="status" aria-live="polite">
-            <div 
-              className="export-progress-bar"
-              role="progressbar"
-              aria-valuenow={progress.progress}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-label="Export progress"
+        <div className="export-dialog__footer">
+          <button
+            className="export-dialog__button export-dialog__button--secondary"
+            onClick={handleCopyToClipboard}
+            disabled={isExporting}
+          >
+            Copy to Clipboard
+          </button>
+          <div className="export-dialog__footer-right">
+            <button
+              className="export-dialog__button export-dialog__button--tertiary"
+              onClick={onClose}
+              disabled={isExporting}
             >
-              <div
-                className="export-progress-fill"
-                style={{ width: `${progress.progress}%` }}
-              />
-            </div>
-            <div className="export-progress-text">
-              {progress.stage === 'processing' && 'Processing image...'}
-              {progress.stage === 'encoding' && 'Encoding image...'}
-              {progress.stage === 'complete' && 'Complete!'}
-            </div>
+              Cancel
+            </button>
+            <button
+              className="export-dialog__button export-dialog__button--primary"
+              onClick={handleExport}
+              disabled={isExporting}
+            >
+              {isExporting ? 'Exporting...' : 'Export'}
+            </button>
           </div>
-        )}
-
-        {/* Error Display */}
-        {error && (
-          <div className="export-error" role="alert" aria-live="assertive">
-            <div className="export-error-message">
-              <span className="export-error-icon" aria-hidden="true">⚠️</span>
-              <span>{error}</span>
-            </div>
-            <div className="export-error-actions">
-              <button className="export-error-button" onClick={handleRetry} aria-label="Retry export">
-                Retry
-              </button>
-              {error.includes('memory') || error.includes('timeout') ? (
-                <button
-                  className="export-error-button"
-                  onClick={handleReduceResolution}
-                  aria-label="Reduce resolution and retry"
-                >
-                  Reduce Resolution
-                </button>
-              ) : null}
-            </div>
-          </div>
-        )}
-
-        <div className="export-dialog-footer">
-          <button
-            className="export-cancel-button"
-            onClick={handleCancel}
-            disabled={isExporting}
-          >
-            {isExporting ? 'Cancel Export' : 'Cancel'}
-          </button>
-          <button
-            className="export-confirm-button"
-            onClick={handleExport}
-            disabled={isExporting}
-          >
-            {isExporting ? 'Exporting...' : 'Export'}
-          </button>
         </div>
       </div>
     </div>

@@ -53,3 +53,39 @@
   min-width: 60px;
   text-align: center;
 }
+
+.export-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--size-border-radius-sm);
+  color: var(--color-text-primary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  box-shadow: 0 0 0 rgba(59, 130, 246, 0);
+}
+
+.export-button:hover {
+  background: var(--color-hover);
+  border-color: rgba(59, 130, 246, 0.5);
+  color: rgb(59, 130, 246);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
+}
+
+.export-button:focus-visible {
+  outline: 2px solid var(--color-accent-focus);
+  outline-offset: 2px;
+}
+
+.export-button:active {
+  transform: scale(0.98);
+}
+
+.export-button svg {
+  flex-shrink: 0;
+}

@@ -3,7 +3,7 @@
  * Professional photo editing application with dark theme UI
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import type { RootState } from './store';
 import { Canvas } from './components/Canvas';
@@ -20,6 +20,8 @@ import { BrowserWarning } from './components/BrowserWarning';
 import { useToast } from './hooks/useToast';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { usePhotoSync } from './hooks/usePhotoSync';
+import { useAutosave } from './hooks/useAutosave';
+import { useLibraryRestore } from './hooks/useLibraryRestore';
 import { ShortcutPanel } from './components/ShortcutPanel';
 import { adNetworkManager } from './utils/adNetwork';
 import { detectWebGLCapabilities, getWebGLWarningMessage } from './utils/webglDetection';
@@ -35,11 +37,20 @@ function App() {
   const [webglWarning, setWebglWarning] = useState<string | null>(null);
   const [browserWarning, setBrowserWarning] = useState<string | null>(null);
   
+  // Shared canvas ref for export functionality
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  
   // Initialize keyboard shortcuts
   useKeyboardShortcuts();
   
   // Sync photo adjustments with library
   usePhotoSync();
+  
+  // Restore library from storage on app load
+  const restoreStatus = useLibraryRestore();
+  
+  // Autosave library and session state
+  useAutosave({ debounceMs: 2000 });
 
   // Check browser compatibility on mount
   useEffect(() => {
@@ -124,6 +135,16 @@ function App() {
           fullScreen={true}
         />
 
+        {/* Library Restoration Overlay */}
+        {restoreStatus.isRestoring && (
+          <LoadingOverlay
+            isLoading={true}
+            message={`Restoring library... (${restoreStatus.photosRestored}/${restoreStatus.totalPhotos})`}
+            progress={restoreStatus.totalPhotos > 0 ? (restoreStatus.photosRestored / restoreStatus.totalPhotos) * 100 : undefined}
+            fullScreen={true}
+          />
+        )}
+
         {/* Toast Notifications */}
         <ToastContainer toasts={toasts} onRemove={removeToast} />
 
@@ -155,7 +176,7 @@ function App() {
             <div className="app-header__controls">
               {hasImage && (
                 <ErrorBoundary>
-                  <HistoryIndicator />
+                  <HistoryIndicator canvasRef={canvasRef} hasImage={hasImage} />
                 </ErrorBoundary>
               )}
             </div>
@@ -186,7 +207,7 @@ function App() {
           {/* Center Canvas Area */}
           <section id="main-content" className="app-canvas-area" role="region" aria-label="Image canvas">
             <ErrorBoundary>
-              {hasImage ? <Canvas /> : <ImageUploadContainer />}
+              {hasImage ? <Canvas canvasRef={canvasRef} /> : <ImageUploadContainer />}
             </ErrorBoundary>
           </section>
 

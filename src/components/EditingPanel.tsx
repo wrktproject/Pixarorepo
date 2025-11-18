@@ -19,8 +19,20 @@ export const EditingPanel: React.FC = () => {
   const dispatch = useDispatch();
   const hasImage = useSelector((state: RootState) => state.image.current !== null);
   const saturation = useSelector((state: RootState) => state.adjustments.saturation);
+  const exposure = useSelector((state: RootState) => state.adjustments.exposure);
+  const contrast = useSelector((state: RootState) => state.adjustments.contrast);
+  const highlights = useSelector((state: RootState) => state.adjustments.highlights);
+  const shadows = useSelector((state: RootState) => state.adjustments.shadows);
   const disabled = !hasImage;
   const [sectionsExpanded, setSectionsExpanded] = useState(false);
+  
+  // Store previous values before auto adjustment
+  const [previousAutoValues, setPreviousAutoValues] = useState<{
+    exposure: number;
+    contrast: number;
+    highlights: number;
+    shadows: number;
+  } | null>(null);
 
   // Animate sections open when image loads
   useEffect(() => {
@@ -42,13 +54,29 @@ export const EditingPanel: React.FC = () => {
   }, [dispatch, saturation]);
 
   const handleAuto = useCallback(() => {
-    // Auto-adjust basic settings (simple algorithm)
-    // This is a placeholder - you could implement histogram analysis here
-    dispatch(setExposure(0));
-    dispatch(setContrast(20));
-    dispatch(setHighlights(-20));
-    dispatch(setShadows(20));
-  }, [dispatch]);
+    if (previousAutoValues) {
+      // Toggle back to previous values
+      dispatch(setExposure(previousAutoValues.exposure));
+      dispatch(setContrast(previousAutoValues.contrast));
+      dispatch(setHighlights(previousAutoValues.highlights));
+      dispatch(setShadows(previousAutoValues.shadows));
+      setPreviousAutoValues(null);
+    } else {
+      // Store current values before auto-adjusting
+      setPreviousAutoValues({
+        exposure,
+        contrast,
+        highlights,
+        shadows,
+      });
+      
+      // Apply auto-adjust settings (simple algorithm)
+      dispatch(setExposure(0));
+      dispatch(setContrast(20));
+      dispatch(setHighlights(-20));
+      dispatch(setShadows(20));
+    }
+  }, [dispatch, previousAutoValues, exposure, contrast, highlights, shadows]);
 
   return (
     <div className="editing-panel" role="region" aria-label="Editing adjustments panel">
@@ -56,12 +84,12 @@ export const EditingPanel: React.FC = () => {
         {/* Auto Controls */}
         <div className="editing-panel__auto-controls">
           <button
-            className="editing-panel__auto-button"
+            className={`editing-panel__auto-button ${previousAutoValues ? 'active' : ''}`}
             onClick={handleAuto}
             disabled={disabled}
-            title="Auto-adjust exposure, contrast, highlights, and shadows"
+            title={previousAutoValues ? "Reset to previous values" : "Auto-adjust exposure, contrast, highlights, and shadows"}
           >
-            Auto
+            {previousAutoValues ? "Reset" : "Auto"}
           </button>
           <button
             className="editing-panel__auto-button"

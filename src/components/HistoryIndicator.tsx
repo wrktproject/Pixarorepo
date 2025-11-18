@@ -3,11 +3,22 @@
  * Displays the current position in the edit history
  */
 
+import { useState } from 'react';
 import { useHistory } from '../utils/useHistory';
+import { ExportDialog } from './ExportDialog';
 import './HistoryIndicator.css';
 
-export const HistoryIndicator = () => {
+export interface HistoryIndicatorProps {
+  canvasRef?: React.RefObject<HTMLCanvasElement | null>;
+  hasImage?: boolean;
+}
+
+export const HistoryIndicator: React.FC<HistoryIndicatorProps> = ({ 
+  canvasRef,
+  hasImage = true,
+}) => {
   const { undo, redo, canUndo, canRedo, historyPosition } = useHistory();
+  const [showExportDialog, setShowExportDialog] = useState(false);
 
   return (
     <div className="history-indicator">
@@ -62,6 +73,44 @@ export const HistoryIndicator = () => {
           />
         </svg>
       </button>
+
+      {/* Export Button */}
+      {hasImage && (
+        <button
+          className="export-button"
+          onClick={() => setShowExportDialog(true)}
+          title="Export image"
+          aria-label="Export edited image"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M8 2V10M8 2L5 5M8 2L11 5M2 10V13C2 13.5523 2.44772 14 3 14H13C13.5523 14 14 13.5523 14 13V10"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          Export
+        </button>
+      )}
+
+      {/* Export Dialog */}
+      {showExportDialog && canvasRef && (
+        <ExportDialog
+          canvasRef={canvasRef}
+          onClose={() => setShowExportDialog(false)}
+          onExportComplete={() => {
+            console.log('✅ Export successful');
+          }}
+        />
+      )}
     </div>
   );
 };

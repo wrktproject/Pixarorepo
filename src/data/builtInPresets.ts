@@ -60,12 +60,14 @@ export const builtInPresets: Preset[] = [
     isBuiltIn: true,
     adjustments: {
       ...createDefaultAdjustments(),
-      contrast: 25,
-      highlights: -10,
-      shadows: 10,
+      contrast: 45,
+      highlights: -15,
+      shadows: 15,
+      whites: 10,
+      blacks: -15,
       saturation: -100,
-      clarity: 8,        // Reduced from 20
-      sharpening: 12,    // Reduced from 45
+      clarity: 10,       // Reduced from 20
+      sharpening: 15,    // Reduced from 45
     },
   },
   {

@@ -7,7 +7,7 @@ import { useEffect, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState } from '../store';
 import { undo, redo } from '../store/historySlice';
-import { toggleComparison, toggleHistogram, resetView } from '../store/uiSlice';
+import { setShowComparison, toggleHistogram, resetView } from '../store/uiSlice';
 import {
   setExposure,
   setContrast,
@@ -73,11 +73,11 @@ export const useKeyboardShortcuts = () => {
       },
       category: 'editing',
     },
-    // View shortcuts
+    // View shortcuts (spacebar handled separately in handleKeyDown/handleKeyUp)
     {
-      key: ' ',
-      description: 'Toggle before/after comparison',
-      action: () => dispatch(toggleComparison()),
+      key: 'c',
+      description: 'Hold to show before',
+      action: () => {}, // Handled in handleKeyDown/handleKeyUp
       category: 'view',
     },
     {
@@ -234,6 +234,13 @@ export const useKeyboardShortcuts = () => {
         return;
       }
 
+      // Special handling for spacebar: show "before" while held
+      if (event.key === ' ' && !event.repeat) {
+        event.preventDefault();
+        dispatch(setShowComparison(true));
+        return;
+      }
+
       // Find matching shortcut
       const matchingShortcut = shortcuts.find((shortcut) => {
         const keyMatches = event.key.toLowerCase() === shortcut.key.toLowerCase();
@@ -249,16 +256,39 @@ export const useKeyboardShortcuts = () => {
         matchingShortcut.action();
       }
     },
-    [shortcuts]
+    [shortcuts, dispatch]
+  );
+
+  const handleKeyUp = useCallback(
+    (event: KeyboardEvent) => {
+      // Don't trigger shortcuts when typing in input fields
+      const target = event.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      // Special handling for spacebar: hide "before" when released
+      if (event.key === ' ') {
+        event.preventDefault();
+        dispatch(setShowComparison(false));
+      }
+    },
+    [dispatch]
   );
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [handleKeyDown]);
+  }, [handleKeyDown, handleKeyUp]);
 
   return { shortcuts };
 };

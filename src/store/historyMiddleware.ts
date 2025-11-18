@@ -8,33 +8,13 @@ import { addToHistory, undo, redo } from './historySlice';
 import { setAllAdjustments } from './adjustmentsSlice';
 
 // List of adjustment actions that should trigger history updates
+// NOTE: Most slider adjustments manually call addToHistory on mouse release
+// Only actions without explicit onChangeComplete handlers should be here
 const ADJUSTMENT_ACTIONS = [
-  'adjustments/setExposure',
-  'adjustments/setContrast',
-  'adjustments/setHighlights',
-  'adjustments/setShadows',
-  'adjustments/setWhites',
-  'adjustments/setBlacks',
-  'adjustments/setTemperature',
-  'adjustments/setTint',
-  'adjustments/setVibrance',
-  'adjustments/setSaturation',
-  'adjustments/setSharpening',
-  'adjustments/setClarity',
-  'adjustments/setNoiseReductionLuma',
-  'adjustments/setNoiseReductionColor',
-  'adjustments/setHSLHue',
-  'adjustments/setHSLSaturation',
-  'adjustments/setHSLLuminance',
-  'adjustments/setCrop',
-  'adjustments/setStraighten',
-  'adjustments/setVignetteAmount',
-  'adjustments/setVignetteMidpoint',
-  'adjustments/setVignetteFeather',
-  'adjustments/setGrainAmount',
-  'adjustments/setGrainSize',
   'adjustments/addRemovalOperation',
   'adjustments/removeRemovalOperation',
+  'adjustments/setCrop', // Crop applies on "Apply" button
+  'adjustments/setStraighten', // Straighten uses explicit handler
 ];
 
 // Actions that should NOT trigger history updates
@@ -46,6 +26,8 @@ const EXCLUDED_ACTIONS = [
   'history/resetHistory',
   'adjustments/resetAdjustments',
   'adjustments/clearRemovalOperations',
+  'adjustments/setCropPreview', // Don't add to history while dragging crop
+  'adjustments/setStraightenPreview', // Don't add to history while dragging rotation slider
   'adjustments/setAllAdjustments',
 ];
 

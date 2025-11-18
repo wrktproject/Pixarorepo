@@ -1,31 +1,14 @@
 /**
  * CropTool Component
- * Provides draggable crop overlay with aspect ratio presets and composition grids
+ * Provides draggable crop overlay with real-time preview
  */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import type { RootState } from '../store';
-import { setCrop } from '../store/adjustmentsSlice';
-import { setActiveTool } from '../store/uiSlice';
+import { setCropPreview } from '../store/adjustmentsSlice';
 import type { CropBounds } from '../types/adjustments';
 import './CropTool.css';
-
-type AspectRatioPreset = '1:1' | '4:3' | '16:9' | 'original' | 'freeform';
-
-interface AspectRatioOption {
-  label: string;
-  value: AspectRatioPreset;
-  ratio: number | null;
-}
-
-const ASPECT_RATIO_PRESETS: AspectRatioOption[] = [
-  { label: 'Freeform', value: 'freeform', ratio: null },
-  { label: '1:1', value: '1:1', ratio: 1 },
-  { label: '4:3', value: '4:3', ratio: 4 / 3 },
-  { label: '16:9', value: '16:9', ratio: 16 / 9 },
-  { label: 'Original', value: 'original', ratio: null }, // Will be set based on image
-];
 
 type DragHandle =
   | 'nw'
@@ -42,230 +25,245 @@ type DragHandle =
 export const CropTool: React.FC = () => {
   const dispatch = useDispatch();
   const overlayRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   // Redux state
   const image = useSelector((state: RootState) => state.image.current);
   const cropBounds = useSelector((state: RootState) => state.adjustments.crop);
   const activeTool = useSelector((state: RootState) => state.ui.activeTool);
+  const showGrid = useSelector((state: RootState) => state.ui.showGrid);
 
   // Local state
-  const [selectedPreset, setSelectedPreset] = useState<AspectRatioPreset>('freeform');
-  const [showGrid, setShowGrid] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
   const [dragHandle, setDragHandle] = useState<DragHandle>(null);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [originalAspectRatio, setOriginalAspectRatio] = useState<number | null>(null);
+  const [dragStartBounds, setDragStartBounds] = useState<CropBounds | null>(null);
+  const [canvasElement, setCanvasElement] = useState<HTMLCanvasElement | null>(null);
+  const [canvasRect, setCanvasRect] = useState<DOMRect | null>(null);
+  // Local preview bounds for smooth dragging (only sync to Redux on mouse up)
+  const [previewBounds, setPreviewBounds] = useState<CropBounds | null>(null);
+
+  // Find the canvas element
+  useEffect(() => {
+    const canvas = document.querySelector('canvas');
+    if (canvas) {
+      setCanvasElement(canvas);
+    }
+  }, []);
+
+  // Update canvas rect when zoom/pan changes or window resizes
+  useEffect(() => {
+    if (!canvasElement) return;
+
+    const updateCanvasRect = () => {
+      const rect = canvasElement.getBoundingClientRect();
+      setCanvasRect(rect);
+    };
+
+    updateCanvasRect();
+    window.addEventListener('resize', updateCanvasRect);
+    window.addEventListener('scroll', updateCanvasRect, true);
+    
+    // Use ResizeObserver to track canvas size changes (more efficient than RAF)
+    const resizeObserver = new ResizeObserver(updateCanvasRect);
+    resizeObserver.observe(canvasElement);
+    
+    // Also observe parent container changes
+    const parent = canvasElement.parentElement;
+    if (parent) {
+      resizeObserver.observe(parent);
+    }
+
+    return () => {
+      window.removeEventListener('resize', updateCanvasRect);
+      window.removeEventListener('scroll', updateCanvasRect, true);
+      resizeObserver.disconnect();
+    };
+  }, [canvasElement]);
 
   // Initialize crop bounds when tool is activated
+  // ALWAYS reset to full image, regardless of any rotation
   useEffect(() => {
-    if (activeTool === 'crop' && image && !cropBounds) {
-      // Set original aspect ratio
-      const ratio = image.width / image.height;
-      setOriginalAspectRatio(ratio);
-
-      // Initialize with full image bounds
+    if (activeTool === 'crop' && image) {
+      // Reset to full image bounds - user can manually adjust
+      // Use preview so it doesn't add to history yet
       const initialBounds: CropBounds = {
         x: 0,
         y: 0,
         width: image.width,
         height: image.height,
-        aspectRatio: null,
+        aspectRatio: null, // Free-form by default
       };
-      dispatch(setCrop(initialBounds));
+      dispatch(setCropPreview(initialBounds));
     }
-  }, [activeTool, image, cropBounds, dispatch]);
+  }, [activeTool, image, dispatch]);
 
-  /**
-   * Handle aspect ratio preset selection
-   */
-  const handlePresetChange = useCallback(
-    (preset: AspectRatioPreset) => {
-      if (!cropBounds || !image) return;
+  // Convert image coordinates to screen coordinates
+  const imageToScreen = useCallback((x: number, y: number): { x: number; y: number } => {
+    if (!canvasRect || !image) return { x: 0, y: 0 };
+    
+    // The canvas is sized to fit the image while maintaining aspect ratio
+    // Crop works in original image space - rotation is handled by shader
+    const effectiveWidth = image.width;
+    const effectiveHeight = image.height;
+    
+    const imageAspect = effectiveWidth / effectiveHeight;
+    const canvasAspect = canvasRect.width / canvasRect.height;
+    
+    let displayWidth, displayHeight, offsetX, offsetY;
+    
+    if (imageAspect > canvasAspect) {
+      // Image is wider - letterboxed vertically
+      displayWidth = canvasRect.width;
+      displayHeight = canvasRect.width / imageAspect;
+      offsetX = 0;
+      offsetY = (canvasRect.height - displayHeight) / 2;
+    } else {
+      // Image is taller - pillarboxed horizontally
+      displayHeight = canvasRect.height;
+      displayWidth = canvasRect.height * imageAspect;
+      offsetX = (canvasRect.width - displayWidth) / 2;
+      offsetY = 0;
+    }
+    
+    // Scale based on original image dimensions
+    const scaleX = displayWidth / effectiveWidth;
+    const scaleY = displayHeight / effectiveHeight;
+    
+    // Convert from image coords to screen coords
+    return {
+      x: x * scaleX + offsetX,
+      y: y * scaleY + offsetY,
+    };
+  }, [canvasRect, image]);
 
-      setSelectedPreset(preset);
+  const handleMouseDown = useCallback((e: React.MouseEvent, handle: DragHandle) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!cropBounds || !canvasRect) return;
 
-      let newAspectRatio: number | null = null;
+    setIsDragging(true);
+    setDragHandle(handle);
+    setDragStart({ x: e.clientX, y: e.clientY });
+    setDragStartBounds({ ...cropBounds });
+  }, [cropBounds, canvasRect]);
 
-      if (preset === 'original' && originalAspectRatio) {
-        newAspectRatio = originalAspectRatio;
-      } else {
-        const option = ASPECT_RATIO_PRESETS.find((p) => p.value === preset);
-        newAspectRatio = option?.ratio ?? null;
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDragging || !dragStartBounds || !canvasRect || !image) return;
+
+    const deltaX = e.clientX - dragStart.x;
+    const deltaY = e.clientY - dragStart.y;
+
+    // Convert screen delta to image delta
+    // Crop works in original image space - rotation is handled by shader
+    const effectiveWidth = image.width;
+    const effectiveHeight = image.height;
+    
+    const imageAspect = effectiveWidth / effectiveHeight;
+    const canvasAspect = canvasRect.width / canvasRect.height;
+    
+    let displayWidth, displayHeight;
+    
+    if (imageAspect > canvasAspect) {
+      displayWidth = canvasRect.width;
+      displayHeight = canvasRect.width / imageAspect;
+    } else {
+      displayHeight = canvasRect.height;
+      displayWidth = canvasRect.height * imageAspect;
+    }
+    
+    const scaleX = displayWidth / effectiveWidth;
+    const scaleY = displayHeight / effectiveHeight;
+    
+    const imageDeltaX = deltaX / scaleX;
+    const imageDeltaY = deltaY / scaleY;
+
+    let newBounds = { ...dragStartBounds };
+
+    if (dragHandle === 'move') {
+      // Move the entire crop area
+      newBounds.x = Math.max(0, Math.min(image.width - dragStartBounds.width, dragStartBounds.x + imageDeltaX));
+      newBounds.y = Math.max(0, Math.min(image.height - dragStartBounds.height, dragStartBounds.y + imageDeltaY));
+    } else if (dragHandle) {
+      // Resize crop area
+      const minSize = 50;
+      
+      // Determine if this is a corner handle (maintains aspect ratio) or edge handle (free resize)
+      const isCornerHandle = dragHandle.length === 2; // 'nw', 'ne', 'sw', 'se'
+      // Edge handles (single char: 'n', 's', 'e', 'w') resize freely without aspect ratio constraint
+      
+      // Handle horizontal resizing
+      if (dragHandle.includes('w')) {
+        const newX = Math.max(0, dragStartBounds.x + imageDeltaX);
+        const newWidth = dragStartBounds.width + (dragStartBounds.x - newX);
+        if (newWidth >= minSize) {
+          newBounds.x = newX;
+          newBounds.width = newWidth;
+        }
+      } else if (dragHandle.includes('e')) {
+        newBounds.width = Math.min(image.width - dragStartBounds.x, Math.max(minSize, dragStartBounds.width + imageDeltaX));
       }
 
-      // Adjust crop bounds to match new aspect ratio
-      if (newAspectRatio !== null) {
-        const currentAspect = cropBounds.width / cropBounds.height;
-
-        let newWidth = cropBounds.width;
-        let newHeight = cropBounds.height;
-
-        if (currentAspect > newAspectRatio) {
-          // Too wide, adjust width
-          newWidth = cropBounds.height * newAspectRatio;
-        } else {
-          // Too tall, adjust height
-          newHeight = cropBounds.width / newAspectRatio;
+      // Handle vertical resizing
+      if (dragHandle.includes('n')) {
+        const newY = Math.max(0, dragStartBounds.y + imageDeltaY);
+        const newHeight = dragStartBounds.height + (dragStartBounds.y - newY);
+        if (newHeight >= minSize) {
+          newBounds.y = newY;
+          newBounds.height = newHeight;
         }
-
-        // Center the new bounds
-        const newX = cropBounds.x + (cropBounds.width - newWidth) / 2;
-        const newY = cropBounds.y + (cropBounds.height - newHeight) / 2;
-
-        dispatch(
-          setCrop({
-            x: Math.max(0, newX),
-            y: Math.max(0, newY),
-            width: Math.min(newWidth, image.width),
-            height: Math.min(newHeight, image.height),
-            aspectRatio: newAspectRatio,
-          })
-        );
-      } else {
-        // Freeform - just update aspect ratio
-        dispatch(
-          setCrop({
-            ...cropBounds,
-            aspectRatio: null,
-          })
-        );
+      } else if (dragHandle.includes('s')) {
+        newBounds.height = Math.min(image.height - dragStartBounds.y, Math.max(minSize, dragStartBounds.height + imageDeltaY));
       }
-    },
-    [cropBounds, image, originalAspectRatio, dispatch]
-  );
 
-  /**
-   * Handle mouse down on drag handles
-   */
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent, handle: DragHandle) => {
-      if (!cropBounds) return;
-
-      e.preventDefault();
-      e.stopPropagation();
-
-      setIsDragging(true);
-      setDragHandle(handle);
-      setDragStart({ x: e.clientX, y: e.clientY });
-    },
-    [cropBounds]
-  );
-
-  /**
-   * Handle mouse move for dragging
-   */
-  const handleMouseMove = useCallback(
-    (e: MouseEvent) => {
-      if (!isDragging || !dragHandle || !cropBounds || !image || !containerRef.current)
-        return;
-
-      const container = containerRef.current;
-      const rect = container.getBoundingClientRect();
-
-      // Calculate scale factor between display and actual image
-      const scaleX = image.width / rect.width;
-      const scaleY = image.height / rect.height;
-
-      const deltaX = (e.clientX - dragStart.x) * scaleX;
-      const deltaY = (e.clientY - dragStart.y) * scaleY;
-
-      let newBounds = { ...cropBounds };
-
-      if (dragHandle === 'move') {
-        // Move entire crop area
-        newBounds.x = Math.max(0, Math.min(image.width - cropBounds.width, cropBounds.x + deltaX));
-        newBounds.y = Math.max(0, Math.min(image.height - cropBounds.height, cropBounds.y + deltaY));
-      } else {
-        // Resize from handle
-        const aspectRatio = cropBounds.aspectRatio;
-
-        switch (dragHandle) {
-          case 'nw':
-            newBounds.x = Math.max(0, cropBounds.x + deltaX);
-            newBounds.y = Math.max(0, cropBounds.y + deltaY);
-            newBounds.width = cropBounds.width - (newBounds.x - cropBounds.x);
-            newBounds.height = cropBounds.height - (newBounds.y - cropBounds.y);
-            break;
-          case 'n':
-            newBounds.y = Math.max(0, cropBounds.y + deltaY);
-            newBounds.height = cropBounds.height - (newBounds.y - cropBounds.y);
-            break;
-          case 'ne':
-            newBounds.y = Math.max(0, cropBounds.y + deltaY);
-            newBounds.width = Math.min(image.width - cropBounds.x, cropBounds.width + deltaX);
-            newBounds.height = cropBounds.height - (newBounds.y - cropBounds.y);
-            break;
-          case 'e':
-            newBounds.width = Math.min(image.width - cropBounds.x, cropBounds.width + deltaX);
-            break;
-          case 'se':
-            newBounds.width = Math.min(image.width - cropBounds.x, cropBounds.width + deltaX);
-            newBounds.height = Math.min(image.height - cropBounds.y, cropBounds.height + deltaY);
-            break;
-          case 's':
-            newBounds.height = Math.min(image.height - cropBounds.y, cropBounds.height + deltaY);
-            break;
-          case 'sw':
-            newBounds.x = Math.max(0, cropBounds.x + deltaX);
-            newBounds.width = cropBounds.width - (newBounds.x - cropBounds.x);
-            newBounds.height = Math.min(image.height - cropBounds.y, cropBounds.height + deltaY);
-            break;
-          case 'w':
-            newBounds.x = Math.max(0, cropBounds.x + deltaX);
-            newBounds.width = cropBounds.width - (newBounds.x - cropBounds.x);
-            break;
-        }
-
-        // Apply aspect ratio constraint if set
-        if (aspectRatio !== null && dragHandle !== 'n' && dragHandle !== 's') {
-          const currentAspect = newBounds.width / newBounds.height;
-
-          if (Math.abs(currentAspect - aspectRatio) > 0.01) {
-            // Adjust based on which dimension changed more
-            if (dragHandle === 'e' || dragHandle === 'w') {
-              newBounds.height = newBounds.width / aspectRatio;
-            } else {
-              newBounds.width = newBounds.height * aspectRatio;
+      // Maintain aspect ratio ONLY for corner handles (if aspect ratio is set)
+      if (dragStartBounds.aspectRatio && isCornerHandle) {
+        const currentRatio = newBounds.width / newBounds.height;
+        if (Math.abs(currentRatio - dragStartBounds.aspectRatio) > 0.01) {
+          // For corner handles, adjust both dimensions to maintain aspect ratio
+          if (dragHandle.includes('e') || dragHandle.includes('w')) {
+            newBounds.height = newBounds.width / dragStartBounds.aspectRatio;
+            // Adjust y position for top corners
+            if (dragHandle.includes('n')) {
+              newBounds.y = dragStartBounds.y + dragStartBounds.height - newBounds.height;
+            }
+          } else {
+            newBounds.width = newBounds.height * dragStartBounds.aspectRatio;
+            // Adjust x position for left corners
+            if (dragHandle.includes('w')) {
+              newBounds.x = dragStartBounds.x + dragStartBounds.width - newBounds.width;
             }
           }
         }
-
-        // Ensure minimum size
-        newBounds.width = Math.max(50, newBounds.width);
-        newBounds.height = Math.max(50, newBounds.height);
-
-        // Ensure bounds stay within image
-        if (newBounds.x + newBounds.width > image.width) {
-          newBounds.width = image.width - newBounds.x;
-        }
-        if (newBounds.y + newBounds.height > image.height) {
-          newBounds.height = image.height - newBounds.y;
-        }
       }
+      // Edge handles ignore aspect ratio - they resize freely
+    }
 
-      dispatch(setCrop(newBounds));
-      setDragStart({ x: e.clientX, y: e.clientY });
-    },
-    [isDragging, dragHandle, cropBounds, image, dragStart, dispatch]
-  );
+    // Clamp bounds to image
+    newBounds.x = Math.max(0, Math.min(image.width - newBounds.width, newBounds.x));
+    newBounds.y = Math.max(0, Math.min(image.height - newBounds.height, newBounds.y));
+    newBounds.width = Math.min(image.width - newBounds.x, newBounds.width);
+    newBounds.height = Math.min(image.height - newBounds.y, newBounds.height);
 
-  /**
-   * Handle mouse up to end dragging
-   */
+    // Update local preview instantly for smooth dragging (no Redux dispatch until mouse up)
+    setPreviewBounds(newBounds);
+  }, [isDragging, dragHandle, dragStart, dragStartBounds, canvasRect, image]);
+
   const handleMouseUp = useCallback(() => {
+    // Commit the preview bounds to Redux when drag ends
+    if (previewBounds) {
+      dispatch(setCropPreview(previewBounds));
+    }
     setIsDragging(false);
     setDragHandle(null);
-  }, []);
+    setPreviewBounds(null);
+  }, [previewBounds, dispatch]);
 
-  /**
-   * Set up global mouse event listeners
-   */
+  // Add global mouse event listeners
   useEffect(() => {
     if (isDragging) {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
-
       return () => {
         window.removeEventListener('mousemove', handleMouseMove);
         window.removeEventListener('mouseup', handleMouseUp);
@@ -273,159 +271,68 @@ export const CropTool: React.FC = () => {
     }
   }, [isDragging, handleMouseMove, handleMouseUp]);
 
-  /**
-   * Apply crop and close tool
-   */
-  const handleApply = useCallback(() => {
-    dispatch(setActiveTool('none'));
-  }, [dispatch]);
-
-  /**
-   * Cancel crop and close tool
-   */
-  const handleCancel = useCallback(() => {
-    dispatch(setCrop(null));
-    dispatch(setActiveTool('none'));
-  }, [dispatch]);
-
-  /**
-   * Reset crop to full image
-   */
-  const handleReset = useCallback(() => {
-    if (!image) return;
-
-    dispatch(
-      setCrop({
-        x: 0,
-        y: 0,
-        width: image.width,
-        height: image.height,
-        aspectRatio: null,
-      })
-    );
-    setSelectedPreset('freeform');
-  }, [image, dispatch]);
-
-  if (activeTool !== 'crop' || !image || !cropBounds) {
+  // Don't render if tool is not active or we don't have the necessary data
+  if (activeTool !== 'crop' || !image || !canvasRect) {
     return null;
   }
 
+  // Use preview bounds during dragging for instant feedback, otherwise use Redux bounds
+  const displayBounds = previewBounds || cropBounds;
+  
+  if (!displayBounds) {
+    return null;
+  }
+
+  // Calculate crop rectangle position and size in screen coordinates
+  const topLeft = imageToScreen(displayBounds.x, displayBounds.y);
+  const bottomRight = imageToScreen(displayBounds.x + displayBounds.width, displayBounds.y + displayBounds.height);
+  const screenWidth = bottomRight.x - topLeft.x;
+  const screenHeight = bottomRight.y - topLeft.y;
+
   return (
-    <div className="crop-tool">
-      {/* Crop overlay */}
-      <div ref={containerRef} className="crop-tool__overlay-container">
-        <div
-          ref={overlayRef}
-          className="crop-tool__overlay"
-          style={{
-            left: `${(cropBounds.x / image.width) * 100}%`,
-            top: `${(cropBounds.y / image.height) * 100}%`,
-            width: `${(cropBounds.width / image.width) * 100}%`,
-            height: `${(cropBounds.height / image.height) * 100}%`,
-          }}
-        >
-          {/* Darkened areas outside crop */}
-          <div className="crop-tool__mask crop-tool__mask--top" />
-          <div className="crop-tool__mask crop-tool__mask--right" />
-          <div className="crop-tool__mask crop-tool__mask--bottom" />
-          <div className="crop-tool__mask crop-tool__mask--left" />
-
-          {/* Crop border */}
-          <div className="crop-tool__border" />
-
-          {/* Grid overlay (rule of thirds) */}
-          {showGrid && (
-            <div className="crop-tool__grid">
-              <div className="crop-tool__grid-line crop-tool__grid-line--v1" />
-              <div className="crop-tool__grid-line crop-tool__grid-line--v2" />
-              <div className="crop-tool__grid-line crop-tool__grid-line--h1" />
-              <div className="crop-tool__grid-line crop-tool__grid-line--h2" />
-            </div>
-          )}
-
-          {/* Drag handles */}
-          <div
-            className="crop-tool__handle crop-tool__handle--nw"
-            onMouseDown={(e) => handleMouseDown(e, 'nw')}
-          />
-          <div
-            className="crop-tool__handle crop-tool__handle--n"
-            onMouseDown={(e) => handleMouseDown(e, 'n')}
-          />
-          <div
-            className="crop-tool__handle crop-tool__handle--ne"
-            onMouseDown={(e) => handleMouseDown(e, 'ne')}
-          />
-          <div
-            className="crop-tool__handle crop-tool__handle--e"
-            onMouseDown={(e) => handleMouseDown(e, 'e')}
-          />
-          <div
-            className="crop-tool__handle crop-tool__handle--se"
-            onMouseDown={(e) => handleMouseDown(e, 'se')}
-          />
-          <div
-            className="crop-tool__handle crop-tool__handle--s"
-            onMouseDown={(e) => handleMouseDown(e, 's')}
-          />
-          <div
-            className="crop-tool__handle crop-tool__handle--sw"
-            onMouseDown={(e) => handleMouseDown(e, 'sw')}
-          />
-          <div
-            className="crop-tool__handle crop-tool__handle--w"
-            onMouseDown={(e) => handleMouseDown(e, 'w')}
-          />
-
-          {/* Move handle (center area) */}
-          <div
-            className="crop-tool__move-area"
-            onMouseDown={(e) => handleMouseDown(e, 'move')}
-          />
-        </div>
-      </div>
-
-      {/* Controls panel */}
-      <div className="crop-tool__controls">
-        <div className="crop-tool__section">
-          <h3 className="crop-tool__section-title">Aspect Ratio</h3>
-          <div className="crop-tool__preset-buttons">
-            {ASPECT_RATIO_PRESETS.map((preset) => (
-              <button
-                key={preset.value}
-                className={`crop-tool__preset-button ${
-                  selectedPreset === preset.value ? 'crop-tool__preset-button--active' : ''
-                }`}
-                onClick={() => handlePresetChange(preset.value)}
-              >
-                {preset.label}
-              </button>
-            ))}
+    <div 
+      ref={overlayRef}
+      className="crop-tool__overlay-container"
+      style={{
+        position: 'fixed',
+        left: canvasRect.left,
+        top: canvasRect.top,
+        width: canvasRect.width,
+        height: canvasRect.height,
+        pointerEvents: 'none',
+      }}
+    >
+      {/* Crop rectangle with darkened outside via box-shadow */}
+      <div
+        className="crop-tool__overlay"
+        style={{
+          left: topLeft.x,
+          top: topLeft.y,
+          width: screenWidth,
+          height: screenHeight,
+        }}
+        onMouseDown={(e) => handleMouseDown(e, 'move')}
+      >
+        {/* Composition grid */}
+        {showGrid && (
+          <div className="crop-tool__grid">
+            {/* Rule of thirds lines */}
+            <div className="crop-tool__grid-line crop-tool__grid-line--v1" />
+            <div className="crop-tool__grid-line crop-tool__grid-line--v2" />
+            <div className="crop-tool__grid-line crop-tool__grid-line--h1" />
+            <div className="crop-tool__grid-line crop-tool__grid-line--h2" />
           </div>
-        </div>
+        )}
 
-        <div className="crop-tool__section">
-          <label className="crop-tool__checkbox">
-            <input
-              type="checkbox"
-              checked={showGrid}
-              onChange={(e) => setShowGrid(e.target.checked)}
-            />
-            <span>Show grid</span>
-          </label>
-        </div>
-
-        <div className="crop-tool__actions">
-          <button className="crop-tool__button crop-tool__button--secondary" onClick={handleReset}>
-            Reset
-          </button>
-          <button className="crop-tool__button crop-tool__button--secondary" onClick={handleCancel}>
-            Cancel
-          </button>
-          <button className="crop-tool__button crop-tool__button--primary" onClick={handleApply}>
-            Apply
-          </button>
-        </div>
+        {/* Resize handles */}
+        <div className="crop-tool__handle crop-tool__handle--nw" onMouseDown={(e) => handleMouseDown(e, 'nw')} />
+        <div className="crop-tool__handle crop-tool__handle--n" onMouseDown={(e) => handleMouseDown(e, 'n')} />
+        <div className="crop-tool__handle crop-tool__handle--ne" onMouseDown={(e) => handleMouseDown(e, 'ne')} />
+        <div className="crop-tool__handle crop-tool__handle--e" onMouseDown={(e) => handleMouseDown(e, 'e')} />
+        <div className="crop-tool__handle crop-tool__handle--se" onMouseDown={(e) => handleMouseDown(e, 'se')} />
+        <div className="crop-tool__handle crop-tool__handle--s" onMouseDown={(e) => handleMouseDown(e, 's')} />
+        <div className="crop-tool__handle crop-tool__handle--sw" onMouseDown={(e) => handleMouseDown(e, 'sw')} />
+        <div className="crop-tool__handle crop-tool__handle--w" onMouseDown={(e) => handleMouseDown(e, 'w')} />
       </div>
     </div>
   );

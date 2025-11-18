@@ -127,6 +127,9 @@ export const createInitialAdjustmentState = (): AdjustmentState => ({
   // Geometric
   crop: null,
   straighten: 0,
+  flipHorizontal: false,
+  flipVertical: false,
+  rotation: 0,
 
   // Effects
   vignette: {

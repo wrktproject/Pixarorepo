@@ -7,18 +7,22 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import type { RootState } from '../store';
-import { store, setZoom, setPan, resetView, toggleComparison, toggleHistogram, setAllAdjustments, addToHistory } from '../store';
+import { store, setZoom, setPan, resetView, setShowComparison, toggleHistogram, setAllAdjustments, addToHistory } from '../store';
 import { ShaderPipelineErrorHandler } from '../engine/shaderPipelineErrorHandler';
 import type { RenderMode } from '../engine/shaderPipelineErrorHandler';
 import { Histogram } from './Histogram';
 import { CropTool } from './CropTool';
 import { ErrorNotification } from './ErrorNotification';
-import type { PerformanceStats } from '../engine/renderScheduler';
 import type { PixaroError } from '../types/errors';
 import styles from './Canvas.module.css';
 
-export const Canvas: React.FC = () => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+export interface CanvasProps {
+  canvasRef?: React.RefObject<HTMLCanvasElement | null>;
+}
+
+export const Canvas: React.FC<CanvasProps> = ({ canvasRef: externalCanvasRef }) => {
+  const internalCanvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasRef = externalCanvasRef || internalCanvasRef;
   const containerRef = useRef<HTMLDivElement>(null);
   const errorHandlerRef = useRef<ShaderPipelineErrorHandler | null>(null);
   const animationFrameRef = useRef<number | null>(null);
@@ -39,14 +43,10 @@ export const Canvas: React.FC = () => {
   // Local state for interaction
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
-  const [splitPosition] = useState(50); // For split-view mode (percentage) - TODO: implement drag to adjust
-  const [isSplitView, setIsSplitView] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false); // For preset drag-and-drop
+  const [renderedImageData, setRenderedImageData] = useState<ImageData | null>(null);
+  const lastHistogramUpdate = useRef<number>(0);
 
-  // Performance monitoring state (Requirement 13.4)
-  const [performanceStats, setPerformanceStats] = useState<PerformanceStats | null>(null);
-  const [showPerformanceDetails, setShowPerformanceDetails] = useState(false);
-  const performanceUpdateIntervalRef = useRef<number | null>(null);
 
   // Error handling state (Requirement 10.5)
   const [currentError, setCurrentError] = useState<PixaroError | null>(null);
@@ -90,9 +90,6 @@ export const Canvas: React.FC = () => {
 
     return () => {
       // Cleanup
-      if (performanceUpdateIntervalRef.current) {
-        clearInterval(performanceUpdateIntervalRef.current);
-      }
       if (errorHandlerRef.current) {
         errorHandlerRef.current.dispose();
       }
@@ -169,21 +166,81 @@ export const Canvas: React.FC = () => {
   useEffect(() => {
     if (!image || !errorHandlerRef.current) return;
 
+    console.log('🔄 Canvas: Image effect triggered', {
+      width: image.width,
+      height: image.height,
+      dataSize: image.data.data.length,
+    });
+
     try {
       const result = errorHandlerRef.current.loadImage(image.data);
       
       if (!result.success && result.error) {
         setCurrentError(result.error);
       } else {
-        console.log('Image loaded into pipeline');
+        console.log('📸 New image loaded into WebGL:', {
+          width: image.width,
+          height: image.height,
+          aspect: (image.width / image.height).toFixed(3),
+          crop: adjustments.crop,
+          rotation: adjustments.rotation,
+        });
+        
         // Fit to screen on initial load
         handleFitToScreen();
+        
+        // Force immediate canvas resize with new image dimensions
+        // This ensures the canvas is properly sized BEFORE rendering
+        if (canvasRef.current && containerRef.current) {
+          const container = containerRef.current;
+          const canvas = canvasRef.current;
+          const dpr = window.devicePixelRatio || 1;
+          
+          const containerWidth = container.clientWidth;
+          const containerHeight = container.clientHeight;
+          
+          // IMPORTANT: Use the NEW image dimensions, ignoring adjustments during initial load
+          // Adjustments will be applied in the next render cycle once everything is synced
+          let effectiveWidth = image.width;
+          let effectiveHeight = image.height;
+          
+          console.log('  Using full image dimensions for initial load:', effectiveWidth, 'x', effectiveHeight);
+          
+          const imageAspect = effectiveWidth / effectiveHeight;
+          const containerAspect = containerWidth / containerHeight;
+
+          let canvasDisplayWidth, canvasDisplayHeight;
+          if (imageAspect > containerAspect) {
+            canvasDisplayWidth = containerWidth;
+            canvasDisplayHeight = containerWidth / imageAspect;
+          } else {
+            canvasDisplayHeight = containerHeight;
+            canvasDisplayWidth = containerHeight * imageAspect;
+          }
+
+          console.log('  Canvas sized:', {
+            display: `${canvasDisplayWidth.toFixed(0)}x${canvasDisplayHeight.toFixed(0)}`,
+            buffer: `${Math.floor(canvasDisplayWidth * dpr)}x${Math.floor(canvasDisplayHeight * dpr)}`,
+          });
+
+          canvas.style.width = `${canvasDisplayWidth}px`;
+          canvas.style.height = `${canvasDisplayHeight}px`;
+
+          const newWidth = Math.floor(canvasDisplayWidth * dpr);
+          const newHeight = Math.floor(canvasDisplayHeight * dpr);
+          
+          canvas.width = newWidth;
+          canvas.height = newHeight;
+        }
       }
     } catch (error) {
       console.error('Failed to load image:', error);
       setCurrentError(error as PixaroError);
     }
-  }, [image]);
+    // Depend on image object and its dimensions to ensure re-load when switching photos
+    // Note: render() is called separately by the render effect below
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [image, image?.width, image?.height]);
 
   /**
    * Render loop - applies adjustments and renders to canvas
@@ -198,12 +255,44 @@ export const Canvas: React.FC = () => {
 
       if (!imageToShow) return;
 
+      console.log('🎨 Rendering image:', {
+        dimensions: `${imageToShow.width}x${imageToShow.height}`,
+        dataSize: imageToShow.data.data.length,
+        showComparison,
+      });
+
+      // When crop tool is active, don't apply crop to the render (only show overlay)
+      // But DO apply straighten so user can see the rotation while cropping
+      let adjustmentsToRender = activeTool === 'crop' 
+        ? { ...adjustments, crop: null }
+        : adjustments;
+      
+      // Validate crop before rendering - prevent mismatched crop from previous photo
+      if (adjustmentsToRender.crop && imageToShow) {
+        const cropValid = (
+          adjustmentsToRender.crop.width <= imageToShow.width &&
+          adjustmentsToRender.crop.height <= imageToShow.height &&
+          adjustmentsToRender.crop.x >= 0 &&
+          adjustmentsToRender.crop.y >= 0 &&
+          adjustmentsToRender.crop.x + adjustmentsToRender.crop.width <= imageToShow.width &&
+          adjustmentsToRender.crop.y + adjustmentsToRender.crop.height <= imageToShow.height
+        );
+        
+        if (!cropValid) {
+          console.warn('⚠️ Invalid crop in render, removing it:', {
+            crop: adjustmentsToRender.crop,
+            image: { width: imageToShow.width, height: imageToShow.height },
+          });
+          adjustmentsToRender = { ...adjustmentsToRender, crop: null };
+        }
+      }
+
       // If showing comparison, we need to reload the original
       if (showComparison && originalImage) {
         // For comparison mode, render original without adjustments
         // We'll create a temporary adjustment state with all values at default
         const defaultAdjustments = {
-          ...adjustments,
+          ...adjustmentsToRender,
           exposure: 0,
           contrast: 0,
           highlights: 0,
@@ -228,19 +317,55 @@ export const Canvas: React.FC = () => {
           setCurrentError(result.error);
         }
       } else {
-        // Render with current adjustments
+        // Render with current adjustments (excluding crop if tool is active)
         // RenderScheduler will batch and optimize this render call
-        const result = errorHandlerRef.current.render(imageToShow.data, adjustments);
+        const result = errorHandlerRef.current.render(imageToShow.data, adjustmentsToRender);
         
         if (!result.success && result.error) {
           setCurrentError(result.error);
+        }
+      }
+
+      // Extract rendered canvas data for histogram (only when histogram is visible)
+      // Throttle to max 2 updates per second for performance
+      if (showHistogram) {
+        const now = Date.now();
+        if (now - lastHistogramUpdate.current > 500) {
+          lastHistogramUpdate.current = now;
+          requestAnimationFrame(() => {
+            if (canvasRef.current && errorHandlerRef.current) {
+              const canvas = canvasRef.current;
+              const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+              if (gl) {
+                try {
+                  // Use a downsampled version for histogram (256x256 max) for performance
+                  const maxSize = 256;
+                  const scale = Math.min(1, maxSize / Math.max(canvas.width, canvas.height));
+                  const sampledWidth = Math.floor(canvas.width * scale);
+                  const sampledHeight = Math.floor(canvas.height * scale);
+                  
+                  // Read pixels at reduced resolution
+                  const pixels = new Uint8ClampedArray(sampledWidth * sampledHeight * 4);
+                  
+                  // Read directly without flipping for better performance
+                  // Histogram doesn't care about orientation
+                  gl.readPixels(0, 0, sampledWidth, sampledHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+                  
+                  const imageData = new ImageData(pixels, sampledWidth, sampledHeight);
+                  setRenderedImageData(imageData);
+                } catch (err) {
+                  console.warn('Failed to read WebGL canvas for histogram:', err);
+                }
+              }
+            }
+          });
         }
       }
     } catch (error) {
       console.error('Render error:', error);
       setCurrentError(error as PixaroError);
     }
-  }, [adjustments, image, originalImage, showComparison]);
+  }, [adjustments, image, originalImage, showComparison, activeTool, showHistogram]);
 
   /**
    * Trigger render when adjustments or comparison mode changes
@@ -249,12 +374,14 @@ export const Canvas: React.FC = () => {
   useEffect(() => {
     if (!image) return;
 
-    console.log('📸 Canvas rendering with new adjustments:', {
+    console.log('📸 Canvas render effect triggered:', {
+      imageDimensions: `${image.width}x${image.height}`,
       exposure: adjustments.exposure,
       contrast: adjustments.contrast,
       saturation: adjustments.saturation,
       temperature: adjustments.temperature,
       showComparison,
+      crop: adjustments.crop,
     });
 
     // RenderScheduler handles requestAnimationFrame and batching internally
@@ -263,40 +390,6 @@ export const Canvas: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adjustments, showComparison, image]);
 
-  /**
-   * Update performance stats periodically
-   * Requirement 13.4: Performance indicator for low FPS
-   */
-  useEffect(() => {
-    if (!errorHandlerRef.current) return;
-
-    // Update performance stats every 500ms
-    performanceUpdateIntervalRef.current = window.setInterval(() => {
-      if (errorHandlerRef.current && errorHandlerRef.current.isWebGLAvailable()) {
-        const metrics = errorHandlerRef.current.getPerformanceMetrics();
-        if (metrics) {
-          const fps = errorHandlerRef.current.getFPS();
-          // Convert to PerformanceStats format
-          const stats: PerformanceStats = {
-            currentFPS: fps,
-            averageFPS: fps, // Use current FPS as average for now
-            lastFrameTime: metrics.lastFrameTime,
-            averageFrameTime: metrics.averageFrameTime,
-            droppedFrames: 0, // Not tracked in legacy metrics
-            totalFrames: metrics.frameCount,
-            isLowPerformance: errorHandlerRef.current.isLowPerformance(),
-          };
-          setPerformanceStats(stats);
-        }
-      }
-    }, 500);
-
-    return () => {
-      if (performanceUpdateIntervalRef.current) {
-        clearInterval(performanceUpdateIntervalRef.current);
-      }
-    };
-  }, []);
 
   /**
    * Update pipeline settings when UI settings change
@@ -332,7 +425,49 @@ export const Canvas: React.FC = () => {
       // Calculate size to fit image in container while maintaining aspect ratio
       const containerWidth = container.clientWidth;
       const containerHeight = container.clientHeight;
-      const imageAspect = image.width / image.height;
+      
+      // Calculate effective dimensions for CSS display
+      // This determines the aspect ratio of the canvas display
+      let effectiveWidth = image.width;
+      let effectiveHeight = image.height;
+      
+      // Apply crop dimensions if crop exists and crop tool is NOT active and NOT showing comparison
+      if (adjustments.crop && activeTool !== 'crop' && !showComparison) {
+        // Validate crop belongs to this image before using it
+        const cropValid = (
+          adjustments.crop.width <= image.width &&
+          adjustments.crop.height <= image.height &&
+          adjustments.crop.x >= 0 &&
+          adjustments.crop.y >= 0 &&
+          adjustments.crop.x + adjustments.crop.width <= image.width &&
+          adjustments.crop.y + adjustments.crop.height <= image.height
+        );
+        
+        if (cropValid) {
+          effectiveWidth = adjustments.crop.width;
+          effectiveHeight = adjustments.crop.height;
+        } else {
+          // Crop is invalid for this image (likely from a previous photo)
+          // Use full image dimensions instead
+          console.warn('⚠️ Invalid crop in handleResize, using full image dimensions:', {
+            crop: adjustments.crop,
+            image: { width: image.width, height: image.height },
+          });
+        }
+      }
+      
+      // NOTE: Straighten rotation does NOT expand the canvas
+      // The rotation happens in shader space, showing the original image dimensions
+      // Black edges from rotation are visible until user crops them out
+      // This mimics Adobe Lightroom's behavior
+      
+      // Account for 90° rotation: swap dimensions
+      const rotation90 = adjustments.rotation || 0;
+      if (rotation90 === 90 || rotation90 === 270) {
+        [effectiveWidth, effectiveHeight] = [effectiveHeight, effectiveWidth];
+      }
+      
+      const imageAspect = effectiveWidth / effectiveHeight;
       const containerAspect = containerWidth / containerHeight;
 
       let canvasDisplayWidth, canvasDisplayHeight;
@@ -351,7 +486,7 @@ export const Canvas: React.FC = () => {
       canvas.style.height = `${canvasDisplayHeight}px`;
 
       // Set actual buffer size (scaled by device pixel ratio for sharpness)
-      // This ensures high quality on Retina displays
+      // Buffer should match display size (not original image) to show the whole image
       const newWidth = Math.floor(canvasDisplayWidth * dpr);
       const newHeight = Math.floor(canvasDisplayHeight * dpr);
       
@@ -369,7 +504,7 @@ export const Canvas: React.FC = () => {
     return () => {
       window.removeEventListener('resize', handleResize);
     };
-  }, [render, image]);
+  }, [render, image, image?.width, image?.height, adjustments.rotation, adjustments.crop, adjustments.straighten, activeTool, showComparison]);
 
   /**
    * Handle mouse wheel for zoom
@@ -449,18 +584,16 @@ export const Canvas: React.FC = () => {
   }, [dispatch]);
 
   /**
-   * Toggle comparison mode
+   * Show "before" image while button is held down
    */
-  const handleToggleComparison = useCallback(() => {
-    dispatch(toggleComparison());
+  const handleComparisonMouseDown = useCallback(() => {
+    dispatch(setShowComparison(true));
   }, [dispatch]);
 
-  /**
-   * Toggle split-view mode
-   */
-  const handleToggleSplitView = useCallback(() => {
-    setIsSplitView((prev) => !prev);
-  }, []);
+  const handleComparisonMouseUp = useCallback(() => {
+    dispatch(setShowComparison(false));
+  }, [dispatch]);
+
 
   /**
    * Toggle histogram display
@@ -469,13 +602,6 @@ export const Canvas: React.FC = () => {
     dispatch(toggleHistogram());
   }, [dispatch]);
 
-  /**
-   * Toggle performance details display
-   * Requirement 13.4: Show detailed performance stats
-   */
-  const handleTogglePerformanceDetails = useCallback(() => {
-    setShowPerformanceDetails((prev) => !prev);
-  }, []);
 
   /**
    * Handle preset drag-and-drop onto canvas
@@ -536,19 +662,8 @@ export const Canvas: React.FC = () => {
         style={{
           cursor: isPanning ? 'grabbing' : 'grab',
           transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
-          clipPath: isSplitView ? `inset(0 ${100 - splitPosition}% 0 0)` : undefined,
         }}
       />
-
-      {/* Split view divider */}
-      {isSplitView && (
-        <div
-          className={styles.splitDivider}
-          style={{ left: `${splitPosition}%` }}
-        >
-          <div className={styles.splitHandle} />
-        </div>
-      )}
 
       {/* View controls */}
       <div className={styles.controls} role="toolbar" aria-label="View controls">
@@ -577,25 +692,18 @@ export const Canvas: React.FC = () => {
       {image && (
         <div className={styles.comparisonControls} role="toolbar" aria-label="Comparison controls">
           <button
-            className={`${styles.controlButton} ${showComparison ? styles.active : ''}`}
-            onClick={handleToggleComparison}
-            title="Toggle before/after (Spacebar)"
-            aria-label="Toggle before and after comparison"
+            className={`${styles.controlButtonSmall} ${showComparison ? styles.active : ''}`}
+            onMouseDown={handleComparisonMouseDown}
+            onMouseUp={handleComparisonMouseUp}
+            onMouseLeave={handleComparisonMouseUp}
+            title="Hold to show before (Spacebar)"
+            aria-label="Hold to show original image"
             aria-pressed={showComparison}
           >
-            {showComparison ? 'Before' : 'After'}
+            Before
           </button>
           <button
-            className={`${styles.controlButton} ${isSplitView ? styles.active : ''}`}
-            onClick={handleToggleSplitView}
-            title="Toggle split view"
-            aria-label="Toggle split view mode"
-            aria-pressed={isSplitView}
-          >
-            Split
-          </button>
-          <button
-            className={`${styles.controlButton} ${showHistogram ? styles.active : ''}`}
+            className={`${styles.controlButtonSmall} ${showHistogram ? styles.active : ''}`}
             onClick={handleToggleHistogram}
             title="Toggle histogram"
             aria-label="Toggle histogram display"
@@ -603,22 +711,13 @@ export const Canvas: React.FC = () => {
           >
             Histogram
           </button>
-          <button
-            className={`${styles.controlButton} ${showPerformanceDetails ? styles.active : ''}`}
-            onClick={handleTogglePerformanceDetails}
-            title="Toggle performance stats"
-            aria-label="Toggle performance statistics display"
-            aria-pressed={showPerformanceDetails}
-          >
-            FPS
-          </button>
         </div>
       )}
 
       {/* Histogram display */}
       {image && showHistogram && (
         <div className={styles.histogramContainer} role="region" aria-label="Image histogram">
-          <Histogram imageData={image.data} width={256} height={100} />
+          <Histogram imageData={renderedImageData} width={256} height={100} />
         </div>
       )}
 

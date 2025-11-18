@@ -280,8 +280,43 @@ const adjustmentsSlice = createSlice({
     setCrop: (state, action: PayloadAction<CropBounds | null>) => {
       state.crop = action.payload;
     },
+    // Preview crop changes without adding to history (used during dragging)
+    setCropPreview: (state, action: PayloadAction<CropBounds | null>) => {
+      state.crop = action.payload;
+    },
     setStraighten: (state, action: PayloadAction<number>) => {
-      state.straighten = clamp(action.payload, -45, 45);
+      const clampedValue = clamp(action.payload, -45, 45);
+      // Force state change by toggling a tiny epsilon to ensure re-render
+      // This handles the case where preview and final values are the same
+      const epsilon = state.straighten === clampedValue ? 0.00001 : 0;
+      state.straighten = clampedValue + epsilon;
+    },
+    // Preview straighten changes without adding to history (used during slider drag)
+    // Also adjusts crop bounds to fit within rotated image
+    setStraightenPreview: (state, action: PayloadAction<number>) => {
+      const angle = clamp(action.payload, -45, 45);
+      state.straighten = angle;
+      
+      // If there's a crop, adjust it to stay within rotated bounds
+      // This mimics Lightroom's behavior where the crop shrinks when rotating
+      // Note: Full implementation would require the image size which isn't in state
+      // For now, we'll handle this in the component
+    },
+    setFlipHorizontal: (state, action: PayloadAction<boolean>) => {
+      state.flipHorizontal = action.payload;
+    },
+    setFlipVertical: (state, action: PayloadAction<boolean>) => {
+      state.flipVertical = action.payload;
+    },
+    setRotation: (state, action: PayloadAction<number>) => {
+      // Normalize to 0, 90, 180, 270
+      state.rotation = ((action.payload % 360) + 360) % 360;
+    },
+    rotateLeft: (state) => {
+      state.rotation = ((state.rotation - 90) % 360 + 360) % 360;
+    },
+    rotateRight: (state) => {
+      state.rotation = (state.rotation + 90) % 360;
     },
 
     // Effects
@@ -391,7 +426,14 @@ export const {
   setHSLSaturation,
   setHSLLuminance,
   setCrop,
+  setCropPreview,
   setStraighten,
+  setStraightenPreview,
+  setFlipHorizontal,
+  setFlipVertical,
+  setRotation,
+  rotateLeft,
+  rotateRight,
   setVignetteAmount,
   setVignetteMidpoint,
   setVignetteFeather,

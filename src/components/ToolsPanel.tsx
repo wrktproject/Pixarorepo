@@ -4,7 +4,8 @@
  */
 
 import React, { Suspense, useState } from 'react';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import { setActiveTool } from '../store';
 import type { RootState } from '../store';
 import './ToolsPanel.css';
 
@@ -29,12 +30,24 @@ const PresetAdjustments = React.lazy(() =>
 type ActiveTool = 'none' | 'adjustments' | 'crop' | 'removal' | 'blur' | 'presets';
 
 export const ToolsPanel: React.FC = () => {
+  const dispatch = useDispatch();
   const hasImage = useSelector((state: RootState) => state.image.current !== null);
-  const [activeTool, setActiveTool] = useState<ActiveTool>('adjustments');
+  const reduxActiveTool = useSelector((state: RootState) => state.ui.activeTool);
+  const [activeTool, setLocalActiveTool] = useState<ActiveTool>('adjustments');
   const disabled = !hasImage;
 
   const handleToolClick = (tool: ActiveTool) => {
-    setActiveTool(activeTool === tool ? 'none' : tool);
+    // For crop tool, activate both the overlay AND the sidebar panel
+    if (tool === 'crop') {
+      const newCropState = reduxActiveTool === 'crop' ? 'none' : 'crop';
+      // Toggle crop overlay on/off
+      dispatch(setActiveTool(newCropState));
+      // Show crop panel in sidebar
+      setLocalActiveTool(newCropState === 'crop' ? 'crop' : 'adjustments');
+    } else {
+      // For other tools, normal toggle behavior
+      setLocalActiveTool(activeTool === tool ? 'none' : tool);
+    }
   };
 
   return (
@@ -77,7 +90,7 @@ export const ToolsPanel: React.FC = () => {
 
         {/* Crop & Transform Tool */}
         <button
-          className={`tools-panel__icon-button ${activeTool === 'crop' ? 'tools-panel__icon-button--active' : ''}`}
+          className={`tools-panel__icon-button ${reduxActiveTool === 'crop' ? 'tools-panel__icon-button--active' : ''}`}
           onClick={() => handleToolClick('crop')}
           disabled={disabled}
           title="Crop & Transform"

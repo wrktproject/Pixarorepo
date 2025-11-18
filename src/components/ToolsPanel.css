@@ -7,6 +7,8 @@
   flex-direction: row-reverse;
   height: 100%;
   background-color: var(--color-bg-secondary);
+  position: relative;
+  z-index: 1001; /* Above crop overlay */
 }
 
 /* Icon buttons column */
@@ -83,10 +85,13 @@
   flex-direction: column;
   overflow: hidden;
   order: 1;
+  position: relative;
+  z-index: 1001; /* Above crop overlay darkening */
 }
 
 .tools-panel__content--wide {
   width: 320px;
+  z-index: 1001; /* Above crop overlay darkening */
 }
 
 .tools-panel__header {

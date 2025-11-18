@@ -159,12 +159,29 @@ export class TextureManager {
     imageData: ImageData,
     config?: Partial<TextureConfig>
   ): WebGLTexture {
-    // If no existing texture or dimensions changed, create new
+    // If no existing texture, create new
     if (!existingTexture) {
       return this.createTextureFromImageData(imageData, config);
     }
 
-    // Try to update existing texture (more efficient)
+    // Get the existing texture's dimensions
+    this.gl.bindTexture(this.gl.TEXTURE_2D, existingTexture);
+    const existingWidth = this.gl.getTexParameter(this.gl.TEXTURE_2D, this.gl.TEXTURE_WIDTH);
+    const existingHeight = this.gl.getTexParameter(this.gl.TEXTURE_2D, this.gl.TEXTURE_HEIGHT);
+    this.gl.bindTexture(this.gl.TEXTURE_2D, null);
+
+    // If dimensions changed, we MUST create a new texture
+    // texSubImage2D cannot change texture dimensions
+    if (existingWidth !== imageData.width || existingHeight !== imageData.height) {
+      console.log('🔄 Texture dimensions changed:', {
+        old: `${existingWidth}x${existingHeight}`,
+        new: `${imageData.width}x${imageData.height}`,
+      });
+      this.deleteTexture(existingTexture);
+      return this.createTextureFromImageData(imageData, config);
+    }
+
+    // Dimensions match - update existing texture (more efficient)
     try {
       this.updateTextureFromImageData(existingTexture, imageData);
       return existingTexture;

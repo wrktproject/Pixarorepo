@@ -6,44 +6,208 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  position: relative;
+  z-index: 1001; /* Above crop overlay */
 }
 
-.geometric-adjustments__tool {
+/* Dimensions display */
+.geometric-adjustments__info {
+  text-align: center;
+  padding: 8px;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.geometric-adjustments__dimensions {
+  font-size: 13px;
+  color: #aaa;
+  margin: 0;
+  font-weight: 500;
+}
+
+/* Section */
+.geometric-adjustments__section {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.geometric-adjustments__tool-button {
-  width: 100%;
-  padding: 10px 16px;
+.geometric-adjustments__section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #aaa;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Aspect ratio preset buttons */
+.geometric-adjustments__preset-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.geometric-adjustments__preset-button {
+  flex: 1;
+  min-width: 60px;
+  padding: 8px 12px;
   background-color: #2a2a2a;
   color: #ffffff;
   border: 1px solid #444;
   border-radius: 4px;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
+  text-align: center;
 }
 
-.geometric-adjustments__tool-button:hover {
+.geometric-adjustments__preset-button:hover:not(:disabled) {
   background-color: #3a3a3a;
   border-color: #666;
 }
 
-.geometric-adjustments__tool-button--active {
+.geometric-adjustments__preset-button--active {
   background-color: #0066cc;
   border-color: #0066cc;
 }
 
-.geometric-adjustments__tool-info {
-  font-size: 12px;
-  color: #999;
-  margin: 0;
-  text-align: center;
+.geometric-adjustments__preset-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
-.geometric-adjustments__straighten {
-  /* Slider control styles are handled by SliderControl component */
+/* Grid toggle */
+.geometric-adjustments__checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #ffffff;
+  font-size: 14px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.geometric-adjustments__checkbox input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.geometric-adjustments__checkbox input[type='checkbox']:disabled {
+  cursor: not-allowed;
+}
+
+/* Action buttons */
+.geometric-adjustments__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid #444;
+  position: relative;
+  z-index: 1002; /* Ensure buttons are above everything */
+}
+
+.geometric-adjustments__button {
+  flex: 1;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.5px;
+  position: relative;
+  z-index: 1003; /* Above all overlays */
+}
+
+.geometric-adjustments__button--primary {
+  background-color: #0066cc;
+  color: #ffffff;
+  border: 1px solid #0066cc;
+}
+
+.geometric-adjustments__button--primary:hover:not(:disabled) {
+  background-color: #0052a3;
+  border-color: #0052a3;
+}
+
+.geometric-adjustments__button--secondary {
+  background-color: #3a3a3a;
+  color: #ffffff;
+  border: 1px solid #666;
+}
+
+.geometric-adjustments__button--secondary:hover:not(:disabled) {
+  background-color: #4a4a4a;
+  border-color: #888;
+}
+
+.geometric-adjustments__button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Reset button */
+.geometric-adjustments__button--reset {
+  background-color: #cc6600;
+  color: #ffffff;
+  border: 1px solid #cc6600;
+}
+
+.geometric-adjustments__button--reset:hover:not(:disabled) {
+  background-color: #dd7711;
+  border-color: #dd7711;
+}
+
+/* Cancel button */
+.geometric-adjustments__button--cancel {
+  background-color: #3a3a3a;
+  color: #ff6b6b;
+  border: 1px solid #666;
+}
+
+.geometric-adjustments__button--cancel:hover:not(:disabled) {
+  background-color: #4a4a4a;
+  border-color: #888;
+  color: #ff8888;
+}
+
+/* Rotate & Flip buttons */
+.geometric-adjustments__rotate-flip-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.geometric-adjustments__icon-button {
+  flex: 1;
+  padding: 12px;
+  background-color: #2a2a2a;
+  color: #ffffff;
+  border: 1px solid #444;
+  border-radius: 4px;
+  font-size: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.geometric-adjustments__icon-button:hover:not(:disabled) {
+  background-color: #3a3a3a;
+  border-color: #666;
+}
+
+.geometric-adjustments__icon-button--active {
+  background-color: #0066cc;
+  border-color: #0066cc;
+}
+
+.geometric-adjustments__icon-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
