@@ -57,6 +57,7 @@ export interface UIState {
   loadingState: LoadingState;
   enableToneMapping: boolean;
   qualityMode: 'preview' | 'export';
+  renderedImageData: ImageData | null;
 }
 
 export interface HistoryState {

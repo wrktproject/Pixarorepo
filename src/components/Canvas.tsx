@@ -7,10 +7,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import type { RootState } from '../store';
-import { store, setZoom, setPan, resetView, setShowComparison, toggleHistogram, setAllAdjustments, addToHistory } from '../store';
+import { store, setZoom, setPan, resetView, setShowComparison, setRenderedImageData, setAllAdjustments, addToHistory } from '../store';
 import { ShaderPipelineErrorHandler } from '../engine/shaderPipelineErrorHandler';
 import type { RenderMode } from '../engine/shaderPipelineErrorHandler';
-import { Histogram } from './Histogram';
 import { CropTool } from './CropTool';
 import { ErrorNotification } from './ErrorNotification';
 import type { PixaroError } from '../types/errors';
@@ -44,8 +43,13 @@ export const Canvas: React.FC<CanvasProps> = ({ canvasRef: externalCanvasRef }) 
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [isDragOver, setIsDragOver] = useState(false); // For preset drag-and-drop
-  const [renderedImageData, setRenderedImageData] = useState<ImageData | null>(null);
   const lastHistogramUpdate = useRef<number>(0);
+  const [showShadowClipping, setShowShadowClipping] = useState(false);
+  const [showHighlightClipping, setShowHighlightClipping] = useState(false);
+  const clippingCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Get rendered image data from Redux
+  const renderedImageData = useSelector((state: RootState) => state.ui.renderedImageData);
 
 
   // Error handling state (Requirement 10.5)
@@ -352,7 +356,7 @@ export const Canvas: React.FC<CanvasProps> = ({ canvasRef: externalCanvasRef }) 
                   gl.readPixels(0, 0, sampledWidth, sampledHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
                   
                   const imageData = new ImageData(pixels, sampledWidth, sampledHeight);
-                  setRenderedImageData(imageData);
+                  dispatch(setRenderedImageData(imageData));
                 } catch (err) {
                   console.warn('Failed to read WebGL canvas for histogram:', err);
                 }
@@ -594,13 +598,77 @@ export const Canvas: React.FC<CanvasProps> = ({ canvasRef: externalCanvasRef }) 
     dispatch(setShowComparison(false));
   }, [dispatch]);
 
+  /**
+   * Handle clipping indicator toggle from histogram
+   */
+  const handleClippingToggle = useCallback((type: 'shadows' | 'highlights', enabled: boolean) => {
+    if (type === 'shadows') {
+      setShowShadowClipping(enabled);
+    } else {
+      setShowHighlightClipping(enabled);
+    }
+  }, []);
 
   /**
-   * Toggle histogram display
+   * Draw clipping overlay on canvas
    */
-  const handleToggleHistogram = useCallback(() => {
-    dispatch(toggleHistogram());
-  }, [dispatch]);
+  useEffect(() => {
+    if (!clippingCanvasRef.current || !canvasRef.current) return;
+    
+    const clippingCanvas = clippingCanvasRef.current;
+    const mainCanvas = canvasRef.current;
+    const ctx = clippingCanvas.getContext('2d');
+    if (!ctx) return;
+
+    // Always match main canvas size and position
+    clippingCanvas.width = mainCanvas.width;
+    clippingCanvas.height = mainCanvas.height;
+    clippingCanvas.style.width = mainCanvas.style.width;
+    clippingCanvas.style.height = mainCanvas.style.height;
+
+    // Clear if both indicators are off
+    if (!showShadowClipping && !showHighlightClipping) {
+      ctx.clearRect(0, 0, clippingCanvas.width, clippingCanvas.height);
+      return;
+    }
+
+    // If no rendered data yet, wait
+    if (!renderedImageData) return;
+
+    ctx.clearRect(0, 0, clippingCanvas.width, clippingCanvas.height);
+
+    // Analyze rendered image data for clipped pixels
+    const { data, width, height } = renderedImageData;
+    const overlayData = ctx.createImageData(width, height);
+
+    // Clipping thresholds (allow slight variance for compression artifacts)
+    const shadowThreshold = 2;
+    const highlightThreshold = 253;
+
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+
+      // Check for shadow clipping (very dark pixels)
+      if (showShadowClipping && r <= shadowThreshold && g <= shadowThreshold && b <= shadowThreshold) {
+        overlayData.data[i] = 0;       // R
+        overlayData.data[i + 1] = 150; // G
+        overlayData.data[i + 2] = 255; // B (blue overlay)
+        overlayData.data[i + 3] = 180; // A (semi-transparent)
+      }
+
+      // Check for highlight clipping (very bright pixels)
+      if (showHighlightClipping && r >= highlightThreshold && g >= highlightThreshold && b >= highlightThreshold) {
+        overlayData.data[i] = 255;     // R (red overlay)
+        overlayData.data[i + 1] = 0;   // G
+        overlayData.data[i + 2] = 0;   // B
+        overlayData.data[i + 3] = 180; // A (semi-transparent)
+      }
+    }
+
+    ctx.putImageData(overlayData, 0, 0);
+  }, [renderedImageData, showShadowClipping, showHighlightClipping]);
 
 
   /**
@@ -688,38 +756,14 @@ export const Canvas: React.FC<CanvasProps> = ({ canvasRef: externalCanvasRef }) 
         </span>
       </div>
 
-      {/* Comparison controls */}
-      {image && (
-        <div className={styles.comparisonControls} role="toolbar" aria-label="Comparison controls">
-          <button
-            className={`${styles.controlButtonSmall} ${showComparison ? styles.active : ''}`}
-            onMouseDown={handleComparisonMouseDown}
-            onMouseUp={handleComparisonMouseUp}
-            onMouseLeave={handleComparisonMouseUp}
-            title="Hold to show before (Spacebar)"
-            aria-label="Hold to show original image"
-            aria-pressed={showComparison}
-          >
-            Before
-          </button>
-          <button
-            className={`${styles.controlButtonSmall} ${showHistogram ? styles.active : ''}`}
-            onClick={handleToggleHistogram}
-            title="Toggle histogram"
-            aria-label="Toggle histogram display"
-            aria-pressed={showHistogram}
-          >
-            Histogram
-          </button>
-        </div>
-      )}
 
-      {/* Histogram display */}
-      {image && showHistogram && (
-        <div className={styles.histogramContainer} role="region" aria-label="Image histogram">
-          <Histogram imageData={renderedImageData} width={256} height={100} />
-        </div>
-      )}
+
+      {/* Clipping overlay canvas */}
+      <canvas
+        ref={clippingCanvasRef}
+        className={styles.clippingOverlay}
+        style={{ pointerEvents: 'none' }}
+      />
 
       {/* Crop tool overlay */}
       {activeTool === 'crop' && <CropTool />}

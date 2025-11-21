@@ -195,10 +195,19 @@
 .histogramContainer {
   position: absolute;
   bottom: 20px;
-  left: 20px;
-  width: 280px;
+  left: 15px;
+  width: 220px;
   z-index: 10;
   animation: fadeIn 0.3s ease;
+}
+
+.clippingOverlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 5;
 }
 
 @keyframes fadeIn {

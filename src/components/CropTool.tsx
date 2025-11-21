@@ -31,6 +31,7 @@ export const CropTool: React.FC = () => {
   const cropBounds = useSelector((state: RootState) => state.adjustments.crop);
   const activeTool = useSelector((state: RootState) => state.ui.activeTool);
   const showGrid = useSelector((state: RootState) => state.ui.showGrid);
+  const rotation = useSelector((state: RootState) => state.adjustments.rotation);
 
   // Local state
   const [isDragging, setIsDragging] = useState(false);
@@ -101,10 +102,32 @@ export const CropTool: React.FC = () => {
   const imageToScreen = useCallback((x: number, y: number): { x: number; y: number } => {
     if (!canvasRect || !image) return { x: 0, y: 0 };
     
-    // The canvas is sized to fit the image while maintaining aspect ratio
-    // Crop works in original image space - rotation is handled by shader
-    const effectiveWidth = image.width;
-    const effectiveHeight = image.height;
+    // Transform crop coordinates based on rotation
+    // The crop bounds are in ORIGINAL image space, but we need to display them in ROTATED space
+    let transformedX = x;
+    let transformedY = y;
+    
+    if (rotation === 90) {
+      // 90° clockwise: (x,y) in original → (y, width-x) in rotated
+      transformedX = y;
+      transformedY = image.width - x;
+    } else if (rotation === 180) {
+      // 180°: (x,y) → (width-x, height-y)
+      transformedX = image.width - x;
+      transformedY = image.height - y;
+    } else if (rotation === 270) {
+      // 270° clockwise: (x,y) → (height-y, x)
+      transformedX = image.height - y;
+      transformedY = x;
+    }
+    
+    // The canvas is sized to fit the rotated image
+    // When rotated 90/270 degrees, dimensions are swapped
+    let effectiveWidth = image.width;
+    let effectiveHeight = image.height;
+    if (rotation === 90 || rotation === 270) {
+      [effectiveWidth, effectiveHeight] = [effectiveHeight, effectiveWidth];
+    }
     
     const imageAspect = effectiveWidth / effectiveHeight;
     const canvasAspect = canvasRect.width / canvasRect.height;
@@ -125,16 +148,16 @@ export const CropTool: React.FC = () => {
       offsetY = 0;
     }
     
-    // Scale based on original image dimensions
+    // Scale based on rotated image dimensions
     const scaleX = displayWidth / effectiveWidth;
     const scaleY = displayHeight / effectiveHeight;
     
-    // Convert from image coords to screen coords
+    // Convert from transformed coords to screen coords
     return {
-      x: x * scaleX + offsetX,
-      y: y * scaleY + offsetY,
+      x: transformedX * scaleX + offsetX,
+      y: transformedY * scaleY + offsetY,
     };
-  }, [canvasRect, image]);
+  }, [canvasRect, image, rotation]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent, handle: DragHandle) => {
     e.preventDefault();
@@ -155,9 +178,12 @@ export const CropTool: React.FC = () => {
     const deltaY = e.clientY - dragStart.y;
 
     // Convert screen delta to image delta
-    // Crop works in original image space - rotation is handled by shader
-    const effectiveWidth = image.width;
-    const effectiveHeight = image.height;
+    // Account for rotation when calculating deltas
+    let effectiveWidth = image.width;
+    let effectiveHeight = image.height;
+    if (rotation === 90 || rotation === 270) {
+      [effectiveWidth, effectiveHeight] = [effectiveHeight, effectiveWidth];
+    }
     
     const imageAspect = effectiveWidth / effectiveHeight;
     const canvasAspect = canvasRect.width / canvasRect.height;
@@ -247,7 +273,7 @@ export const CropTool: React.FC = () => {
 
     // Update local preview instantly for smooth dragging (no Redux dispatch until mouse up)
     setPreviewBounds(newBounds);
-  }, [isDragging, dragHandle, dragStart, dragStartBounds, canvasRect, image]);
+  }, [isDragging, dragHandle, dragStart, dragStartBounds, canvasRect, image, rotation]);
 
   const handleMouseUp = useCallback(() => {
     // Commit the preview bounds to Redux when drag ends
@@ -283,11 +309,21 @@ export const CropTool: React.FC = () => {
     return null;
   }
 
-  // Calculate crop rectangle position and size in screen coordinates
+  // Calculate crop rectangle corners in screen coordinates
+  // The corners need to account for rotation transformation
   const topLeft = imageToScreen(displayBounds.x, displayBounds.y);
+  const topRight = imageToScreen(displayBounds.x + displayBounds.width, displayBounds.y);
+  const bottomLeft = imageToScreen(displayBounds.x, displayBounds.y + displayBounds.height);
   const bottomRight = imageToScreen(displayBounds.x + displayBounds.width, displayBounds.y + displayBounds.height);
-  const screenWidth = bottomRight.x - topLeft.x;
-  const screenHeight = bottomRight.y - topLeft.y;
+  
+  // Calculate bounding box of the rotated crop rectangle
+  const minX = Math.min(topLeft.x, topRight.x, bottomLeft.x, bottomRight.x);
+  const maxX = Math.max(topLeft.x, topRight.x, bottomLeft.x, bottomRight.x);
+  const minY = Math.min(topLeft.y, topRight.y, bottomLeft.y, bottomRight.y);
+  const maxY = Math.max(topLeft.y, topRight.y, bottomLeft.y, bottomRight.y);
+  
+  const screenWidth = maxX - minX;
+  const screenHeight = maxY - minY;
 
   return (
     <div 
@@ -306,8 +342,8 @@ export const CropTool: React.FC = () => {
       <div
         className="crop-tool__overlay"
         style={{
-          left: topLeft.x,
-          top: topLeft.y,
+          left: minX,
+          top: minY,
           width: screenWidth,
           height: screenHeight,
         }}

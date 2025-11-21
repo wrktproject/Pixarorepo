@@ -140,6 +140,7 @@ export const createInitialAdjustmentState = (): AdjustmentState => ({
   grain: {
     amount: 0,
     size: 'medium',
+    roughness: 50, // Default moderate roughness
   },
   chromaticAberration: {
     enabled: false,

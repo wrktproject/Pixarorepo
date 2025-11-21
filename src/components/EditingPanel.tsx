@@ -13,11 +13,13 @@ import { DetailAdjustments } from './DetailAdjustments';
 import { HSLAdjustments } from './HSLAdjustments';
 import { EffectsAdjustments } from './EffectsAdjustments';
 import { SettingsAdjustments } from './SettingsAdjustments';
+import { Histogram } from './Histogram';
 import './EditingPanel.css';
 
 export const EditingPanel: React.FC = () => {
   const dispatch = useDispatch();
   const hasImage = useSelector((state: RootState) => state.image.current !== null);
+  const renderedImageData = useSelector((state: RootState) => state.ui.renderedImageData);
   const saturation = useSelector((state: RootState) => state.adjustments.saturation);
   const exposure = useSelector((state: RootState) => state.adjustments.exposure);
   const contrast = useSelector((state: RootState) => state.adjustments.contrast);
@@ -80,6 +82,17 @@ export const EditingPanel: React.FC = () => {
 
   return (
     <div className="editing-panel" role="region" aria-label="Editing adjustments panel">
+      {/* Histogram - sticky at top */}
+      {hasImage && renderedImageData && (
+        <div className="editing-panel__histogram editing-panel__histogram--sticky">
+          <Histogram 
+            imageData={renderedImageData} 
+            width={256} 
+            height={100}
+          />
+        </div>
+      )}
+      
       <div className="editing-panel__sections" role="group">
         {/* Auto Controls */}
         <div className="editing-panel__auto-controls">

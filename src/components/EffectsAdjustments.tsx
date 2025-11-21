@@ -12,6 +12,7 @@ import {
   setVignetteFeather,
   setGrainAmount,
   setGrainSize,
+  setGrainRoughness,
 } from '../store';
 import { CollapsibleSection } from './CollapsibleSection';
 import { SliderControl } from './SliderControl';
@@ -57,6 +58,13 @@ export const EffectsAdjustments: React.FC<EffectsAdjustmentsProps> = ({ disabled
   const handleGrainSizeChange = useCallback(
     (event: React.ChangeEvent<HTMLSelectElement>) => {
       dispatch(setGrainSize(event.target.value as 'fine' | 'medium' | 'coarse'));
+    },
+    [dispatch]
+  );
+
+  const handleGrainRoughnessChange = useCallback(
+    (value: number) => {
+      dispatch(setGrainRoughness(value));
     },
     [dispatch]
   );
@@ -128,6 +136,16 @@ export const EffectsAdjustments: React.FC<EffectsAdjustmentsProps> = ({ disabled
             <option value="coarse">Coarse</option>
           </select>
         </div>
+        <SliderControl
+          label="Roughness"
+          value={adjustments.grain.roughness}
+          min={0}
+          max={100}
+          step={1}
+          precision={0}
+          onChange={handleGrainRoughnessChange}
+          disabled={disabled}
+        />
       </div>
     </CollapsibleSection>
   );

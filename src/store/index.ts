@@ -38,6 +38,7 @@ export function makeStore() {
             'library/updatePhotoAdjustments',
             'history/setPresent',
             'history/resetHistory',
+            'ui/setRenderedImageData',
           ],
           ignoredPaths: [
             'image.original.data',
@@ -48,6 +49,7 @@ export function makeStore() {
             'history.present.removals',
             'history.future',
             'library.photos',
+            'ui.renderedImageData',
           ],
         },
       }).concat(historyMiddleware),
@@ -148,6 +150,7 @@ export {
   setVignetteFeather,
   setGrainAmount,
   setGrainSize,
+  setGrainRoughness,
   addRemovalOperation,
   removeRemovalOperation,
   clearRemovalOperations,
@@ -172,6 +175,7 @@ export {
   setEnableToneMapping,
   toggleToneMapping,
   setQualityMode,
+  setRenderedImageData,
 } from './uiSlice';
 
 export {

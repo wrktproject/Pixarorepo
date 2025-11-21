@@ -338,6 +338,9 @@ const adjustmentsSlice = createSlice({
     ) => {
       state.grain.size = action.payload;
     },
+    setGrainRoughness: (state, action: PayloadAction<number>) => {
+      state.grain.roughness = clamp(action.payload, 0, 100);
+    },
 
     // Removal operations
     addRemovalOperation: (state, action: PayloadAction<RemovalOperation>) => {
@@ -439,6 +442,7 @@ export const {
   setVignetteFeather,
   setGrainAmount,
   setGrainSize,
+  setGrainRoughness,
   addRemovalOperation,
   removeRemovalOperation,
   clearRemovalOperations,

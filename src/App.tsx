@@ -212,11 +212,13 @@ function App() {
           </section>
 
           {/* Tools Panel (right side icons and panels) */}
-          <aside className="app-tools-panel" role="complementary" aria-label="Tools">
-            <ErrorBoundary>
-              <ToolsPanel />
-            </ErrorBoundary>
-          </aside>
+          {hasImage && (
+            <aside className="app-tools-panel" role="complementary" aria-label="Tools">
+              <ErrorBoundary>
+                <ToolsPanel />
+              </ErrorBoundary>
+            </aside>
+          )}
         </main>
 
         {/* Bottom Bar Ad - 728x90 (only if configured) */}

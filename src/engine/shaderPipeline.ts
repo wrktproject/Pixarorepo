@@ -204,7 +204,7 @@ export class ShaderPipeline {
     this.geometricProgram = this.shaderCompiler.createProgram(
       geometricVertexShader,
       geometricFragmentShader,
-      ['u_texture', 'u_imageSize', 'u_cropBounds', 'u_rotationAngle', 'u_hasCrop'],
+      ['u_texture', 'u_imageSize', 'u_cropBounds', 'u_rotationAngle', 'u_rotation90', 'u_flipHorizontal', 'u_flipVertical', 'u_hasCrop'],
       ['a_position', 'a_texCoord']
     );
 
@@ -275,6 +275,7 @@ export class ShaderPipeline {
         'u_vignetteFeather',
         'u_grainAmount',
         'u_grainSize',
+        'u_grainRoughness',
         'u_time',
       ],
       ['a_position', 'a_texCoord']

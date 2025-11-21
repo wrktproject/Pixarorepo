@@ -71,25 +71,38 @@ void main() {
     texCoord = u_cropBounds.xy + texCoord * u_cropBounds.zw;
   }
   
-  // Apply straighten rotation (rotate the lookup within crop)
-  // This rotates the image while keeping the crop rectangle axis-aligned
-  if (abs(u_rotationAngle) > 0.001) {
-    vec2 center = vec2(0.5, 0.5);
-    texCoord = rotate(texCoord, center, u_rotationAngle, aspectRatio);
+  // Apply 90-degree rotation using coordinate swapping
+  // When canvas dimensions are swapped, we need to map the coordinates correctly
+  int rotation90Deg = int(round(u_rotation90 * 180.0 / 3.14159265));
+  rotation90Deg = rotation90Deg % 360;
+  if (rotation90Deg < 0) rotation90Deg += 360;
+  
+  if (rotation90Deg == 90) {
+    // 90 degrees clockwise: map portrait canvas to landscape texture
+    // x' = y, y' = 1-x
+    texCoord = vec2(texCoord.y, 1.0 - texCoord.x);
+  } else if (rotation90Deg == 180) {
+    // 180 degrees: flip both axes
+    texCoord = vec2(1.0 - texCoord.x, 1.0 - texCoord.y);
+  } else if (rotation90Deg == 270) {
+    // 270 degrees clockwise (90 counter-clockwise): map portrait canvas to landscape texture
+    // x' = 1-y, y' = x
+    texCoord = vec2(1.0 - texCoord.y, texCoord.x);
   }
   
-  // Apply 90-degree rotation
-  if (abs(u_rotation90) > 0.001) {
-    vec2 center = vec2(0.5, 0.5);
-    texCoord = rotate(texCoord, center, u_rotation90, aspectRatio);
-  }
-  
-  // Apply flip transformations
+  // Apply flip transformations (after rotation so flips work in rotated space)
   if (u_flipHorizontal) {
     texCoord.x = 1.0 - texCoord.x;
   }
   if (u_flipVertical) {
     texCoord.y = 1.0 - texCoord.y;
+  }
+  
+  // Apply straighten rotation (rotate the lookup within crop)
+  // This rotates the image while keeping the crop rectangle axis-aligned
+  if (abs(u_rotationAngle) > 0.001) {
+    vec2 center = vec2(0.5, 0.5);
+    texCoord = rotate(texCoord, center, u_rotationAngle, aspectRatio);
   }
   
   // Check if texture coordinate is within bounds

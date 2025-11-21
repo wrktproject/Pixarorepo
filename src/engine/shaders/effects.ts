@@ -28,6 +28,7 @@ uniform float u_vignetteMidpoint; // 0.0 to 100.0
 uniform float u_vignetteFeather;  // 0.0 to 100.0
 uniform float u_grainAmount;      // 0.0 to 100.0
 uniform float u_grainSize;        // 0: fine, 1: medium, 2: coarse
+uniform float u_grainRoughness;   // 0.0 to 100.0 (clumping)
 uniform float u_time;             // For grain randomness
 
 out vec4 fragColor;
@@ -79,38 +80,42 @@ vec3 applyVignette(vec3 color, vec2 uv, float amount, float midpoint, float feat
   return color;
 }
 
-// Apply grain effect
-vec3 applyGrain(vec3 color, vec2 uv, float amount, float size, float time) {
+// Apply realistic film grain (Lightroom-quality)
+vec3 applyGrain(vec3 color, vec2 uv, float amount, float size, float roughness, float time) {
   if (amount < 0.01) {
     return color;
   }
   
-  // Adjust UV based on grain size
-  vec2 grainUV = uv;
-  
+  // Step 1 & 2: Generate base noise scaled by grain size
+  float grainScale;
   if (size < 0.5) {
-    // Fine grain
-    grainUV *= 800.0;
+    grainScale = 800.0; // Fine grain
   } else if (size < 1.5) {
-    // Medium grain
-    grainUV *= 400.0;
+    grainScale = 400.0; // Medium grain
   } else {
-    // Coarse grain
-    grainUV *= 200.0;
+    grainScale = 200.0; // Coarse grain
   }
   
-  // Generate grain noise
-  float noise = randomWithTime(floor(grainUV), time);
+  vec2 grainUV = uv * grainScale;
   
-  // Convert to -1 to 1 range
-  noise = noise * 2.0 - 1.0;
+  // Primary noise layer
+  float noise1 = randomWithTime(floor(grainUV), time);
   
-  // Scale by amount
+  // Step 4: Add roughness (clumping) with second noise layer at different frequency
+  float noise2 = randomWithTime(floor(grainUV * 0.5), time);
+  float normalizedRoughness = roughness / 100.0;
+  float roughNoise = mix(noise1, noise2, normalizedRoughness);
+  
+  // Step 3: Modulate by luminance (more grain in shadows, less in highlights)
+  float lum = dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));
+  float lumFactor = pow(1.0 - lum, 0.7); // More grain in dark areas
+  
+  // Step 5: Center noise around 0 and multiply by amount
   float normalizedAmount = amount / 100.0;
-  noise *= normalizedAmount * 0.15; // Scale down for natural look
+  float grain = (roughNoise - 0.5) * normalizedAmount * 0.25;
   
-  // Apply grain
-  color += vec3(noise);
+  // Step 6: Add grain to image (additive, modulated by luminance)
+  color.rgb += grain * lumFactor;
   
   return color;
 }
@@ -134,6 +139,7 @@ void main() {
     v_texCoord,
     u_grainAmount,
     u_grainSize,
+    u_grainRoughness,
     u_time
   );
   
@@ -156,6 +162,7 @@ export interface EffectsAdjustments {
   grain: {
     amount: number;   // 0 to 100
     size: 'fine' | 'medium' | 'coarse';
+    roughness: number; // 0 to 100
   };
 }
 
@@ -205,6 +212,11 @@ export function applyEffectsUniforms(
   const grainSizeLocation = uniforms.get('u_grainSize');
   if (grainSizeLocation) {
     gl.uniform1f(grainSizeLocation, grainSizeToNumber(adjustments.grain.size));
+  }
+
+  const grainRoughnessLocation = uniforms.get('u_grainRoughness');
+  if (grainRoughnessLocation) {
+    gl.uniform1f(grainRoughnessLocation, adjustments.grain.roughness);
   }
 
   const timeLocation = uniforms.get('u_time');

@@ -24,6 +24,7 @@ const initialState: UIState = {
   },
   enableToneMapping: false,
   qualityMode: 'preview',
+  renderedImageData: null,
 };
 
 const uiSlice = createSlice({
@@ -103,6 +104,9 @@ const uiSlice = createSlice({
     setShowGrid: (state, action: PayloadAction<boolean>) => {
       state.showGrid = action.payload;
     },
+    setRenderedImageData: (state, action: PayloadAction<ImageData | null>) => {
+      state.renderedImageData = action.payload;
+    },
   },
 });
 
@@ -124,6 +128,7 @@ export const {
   toggleToneMapping,
   setQualityMode,
   setShowGrid,
+  setRenderedImageData,
 } = uiSlice.actions;
 
 export default uiSlice.reducer;

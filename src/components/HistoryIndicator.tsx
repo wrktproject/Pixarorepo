@@ -4,6 +4,9 @@
  */
 
 import { useState } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import type { RootState } from '../store';
+import { setShowComparison } from '../store';
 import { useHistory } from '../utils/useHistory';
 import { ExportDialog } from './ExportDialog';
 import './HistoryIndicator.css';
@@ -17,8 +20,18 @@ export const HistoryIndicator: React.FC<HistoryIndicatorProps> = ({
   canvasRef,
   hasImage = true,
 }) => {
+  const dispatch = useDispatch();
   const { undo, redo, canUndo, canRedo, historyPosition } = useHistory();
+  const showComparison = useSelector((state: RootState) => state.ui.showComparison);
   const [showExportDialog, setShowExportDialog] = useState(false);
+
+  const handleComparisonMouseDown = () => {
+    dispatch(setShowComparison(true));
+  };
+
+  const handleComparisonMouseUp = () => {
+    dispatch(setShowComparison(false));
+  };
 
   return (
     <div className="history-indicator">
@@ -49,6 +62,21 @@ export const HistoryIndicator: React.FC<HistoryIndicatorProps> = ({
       <span className="history-position" title="History position">
         {historyPosition.past} / {historyPosition.past + historyPosition.future + 1}
       </span>
+
+      {/* Before Button */}
+      {hasImage && (
+        <button
+          className={`history-button before-button ${showComparison ? 'active' : ''}`}
+          onMouseDown={handleComparisonMouseDown}
+          onMouseUp={handleComparisonMouseUp}
+          onMouseLeave={handleComparisonMouseUp}
+          title="Hold to show before (Spacebar)"
+          aria-label="Hold to show original image"
+          aria-pressed={showComparison}
+        >
+          Before
+        </button>
+      )}
 
       <button
         className="history-button"

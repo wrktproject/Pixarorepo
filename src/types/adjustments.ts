@@ -36,6 +36,7 @@ export interface VignetteSettings {
 export interface GrainSettings {
   amount: number;    // 0 to 100
   size: 'fine' | 'medium' | 'coarse';
+  roughness: number; // 0 to 100 (clumping/irregularity)
 }
 
 export interface RemovalMask {
