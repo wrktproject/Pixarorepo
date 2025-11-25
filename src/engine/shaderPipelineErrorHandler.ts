@@ -81,8 +81,7 @@ export class ShaderPipelineErrorHandler {
       this.contextManager = new WebGLContextManager({
         canvas: this.canvas,
         antialias: false,
-        preserveDrawingBuffer: true, // Keep canvas content when tab goes to background
-        preserveDrawingBuffer: false,
+        preserveDrawingBuffer: false, // Better performance, don't keep buffer
       });
 
       // Set up context loss handlers

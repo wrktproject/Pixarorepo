@@ -1,0 +1,67 @@
+/**
+ * UnifiedColorWheel Styles
+ * Single interactive color wheel with channel selection
+ */
+
+.unified-color-wheel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 0;
+  gap: 16px;
+}
+
+.unified-color-wheel__canvas {
+  cursor: crosshair;
+  border-radius: 50%;
+  transition: opacity 0.2s;
+}
+
+.unified-color-wheel__canvas:hover {
+  opacity: 0.95;
+}
+
+.unified-color-wheel__canvas--disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.unified-color-wheel__canvas--disabled:hover {
+  opacity: 0.4;
+}
+
+.unified-color-wheel__legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  max-width: 240px;
+}
+
+.unified-color-wheel__color-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.unified-color-wheel__color-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.unified-color-wheel__color-btn--active {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.4);
+  color: #ffffff;
+}
+
+.unified-color-wheel__color-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}

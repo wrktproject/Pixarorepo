@@ -26,6 +26,7 @@ export class TextureManager {
   private gl: WebGL2RenderingContext;
   private textureCache: Map<string, CachedTexture> = new Map();
   private activeTextures: Set<WebGLTexture> = new Set();
+  private textureDimensions: Map<WebGLTexture, { width: number; height: number }> = new Map();
   private maxCacheSize: number;
   private currentCacheSize = 0;
   private memoryPressureThreshold: number;
@@ -100,8 +101,9 @@ export class TextureManager {
     );
     this.gl.bindTexture(this.gl.TEXTURE_2D, null);
 
-    // Track active texture
+    // Track active texture and its dimensions
     this.activeTextures.add(texture);
+    this.textureDimensions.set(texture, { width: imageData.width, height: imageData.height });
     this.totalTexturesCreated++;
 
     // Profile texture upload
@@ -164,19 +166,18 @@ export class TextureManager {
       return this.createTextureFromImageData(imageData, config);
     }
 
-    // Get the existing texture's dimensions
-    this.gl.bindTexture(this.gl.TEXTURE_2D, existingTexture);
-    const existingWidth = this.gl.getTexParameter(this.gl.TEXTURE_2D, this.gl.TEXTURE_WIDTH);
-    const existingHeight = this.gl.getTexParameter(this.gl.TEXTURE_2D, this.gl.TEXTURE_HEIGHT);
-    this.gl.bindTexture(this.gl.TEXTURE_2D, null);
-
-    // If dimensions changed, we MUST create a new texture
+    // Get the existing texture's dimensions from our tracking map
+    const existingDims = this.textureDimensions.get(existingTexture);
+    
+    // If dimensions changed or not tracked, we MUST create a new texture
     // texSubImage2D cannot change texture dimensions
-    if (existingWidth !== imageData.width || existingHeight !== imageData.height) {
-      console.log('🔄 Texture dimensions changed:', {
-        old: `${existingWidth}x${existingHeight}`,
-        new: `${imageData.width}x${imageData.height}`,
-      });
+    if (!existingDims || existingDims.width !== imageData.width || existingDims.height !== imageData.height) {
+      if (existingDims) {
+        console.log('🔄 Texture dimensions changed:', {
+          old: `${existingDims.width}x${existingDims.height}`,
+          new: `${imageData.width}x${imageData.height}`,
+        });
+      }
       this.deleteTexture(existingTexture);
       return this.createTextureFromImageData(imageData, config);
     }
@@ -233,8 +234,9 @@ export class TextureManager {
 
     this.gl.bindTexture(this.gl.TEXTURE_2D, null);
 
-    // Track active texture
+    // Track active texture and its dimensions
     this.activeTextures.add(texture);
+    this.textureDimensions.set(texture, { width: config.width, height: config.height });
     this.totalTexturesCreated++;
 
     return texture;
@@ -278,8 +280,9 @@ export class TextureManager {
   public deleteTexture(texture: WebGLTexture): void {
     this.gl.deleteTexture(texture);
 
-    // Remove from active textures
+    // Remove from active textures and dimension tracking
     this.activeTextures.delete(texture);
+    this.textureDimensions.delete(texture);
     this.totalTexturesDeleted++;
 
     // Remove from cache if present
@@ -299,6 +302,7 @@ export class TextureManager {
   public clearCache(): void {
     for (const cached of this.textureCache.values()) {
       this.gl.deleteTexture(cached.texture);
+      this.textureDimensions.delete(cached.texture);
     }
     this.textureCache.clear();
     this.currentCacheSize = 0;
@@ -340,6 +344,7 @@ export class TextureManager {
 
       this.gl.deleteTexture(cached.texture);
       this.activeTextures.delete(cached.texture);
+      this.textureDimensions.delete(cached.texture);
       this.totalTexturesDeleted++;
       const size = this.estimateTextureSize(cached.width, cached.height);
       this.currentCacheSize -= size;
@@ -361,6 +366,7 @@ export class TextureManager {
       const cached = sorted[i];
       this.gl.deleteTexture(cached.texture);
       this.activeTextures.delete(cached.texture);
+      this.textureDimensions.delete(cached.texture);
       this.totalTexturesDeleted++;
       const size = this.estimateTextureSize(cached.width, cached.height);
       this.currentCacheSize -= size;
@@ -405,6 +411,7 @@ export class TextureManager {
       if (now - cached.lastUsed > threshold) {
         this.gl.deleteTexture(cached.texture);
         this.activeTextures.delete(cached.texture);
+        this.textureDimensions.delete(cached.texture);
         this.totalTexturesDeleted++;
         const size = this.estimateTextureSize(cached.width, cached.height);
         this.currentCacheSize -= size;

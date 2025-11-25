@@ -45,7 +45,11 @@ export const ToolsPanel: React.FC = () => {
       // Show crop panel in sidebar
       setLocalActiveTool(newCropState === 'crop' ? 'crop' : 'adjustments');
     } else {
-      // For other tools, normal toggle behavior
+      // For other tools, deactivate crop overlay if it's active
+      if (reduxActiveTool === 'crop') {
+        dispatch(setActiveTool('none'));
+      }
+      // Normal toggle behavior for sidebar
       setLocalActiveTool(activeTool === tool ? 'none' : tool);
     }
   };
@@ -199,7 +203,7 @@ export const ToolsPanel: React.FC = () => {
               </p>
               <button
                 className="lens-blur-tool__button"
-                disabled={disabled}
+                disabled={true}
               >
                 Coming Soon
               </button>
