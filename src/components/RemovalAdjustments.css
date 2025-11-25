@@ -23,6 +23,13 @@
 .removal-adjustments__mode-selector {
   display: flex;
   flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.removal-adjustments__mode-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 0.5rem;
 }
 
@@ -33,12 +40,16 @@
 }
 
 .removal-adjustments__mode-btn {
-  padding: 0.5rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.75rem 0.5rem;
   background: var(--bg-tertiary, #2a2a2a);
   border: 1px solid var(--border-color, #3a3a3a);
-  border-radius: 4px;
+  border-radius: 6px;
   color: var(--text-secondary, #b0b0b0);
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
@@ -47,12 +58,125 @@
 .removal-adjustments__mode-btn:hover {
   background: var(--bg-hover, #3a3a3a);
   color: var(--text-primary, #ffffff);
+  transform: translateY(-1px);
+  border-color: var(--accent-primary, #4a9eff);
 }
 
 .removal-adjustments__mode-btn--active {
   background: var(--accent-primary, #4a9eff);
   border-color: var(--accent-primary, #4a9eff);
   color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.15);
+}
+
+.removal-adjustments__mode-icon {
+  font-size: 1.5rem;
+}
+
+.removal-adjustments__control-group {
+  margin-bottom: 0.75rem;
+}
+
+.removal-adjustments__tip {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: var(--bg-hover, #2a2a2a);
+  border-left: 3px solid var(--accent-primary, #4a9eff);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  color: var(--text-secondary, #b0b0b0);
+}
+
+.removal-adjustments__tip kbd {
+  padding: 0.125rem 0.375rem;
+  background: var(--bg-tertiary, #1a1a1a);
+  border: 1px solid var(--border-color, #3a3a3a);
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 0.75rem;
+}
+
+/* Active tool UI */
+.removal-adjustments__active {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(10px);
+  z-index: 100;
+  border-bottom: 1px solid var(--border-color, #3a3a3a);
+}
+
+.removal-adjustments__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.removal-adjustments__tool-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.removal-adjustments__mode-badge {
+  padding: 0.5rem 1rem;
+  background: var(--accent-primary, #4a9eff);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.removal-adjustments__stroke-count {
+  font-size: 0.875rem;
+  color: var(--text-secondary, #b0b0b0);
+}
+
+.removal-adjustments__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.removal-adjustments__action-btn {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border-color, #3a3a3a);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.removal-adjustments__action-btn--secondary {
+  background: var(--bg-tertiary, #2a2a2a);
+  color: var(--text-secondary, #b0b0b0);
+}
+
+.removal-adjustments__action-btn--secondary:hover:not(:disabled) {
+  background: var(--bg-hover, #3a3a3a);
+  color: var(--text-primary, #ffffff);
+}
+
+.removal-adjustments__action-btn--primary {
+  background: var(--accent-primary, #4a9eff);
+  border-color: var(--accent-primary, #4a9eff);
+  color: #ffffff;
+}
+
+.removal-adjustments__action-btn--primary:hover:not(:disabled) {
+  background: #3b8fe8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(74, 158, 255, 0.3);
+}
+
+.removal-adjustments__action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .removal-adjustments__hint {

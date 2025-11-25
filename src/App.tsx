@@ -215,7 +215,7 @@ function App() {
           {hasImage && (
             <aside className="app-tools-panel" role="complementary" aria-label="Tools">
               <ErrorBoundary>
-                <ToolsPanel />
+                <ToolsPanel canvasRef={canvasRef} />
               </ErrorBoundary>
             </aside>
           )}

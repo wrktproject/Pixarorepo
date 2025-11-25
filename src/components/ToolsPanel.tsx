@@ -29,7 +29,11 @@ const PresetAdjustments = React.lazy(() =>
 
 type ActiveTool = 'none' | 'adjustments' | 'crop' | 'removal' | 'blur' | 'presets';
 
-export const ToolsPanel: React.FC = () => {
+interface ToolsPanelProps {
+  canvasRef?: React.RefObject<HTMLCanvasElement | null>;
+}
+
+export const ToolsPanel: React.FC<ToolsPanelProps> = ({ canvasRef }) => {
   const dispatch = useDispatch();
   const hasImage = useSelector((state: RootState) => state.image.current !== null);
   const reduxActiveTool = useSelector((state: RootState) => state.ui.activeTool);
@@ -184,7 +188,7 @@ export const ToolsPanel: React.FC = () => {
           </div>
           <div className="tools-panel__body">
             <Suspense fallback={<div className="loading-section">Loading AI tools...</div>}>
-              <RemovalAdjustments disabled={disabled} />
+              <RemovalAdjustments disabled={disabled} canvasRef={canvasRef!} />
             </Suspense>
           </div>
         </div>

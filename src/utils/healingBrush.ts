@@ -231,12 +231,13 @@ export function healPatch(
 }
 
 /**
- * Perform clone stamp operation (exact copy without blending)
+ * Perform clone stamp operation (exact copy with opacity support)
  */
 export function clonePatch(
   imageData: ImageData,
   patch: HealingPatch,
-  feather: number = 0.3
+  feather: number = 0.3,
+  opacity: number = 1.0
 ): void {
   const { sourceX, sourceY, targetX, targetY, radius } = patch;
   const width = imageData.width;
@@ -248,7 +249,7 @@ export function clonePatch(
   
   for (let y = 0; y < maskSize; y++) {
     for (let x = 0; x < maskSize; x++) {
-      const maskWeight = mask[y * maskSize + x];
+      const maskWeight = mask[y * maskSize + x] * opacity; // Apply opacity
       if (maskWeight === 0) continue;
       
       const sx = sourceX - radius + x;
@@ -266,6 +267,128 @@ export function clonePatch(
       for (let c = 0; c < 4; c++) {
         data[tIdx + c] = data[tIdx + c] * (1 - maskWeight) + data[sIdx + c] * maskWeight;
       }
+    }
+  }
+}
+
+/**
+ * Paint a brush stroke along a path (for interactive drawing)
+ */
+export interface BrushStrokePoint {
+  x: number;
+  y: number;
+}
+
+export interface BrushStrokeOptions {
+  mode: 'clone' | 'heal';
+  sourceOffset?: { x: number; y: number }; // For clone/heal
+  radius: number;
+  feather: number;
+  opacity: number;
+  spacing?: number; // Distance between stamp applications (default: radius / 4)
+}
+
+/**
+ * Apply brush stroke along a path
+ * Applies multiple overlapping stamps for smooth continuous strokes
+ */
+export function paintBrushStroke(
+  imageData: ImageData,
+  points: BrushStrokePoint[],
+  options: BrushStrokeOptions
+): void {
+  if (points.length === 0) return;
+
+  const { mode, sourceOffset, radius, feather, opacity, spacing = radius / 4 } = options;
+
+  // For single point, just apply one stamp
+  if (points.length === 1) {
+    const point = points[0];
+    
+    if (mode === 'clone' && sourceOffset) {
+      clonePatch(
+        imageData,
+        {
+          sourceX: point.x + sourceOffset.x,
+          sourceY: point.y + sourceOffset.y,
+          targetX: point.x,
+          targetY: point.y,
+          radius,
+        },
+        feather,
+        opacity
+      );
+    } else if (mode === 'heal' && sourceOffset) {
+      healPatch(
+        imageData,
+        {
+          sourceX: point.x + sourceOffset.x,
+          sourceY: point.y + sourceOffset.y,
+          targetX: point.x,
+          targetY: point.y,
+          radius,
+        },
+        feather
+      );
+    }
+    return;
+  }
+
+  // For multiple points, interpolate and apply stamps along the path
+  const stamps: BrushStrokePoint[] = [];
+  
+  for (let i = 0; i < points.length - 1; i++) {
+    const start = points[i];
+    const end = points[i + 1];
+    
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    
+    if (dist === 0) continue;
+    
+    // Calculate number of stamps needed
+    const numStamps = Math.max(1, Math.ceil(dist / spacing));
+    
+    for (let j = 0; j < numStamps; j++) {
+      const t = j / numStamps;
+      stamps.push({
+        x: Math.round(start.x + dx * t),
+        y: Math.round(start.y + dy * t),
+      });
+    }
+  }
+  
+  // Add the last point
+  stamps.push(points[points.length - 1]);
+
+  // Apply stamps along the stroke
+  for (const stamp of stamps) {
+    if (mode === 'clone' && sourceOffset) {
+      clonePatch(
+        imageData,
+        {
+          sourceX: stamp.x + sourceOffset.x,
+          sourceY: stamp.y + sourceOffset.y,
+          targetX: stamp.x,
+          targetY: stamp.y,
+          radius,
+        },
+        feather,
+        opacity
+      );
+    } else if (mode === 'heal' && sourceOffset) {
+      healPatch(
+        imageData,
+        {
+          sourceX: stamp.x + sourceOffset.x,
+          sourceY: stamp.y + sourceOffset.y,
+          targetX: stamp.x,
+          targetY: stamp.y,
+          radius,
+        },
+        feather
+      );
     }
   }
 }

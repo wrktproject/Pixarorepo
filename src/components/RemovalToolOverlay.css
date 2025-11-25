@@ -1,0 +1,20 @@
+/**
+ * RemovalToolOverlay Styles
+ * Interactive canvas overlay for healing/clone brush
+ */
+
+.removal-tool-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: all;
+  z-index: 10;
+  touch-action: none;
+  user-select: none;
+}
+
+.removal-tool-overlay:active {
+  cursor: none !important;
+}
+
