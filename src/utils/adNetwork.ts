@@ -175,8 +175,10 @@ class AdNetworkManager {
       element.appendChild(ins);
 
       // Push ad (only in production with real AdSense)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       if (!this.config?.testMode && (window as any).adsbygoogle) {
         try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           ((window as any).adsbygoogle = (window as any).adsbygoogle || []).push({});
         } catch (error) {
           console.error('Error pushing ad:', error);

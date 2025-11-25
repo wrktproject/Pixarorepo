@@ -16,7 +16,7 @@ export interface ImageMetadata {
   format: string;
   width: number;
   height: number;
-  exif: Record<string, any>;
+  exif: Record<string, unknown>;
   colorProfile: string;
 }
 

@@ -245,6 +245,7 @@ class PerformanceMonitor {
     // Get memory info if available
     let memoryUsage = null;
     if (typeof performance !== 'undefined' && 'memory' in performance) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const memory = (performance as any).memory;
       memoryUsage = {
         jsHeapSize: memory.usedJSHeapSize,

@@ -12,7 +12,7 @@ interface WorkerInstance {
 
 interface QueuedTask {
   task: WorkerTask;
-  resolve: (value: any) => void;
+  resolve: (value: unknown) => void;
   reject: (error: Error) => void;
   timeout?: number;
 }

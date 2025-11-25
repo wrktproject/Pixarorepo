@@ -75,7 +75,7 @@ export async function calculateHistogram(imageData: ImageData): Promise<Histogra
     imageData.height
   );
 
-  const result = await pool.execute<{ type: string; imageData: ImageData }, any>(
+  const result = await pool.execute<{ type: string; imageData: ImageData }, { histogram: number[] }>(
     'calculate',
     { type: 'calculate', imageData: clonedData },
     {
@@ -94,11 +94,11 @@ export async function exportImage(
   imageData: ImageData,
   format: 'jpeg' | 'png' | 'tiff',
   quality: number,
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 ): Promise<Blob> {
   const pool = getExportPool();
 
-  const result = await pool.execute<any, { blob: Blob }>(
+  const result = await pool.execute<{ type: string; imageData: ImageData; format: string; quality: number; metadata?: Record<string, unknown> }, { blob: Blob }>(
     'export',
     {
       type: 'export',
@@ -125,7 +125,7 @@ export async function processAIInpainting(
 ): Promise<ImageData> {
   const pool = getAIPool();
 
-  const result = await pool.execute<any, { imageData: ImageData }>(
+  const result = await pool.execute<{ type: string; imageData: ImageData; mask: Uint8Array; bounds: { x: number; y: number; width: number; height: number } }, { imageData: ImageData }>(
     'inpaint',
     {
       type: 'inpaint',

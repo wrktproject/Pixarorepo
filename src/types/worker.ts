@@ -14,7 +14,7 @@ export type WorkerTaskType =
 
 export interface WorkerTask {
   type: WorkerTaskType;
-  payload: any;
+  payload: unknown;
 }
 
 export interface DecodeRawTask extends WorkerTask {
@@ -33,11 +33,12 @@ export interface AIInpaintTask extends WorkerTask {
   };
 }
 
+// Using Record<string, unknown> to avoid circular dependency with AdjustmentState
 export interface ExportTask extends WorkerTask {
   type: 'export';
   payload: {
     imageData: ImageData;
-    adjustments: any; // AdjustmentState - using any to avoid circular dependency
+    adjustments: Record<string, unknown>; // AdjustmentState - using Record to avoid circular dependency
   };
 }
 
@@ -48,7 +49,7 @@ export interface HistogramTask extends WorkerTask {
   };
 }
 
-export interface WorkerResponse<T = any> {
+export interface WorkerResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;

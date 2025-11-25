@@ -51,7 +51,7 @@ export interface AppError {
   severity: ErrorSeverity;
   recoverable: boolean;
   userMessage: string;
-  details?: any;
+  details?: unknown;
 }
 
 export class PixaroError extends Error {
@@ -59,7 +59,7 @@ export class PixaroError extends Error {
   severity: ErrorSeverity;
   recoverable: boolean;
   userMessage: string;
-  details?: any;
+  details?: unknown;
 
   constructor(appError: AppError) {
     super(appError.message);
@@ -71,7 +71,9 @@ export class PixaroError extends Error {
     this.details = appError.details;
 
     // Maintains proper stack trace for where error was thrown (V8 only)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (typeof (Error as any).captureStackTrace === 'function') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (Error as any).captureStackTrace(this, PixaroError);
     }
   }

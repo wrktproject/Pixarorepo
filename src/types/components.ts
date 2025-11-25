@@ -3,8 +3,8 @@
  * Type definitions for React component props
  */
 
-import type { AdjustmentState, RemovalMask } from './adjustments';
-import type { ProcessedImage, ImageMetadata } from './image';
+import type { AdjustmentState } from './adjustments';
+import type { ProcessedImage } from './image';
 
 export type EditingSection =
   | 'basic'

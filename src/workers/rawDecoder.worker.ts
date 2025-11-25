@@ -50,7 +50,7 @@ async function decodeRawFile(
   imageData: ImageData;
   width: number;
   height: number;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }> {
   // Determine RAW format from filename
   const extension = fileName.toLowerCase().split('.').pop();

@@ -95,6 +95,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
   }, [isVisible]);
 
   // Clone child and add event handlers
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const childProps = children.props as any;
   const trigger = React.cloneElement(children, {
     onMouseEnter: (e: React.MouseEvent) => {
@@ -114,6 +115,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
       childProps.onBlur?.(e);
     },
     'aria-describedby': isVisible ? 'tooltip' : undefined,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any);
 
   return (

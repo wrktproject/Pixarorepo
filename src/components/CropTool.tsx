@@ -204,7 +204,7 @@ export const CropTool: React.FC = () => {
     const imageDeltaX = deltaX / scaleX;
     const imageDeltaY = deltaY / scaleY;
 
-    let newBounds = { ...dragStartBounds };
+    const newBounds = { ...dragStartBounds };
 
     if (dragHandle === 'move') {
       // Move the entire crop area

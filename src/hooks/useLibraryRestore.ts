@@ -145,6 +145,7 @@ export function useLibraryRestore(): RestoreStatus {
           }
           
           if (session.activeTool) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             dispatch(setActiveTool(session.activeTool as any));
           }
 

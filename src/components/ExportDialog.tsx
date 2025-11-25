@@ -186,7 +186,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
               className="export-dialog__select"
               value={format}
               onChange={(e) => {
-                setFormat(e.target.value as any);
+                setFormat(e.target.value as 'jpeg' | 'png' | 'webp');
                 setPreset('custom');
               }}
             >

@@ -70,7 +70,7 @@ async function loadRawImage(file: File): Promise<{
       imageData: ImageData;
       width: number;
       height: number;
-      metadata: Record<string, any>;
+      metadata: Record<string, unknown>;
     }>(task, 30000);
 
     const processedImage: ProcessedImage = {

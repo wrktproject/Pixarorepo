@@ -3,7 +3,7 @@
  * Manages a pool of Web Workers for efficient task execution
  */
 
-export interface WorkerTask<T = any, R = any> {
+export interface WorkerTask<T = unknown, R = unknown> {
   id: string;
   type: string;
   payload: T;
@@ -123,7 +123,7 @@ export class WorkerPool {
   /**
    * Execute a task using the worker pool
    */
-  public execute<T = any, R = any>(
+  public execute<T = unknown, R = unknown>(
     type: string,
     payload: T,
     options: {

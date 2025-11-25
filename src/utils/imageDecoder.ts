@@ -124,8 +124,9 @@ function loadImageElement(file: File): Promise<HTMLImageElement> {
 /**
  * Extract EXIF metadata from an image
  */
-function extractExifData(img: HTMLImageElement): Promise<Record<string, any>> {
+function extractExifData(img: HTMLImageElement): Promise<Record<string, unknown>> {
   return new Promise((resolve) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     EXIF.getData(img as any, function (this: any) {
       const allTags = EXIF.getAllTags(this);
       resolve(allTags || {});
