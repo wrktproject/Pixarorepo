@@ -1,23 +1,57 @@
 /**
  * Content-Aware Fill Implementation
- * Multi-scale PatchMatch with gradient blending
  * 
  * Strategy:
- * 1. Downsample to ~512px max dimension (16-64x speedup)
- * 2. Run PatchMatch at low resolution
- * 3. Propagate + random search iterations
- * 4. Upscale result
- * 5. Gradient blend at edges
+ * 1. Try LaMa neural network (best quality) via ONNX Runtime
+ * 2. Fall back to PatchMatch if model unavailable
+ * 3. Apply edge feathering and color matching
  */
+
+import { runLamaInpainting, isLamaAvailable, preloadLamaModel } from './lamaInpainting';
 
 export interface ContentAwareFillOptions {
   maxWorkingSize?: number;
   patchSize?: number;
   iterations?: number;
+  useLama?: boolean;
 }
+
+// Re-export for preloading
+export { preloadLamaModel, isLamaAvailable };
 
 /**
  * Main content-aware fill function
+ * Tries LaMa first, falls back to PatchMatch
+ */
+export async function contentAwareFillWithMaskAsync(
+  imageData: ImageData,
+  mask: Float32Array,
+  bounds: { minX: number; minY: number; maxX: number; maxY: number },
+  options: ContentAwareFillOptions = {}
+): Promise<void> {
+  const { useLama = true } = options;
+  
+  // Try LaMa first if enabled
+  if (useLama && isLamaAvailable()) {
+    console.log('Trying LaMa inpainting...');
+    const result = await runLamaInpainting(imageData, mask, bounds);
+    
+    if (result) {
+      // Copy result back to imageData
+      imageData.data.set(result.data);
+      console.log('LaMa inpainting successful');
+      return;
+    }
+    
+    console.log('LaMa failed, falling back to PatchMatch');
+  }
+  
+  // Fall back to PatchMatch
+  contentAwareFillWithMask(imageData, mask, bounds, options);
+}
+
+/**
+ * Synchronous PatchMatch-based fill (fallback)
  */
 export function contentAwareFillWithMask(
   imageData: ImageData,

@@ -10,7 +10,7 @@ import { setActiveTool } from '../store/uiSlice';
 import { setCurrentImage } from '../store/imageSlice';
 import { RemovalToolOverlay, type BrushStroke } from './RemovalToolOverlay';
 import { paintBrushStroke, createStrokeMask } from '../utils/healingBrush';
-import { contentAwareFillWithMask } from '../utils/contentAwareFill';
+import { contentAwareFillWithMaskAsync } from '../utils/contentAwareFill';
 import './RemovalAdjustments.css';
 
 type BrushMode = 'clone' | 'heal' | 'content-aware';
@@ -107,7 +107,7 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
    * Handle completed brush stroke
    */
   const handleStrokeComplete = useCallback(
-    (stroke: BrushStroke) => {
+    async (stroke: BrushStroke) => {
       // Use ref to get current working image (avoids stale closure)
       const currentWorkingImage = workingImageRef.current;
       const currentSourcePoint = sourcePointRef.current;
@@ -165,8 +165,8 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
           stroke.feather
         );
         
-        // Use mask-based content-aware fill
-        contentAwareFillWithMask(modifiedImage, mask, bounds);
+        // Use LaMa neural network with PatchMatch fallback
+        await contentAwareFillWithMaskAsync(modifiedImage, mask, bounds);
       }
 
       console.log('Updating canvas with modified image...');
