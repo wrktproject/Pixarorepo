@@ -8,7 +8,7 @@
 import * as ort from 'onnxruntime-web';
 
 // Model configuration
-const MODEL_URL = '/models/lama_fp16.onnx'; // Host this file in public/models/
+const MODEL_URL = '/models/model_fp16.onnx'; // Host this file in public/models/
 const MODEL_SIZE = 512; // LaMa works best at 512x512
 
 let session: ort.InferenceSession | null = null;
