@@ -315,8 +315,7 @@ function calculateRegionMean(
 }
 
 /**
- * Apply healing: for object removal, copy source pixels directly
- * with edge color matching for seamless integration
+ * Apply healing: for object removal with Poisson-like seamless blending
  */
 function applyRegionHeal(
   imageData: ImageData,
@@ -327,12 +326,13 @@ function applyRegionHeal(
 ): void {
   const { width, height, data } = imageData;
   
-  // For object removal, we REPLACE pixels with source pixels
-  // Calculate edge mean from TARGET boundary (not interior which has the object)
+  // Step 1: Copy source pixels to a temporary buffer with color correction
+  const tempBuffer = new Float32Array((bounds.maxX - bounds.minX + 1) * (bounds.maxY - bounds.minY + 1) * 3);
+  const bw = bounds.maxX - bounds.minX + 1;
+  
   const edgeMean = calculateEdgeMean(imageData, mask, bounds, width);
   const sourceMean = calculateRegionMean(imageData, mask, sourceOffset.x, sourceOffset.y, bounds);
   
-  // Color correction to match edge colors
   const colorCorrection = [
     edgeMean[0] - sourceMean[0],
     edgeMean[1] - sourceMean[1],
@@ -341,10 +341,10 @@ function applyRegionHeal(
   
   console.log('Healing region:', { edgeMean, sourceMean, colorCorrection, sourceOffset });
   
-  // Apply healing - replace with source pixels, blend at edges
+  // Initialize temp buffer with corrected source pixels
   for (let y = bounds.minY; y <= bounds.maxY; y++) {
     for (let x = bounds.minX; x <= bounds.maxX; x++) {
-      const maskWeight = mask[y * width + x] * opacity;
+      const maskWeight = mask[y * width + x];
       if (maskWeight === 0) continue;
       
       const sx = x + sourceOffset.x;
@@ -352,17 +352,83 @@ function applyRegionHeal(
       
       if (sx < 0 || sx >= width || sy < 0 || sy >= height) continue;
       
-      const targetIdx = (y * width + x) * 4;
       const sourceIdx = (sy * width + sx) * 4;
-      
-      // Apply stronger color correction at edges, less in center
-      const correctionStrength = Math.max(0, 1 - maskWeight * 1.5);
+      const bufIdx = ((y - bounds.minY) * bw + (x - bounds.minX)) * 3;
       
       for (let c = 0; c < 3; c++) {
-        // Take source pixel with color correction
-        const corrected = data[sourceIdx + c] + colorCorrection[c] * correctionStrength;
-        const clamped = Math.max(0, Math.min(255, corrected));
-        // Blend with original based on mask weight
+        tempBuffer[bufIdx + c] = data[sourceIdx + c] + colorCorrection[c] * 0.5;
+      }
+    }
+  }
+  
+  // Step 2: Poisson-like smoothing iterations (gradient-domain blending)
+  const iterations = 30; // More iterations = smoother blending
+  
+  for (let iter = 0; iter < iterations; iter++) {
+    for (let y = bounds.minY; y <= bounds.maxY; y++) {
+      for (let x = bounds.minX; x <= bounds.maxX; x++) {
+        const maskWeight = mask[y * width + x];
+        // Only smooth interior pixels (high mask weight)
+        if (maskWeight < 0.3) continue;
+        
+        const bufIdx = ((y - bounds.minY) * bw + (x - bounds.minX)) * 3;
+        
+        for (let c = 0; c < 3; c++) {
+          let sum = 0;
+          let count = 0;
+          
+          // Get neighbors
+          const neighbors = [
+            { dx: -1, dy: 0 }, { dx: 1, dy: 0 },
+            { dx: 0, dy: -1 }, { dx: 0, dy: 1 },
+          ];
+          
+          for (const { dx, dy } of neighbors) {
+            const nx = x + dx;
+            const ny = y + dy;
+            
+            if (nx < bounds.minX || nx > bounds.maxX || ny < bounds.minY || ny > bounds.maxY) {
+              // Use original image at boundary
+              if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                sum += data[(ny * width + nx) * 4 + c];
+                count++;
+              }
+            } else {
+              const nBufIdx = ((ny - bounds.minY) * bw + (nx - bounds.minX)) * 3;
+              const nWeight = mask[ny * width + nx];
+              
+              if (nWeight > 0.05) {
+                sum += tempBuffer[nBufIdx + c];
+              } else {
+                // Use original for unmasked neighbors
+                sum += data[(ny * width + nx) * 4 + c];
+              }
+              count++;
+            }
+          }
+          
+          if (count > 0) {
+            // Blend current with neighbor average (Jacobi relaxation)
+            const avg = sum / count;
+            tempBuffer[bufIdx + c] = tempBuffer[bufIdx + c] * 0.6 + avg * 0.4;
+          }
+        }
+      }
+    }
+  }
+  
+  // Step 3: Apply smoothed result with mask-based blending
+  for (let y = bounds.minY; y <= bounds.maxY; y++) {
+    for (let x = bounds.minX; x <= bounds.maxX; x++) {
+      const maskWeight = mask[y * width + x] * opacity;
+      if (maskWeight === 0) continue;
+      
+      const targetIdx = (y * width + x) * 4;
+      const bufIdx = ((y - bounds.minY) * bw + (x - bounds.minX)) * 3;
+      
+      for (let c = 0; c < 3; c++) {
+        const smoothed = tempBuffer[bufIdx + c];
+        const clamped = Math.max(0, Math.min(255, smoothed));
         data[targetIdx + c] = data[targetIdx + c] * (1 - maskWeight) + clamped * maskWeight;
       }
     }
