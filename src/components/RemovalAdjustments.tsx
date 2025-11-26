@@ -39,16 +39,22 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
   const originalImageRef = useRef<ImageData | null>(null);
   const sourcePointRef = useRef<{ x: number; y: number } | null>(null);
 
-  // Keep refs in sync with state
+  // Keep refs in sync with state - only update if state has a value
+  // This prevents overwriting direct ref assignments with stale state
   useEffect(() => {
-    workingImageRef.current = workingImage;
+    if (workingImage !== null) {
+      workingImageRef.current = workingImage;
+    }
   }, [workingImage]);
 
   useEffect(() => {
-    originalImageRef.current = originalImageBeforeEdits;
+    if (originalImageBeforeEdits !== null) {
+      originalImageRef.current = originalImageBeforeEdits;
+    }
   }, [originalImageBeforeEdits]);
 
   useEffect(() => {
+    // sourcePoint can be null intentionally, so always sync
     sourcePointRef.current = sourcePoint;
   }, [sourcePoint]);
 
