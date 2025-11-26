@@ -1,6 +1,6 @@
 /**
  * RemovalToolOverlay Component
- * Lightroom-style spot healing overlay with outlined strokes and source markers
+ * Lightroom-style spot healing overlay with smooth outlined strokes and source markers
  */
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
@@ -13,7 +13,7 @@ export interface BrushStroke {
   mode: 'clone' | 'heal' | 'content-aware';
   points: Array<{ x: number; y: number }>;
   sourceOffset?: { x: number; y: number };
-  sourcePoint?: { x: number; y: number }; // Actual source location
+  sourcePoint?: { x: number; y: number };
   size: number;
   feather: number;
   opacity: number;
@@ -55,22 +55,15 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
 
   const image = useSelector((state: RootState) => state.image.current);
 
-  /**
-   * Convert screen coordinates to image coordinates
-   */
   const screenToImage = useCallback(
     (screenX: number, screenY: number): { x: number; y: number } | null => {
       if (!canvasRef.current || !image) return null;
-
       const canvas = canvasRef.current;
       const rect = canvas.getBoundingClientRect();
-      
       const canvasX = screenX - rect.left;
       const canvasY = screenY - rect.top;
-
       const scaleX = image.width / rect.width;
       const scaleY = image.height / rect.height;
-
       return {
         x: Math.round(canvasX * scaleX),
         y: Math.round(canvasY * scaleY),
@@ -79,19 +72,13 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
     [canvasRef, image]
   );
 
-  /**
-   * Convert image coordinates to screen coordinates
-   */
   const imageToScreen = useCallback(
     (imageX: number, imageY: number): { x: number; y: number } | null => {
       if (!canvasRef.current || !overlayRef.current || !image) return null;
-
       const canvas = canvasRef.current;
       const rect = canvas.getBoundingClientRect();
-      
       const scaleX = rect.width / image.width;
       const scaleY = rect.height / image.height;
-
       return {
         x: imageX * scaleX,
         y: imageY * scaleY,
@@ -100,33 +87,20 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
     [canvasRef, image]
   );
 
-  /**
-   * Calculate the center point of a stroke
-   */
   const getStrokeCenter = useCallback((points: Array<{ x: number; y: number }>): { x: number; y: number } => {
     if (points.length === 0) return { x: 0, y: 0 };
-    
     const sum = points.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }), { x: 0, y: 0 });
-    return {
-      x: sum.x / points.length,
-      y: sum.y / points.length,
-    };
+    return { x: sum.x / points.length, y: sum.y / points.length };
   }, []);
 
-  /**
-   * Handle mouse down
-   */
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       if (!image) return;
-
       const imageCoords = screenToImage(e.clientX, e.clientY);
       if (!imageCoords) return;
 
-      // Alt+Click sets source point
       if (e.altKey && (brushMode === 'clone' || brushMode === 'heal')) {
         setSourcePoint(imageCoords);
-        console.log('Source point set:', imageCoords);
         return;
       }
 
@@ -136,16 +110,11 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
     [image, screenToImage, brushMode, setSourcePoint]
   );
 
-  /**
-   * Handle mouse move
-   */
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
       const imageCoords = screenToImage(e.clientX, e.clientY);
       if (!imageCoords) return;
-
       setCursorPos(imageCoords);
-
       if (isDrawing) {
         setCurrentStroke((prev) => [...prev, imageCoords]);
       }
@@ -153,14 +122,10 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
     [screenToImage, isDrawing]
   );
 
-  /**
-   * Handle mouse up
-   */
   const handleMouseUp = useCallback(() => {
     if (isDrawing && currentStroke.length > 0) {
       const strokeCenter = getStrokeCenter(currentStroke);
       
-      // Calculate source point for this stroke
       let strokeSourcePoint: { x: number; y: number } | undefined;
       let strokeSourceOffset: { x: number; y: number } | undefined;
       
@@ -183,23 +148,12 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
         opacity,
       };
 
-      console.log('Completing stroke:', {
-        mode: brushMode,
-        pointCount: currentStroke.length,
-        center: strokeCenter,
-        sourcePoint: strokeSourcePoint,
-      });
-
       onStrokeComplete(stroke);
       setCurrentStroke([]);
     }
-
     setIsDrawing(false);
   }, [isDrawing, currentStroke, sourcePoint, brushMode, brushSize, feather, opacity, onStrokeComplete, getStrokeCenter]);
 
-  /**
-   * Handle mouse leave
-   */
   const handleMouseLeave = useCallback(() => {
     setCursorPos(null);
     if (isDrawing) {
@@ -208,24 +162,22 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
     }
   }, [isDrawing]);
 
-  /**
-   * Handle wheel for brush size
-   */
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
       if (!e.ctrlKey || !onBrushSizeChange) return;
       e.preventDefault();
-      const delta = -Math.sign(e.deltaY) * 5;
-      const newSize = Math.max(10, Math.min(200, brushSize + delta));
+      const delta = -Math.sign(e.deltaY) * 10;
+      const newSize = Math.max(20, Math.min(300, brushSize + delta));
       onBrushSizeChange(newSize);
     },
     [brushSize, onBrushSizeChange]
   );
 
   /**
-   * Draw a stroke outline (Lightroom-style white outline)
+   * Draw a smooth stroke outline using thick line with round caps
+   * This creates the Lightroom-style smooth outlined shape
    */
-  const drawStrokeOutline = useCallback((
+  const drawSmoothStrokeOutline = useCallback((
     ctx: CanvasRenderingContext2D,
     points: Array<{ x: number; y: number }>,
     size: number,
@@ -236,44 +188,196 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
 
     const screenBrushSize = size * avgScale;
     
-    // Create a path that encompasses all the brush strokes
-    ctx.beginPath();
-    
-    if (points.length === 1) {
-      // Single point - draw a circle
-      const screenPos = imageToScreen(points[0].x, points[0].y);
+    // Convert points to screen coordinates
+    const screenPoints: Array<{ x: number; y: number }> = [];
+    for (const point of points) {
+      const screenPos = imageToScreen(point.x, point.y);
       if (screenPos) {
-        ctx.arc(screenPos.x, screenPos.y, screenBrushSize / 2, 0, Math.PI * 2);
+        screenPoints.push(screenPos);
       }
+    }
+    
+    if (screenPoints.length === 0) return;
+
+    ctx.save();
+    
+    // Draw the thick stroke path (this creates the filled shape)
+    ctx.beginPath();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = screenBrushSize;
+    
+    if (screenPoints.length === 1) {
+      // Single point - draw as arc
+      ctx.arc(screenPoints[0].x, screenPoints[0].y, screenBrushSize / 2, 0, Math.PI * 2);
     } else {
-      // Multiple points - draw rounded path
-      // First pass: draw filled circles to create the shape
-      ctx.save();
+      // Smooth curve through points using quadratic bezier
+      ctx.moveTo(screenPoints[0].x, screenPoints[0].y);
       
-      // Create a temporary canvas for the mask
-      points.forEach((point) => {
-        const screenPos = imageToScreen(point.x, point.y);
-        if (screenPos) {
-          ctx.moveTo(screenPos.x + screenBrushSize / 2, screenPos.y);
-          ctx.arc(screenPos.x, screenPos.y, screenBrushSize / 2, 0, Math.PI * 2);
-        }
-      });
+      for (let i = 1; i < screenPoints.length - 1; i++) {
+        const xc = (screenPoints[i].x + screenPoints[i + 1].x) / 2;
+        const yc = (screenPoints[i].y + screenPoints[i + 1].y) / 2;
+        ctx.quadraticCurveTo(screenPoints[i].x, screenPoints[i].y, xc, yc);
+      }
+      
+      // Last point
+      if (screenPoints.length > 1) {
+        const last = screenPoints[screenPoints.length - 1];
+        ctx.lineTo(last.x, last.y);
+      }
+    }
+    
+    // Stroke with thick line to create the shape
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.0)'; // Invisible, just for shape
+    ctx.stroke();
+    
+    // Now we need to draw the outline of this thick stroke
+    // We'll use a compositing trick: draw the thick stroke, then draw outline
+    
+    ctx.restore();
+    ctx.save();
+    
+    // Draw filled shape first (subtle fill)
+    ctx.beginPath();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = screenBrushSize;
+    
+    if (screenPoints.length === 1) {
+      ctx.arc(screenPoints[0].x, screenPoints[0].y, screenBrushSize / 2, 0, Math.PI * 2);
+      ctx.fillStyle = isActive ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 0.03)';
+      ctx.fill();
+    } else {
+      ctx.moveTo(screenPoints[0].x, screenPoints[0].y);
+      for (let i = 1; i < screenPoints.length - 1; i++) {
+        const xc = (screenPoints[i].x + screenPoints[i + 1].x) / 2;
+        const yc = (screenPoints[i].y + screenPoints[i + 1].y) / 2;
+        ctx.quadraticCurveTo(screenPoints[i].x, screenPoints[i].y, xc, yc);
+      }
+      if (screenPoints.length > 1) {
+        ctx.lineTo(screenPoints[screenPoints.length - 1].x, screenPoints[screenPoints.length - 1].y);
+      }
+      ctx.strokeStyle = isActive ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 0.03)';
+      ctx.stroke();
+    }
+    
+    ctx.restore();
+    
+    // Draw the white outline border
+    ctx.save();
+    ctx.beginPath();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = screenBrushSize + 3; // Slightly larger for outer edge
+    
+    if (screenPoints.length === 1) {
+      ctx.arc(screenPoints[0].x, screenPoints[0].y, screenBrushSize / 2 + 1.5, 0, Math.PI * 2);
+      ctx.strokeStyle = isActive ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.85)';
+      ctx.lineWidth = isActive ? 2.5 : 2;
+      ctx.stroke();
+    } else {
+      ctx.moveTo(screenPoints[0].x, screenPoints[0].y);
+      for (let i = 1; i < screenPoints.length - 1; i++) {
+        const xc = (screenPoints[i].x + screenPoints[i + 1].x) / 2;
+        const yc = (screenPoints[i].y + screenPoints[i + 1].y) / 2;
+        ctx.quadraticCurveTo(screenPoints[i].x, screenPoints[i].y, xc, yc);
+      }
+      if (screenPoints.length > 1) {
+        ctx.lineTo(screenPoints[screenPoints.length - 1].x, screenPoints[screenPoints.length - 1].y);
+      }
+      
+      // Draw as thick stroke, then draw outline on top
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0)';
+      ctx.lineWidth = screenBrushSize;
+      ctx.stroke();
+      
+      // Redraw just the outline
+      ctx.beginPath();
+      ctx.moveTo(screenPoints[0].x, screenPoints[0].y);
+      for (let i = 1; i < screenPoints.length - 1; i++) {
+        const xc = (screenPoints[i].x + screenPoints[i + 1].x) / 2;
+        const yc = (screenPoints[i].y + screenPoints[i + 1].y) / 2;
+        ctx.quadraticCurveTo(screenPoints[i].x, screenPoints[i].y, xc, yc);
+      }
+      if (screenPoints.length > 1) {
+        ctx.lineTo(screenPoints[screenPoints.length - 1].x, screenPoints[screenPoints.length - 1].y);
+      }
+      ctx.strokeStyle = isActive ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.85)';
+      ctx.lineWidth = screenBrushSize;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      
+      // Use shadow to create outline effect
+      ctx.save();
+      ctx.globalCompositeOperation = 'source-over';
+      
+      // First, draw the filled stroke shape (transparent)
+      ctx.beginPath();
+      ctx.moveTo(screenPoints[0].x, screenPoints[0].y);
+      for (let i = 1; i < screenPoints.length - 1; i++) {
+        const xc = (screenPoints[i].x + screenPoints[i + 1].x) / 2;
+        const yc = (screenPoints[i].y + screenPoints[i + 1].y) / 2;
+        ctx.quadraticCurveTo(screenPoints[i].x, screenPoints[i].y, xc, yc);
+      }
+      if (screenPoints.length > 1) {
+        ctx.lineTo(screenPoints[screenPoints.length - 1].x, screenPoints[screenPoints.length - 1].y);
+      }
+      ctx.lineWidth = screenBrushSize;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = isActive ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.04)';
+      ctx.stroke();
+      
+      // Then draw the outline on top
+      ctx.beginPath();
+      ctx.moveTo(screenPoints[0].x, screenPoints[0].y);
+      for (let i = 1; i < screenPoints.length - 1; i++) {
+        const xc = (screenPoints[i].x + screenPoints[i + 1].x) / 2;
+        const yc = (screenPoints[i].y + screenPoints[i + 1].y) / 2;
+        ctx.quadraticCurveTo(screenPoints[i].x, screenPoints[i].y, xc, yc);
+      }
+      if (screenPoints.length > 1) {
+        ctx.lineTo(screenPoints[screenPoints.length - 1].x, screenPoints[screenPoints.length - 1].y);
+      }
+      ctx.lineWidth = screenBrushSize + (isActive ? 3 : 2.5);
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0)';
+      ctx.shadowColor = isActive ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.85)';
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+      
+      // Actually draw outline by stroking with smaller width on top
+      ctx.stroke();
+      
+      // Clear shadow and draw proper outline
+      ctx.shadowColor = 'transparent';
+      ctx.beginPath();
+      ctx.moveTo(screenPoints[0].x, screenPoints[0].y);
+      for (let i = 1; i < screenPoints.length - 1; i++) {
+        const xc = (screenPoints[i].x + screenPoints[i + 1].x) / 2;
+        const yc = (screenPoints[i].y + screenPoints[i + 1].y) / 2;
+        ctx.quadraticCurveTo(screenPoints[i].x, screenPoints[i].y, xc, yc);
+      }
+      if (screenPoints.length > 1) {
+        ctx.lineTo(screenPoints[screenPoints.length - 1].x, screenPoints[screenPoints.length - 1].y);
+      }
+      ctx.lineWidth = screenBrushSize;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = isActive ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.85)';
+      ctx.lineWidth = isActive ? 2.5 : 2;
+      ctx.stroke();
       
       ctx.restore();
     }
-
-    // Draw the white outline
-    ctx.strokeStyle = isActive ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.9)';
-    ctx.lineWidth = isActive ? 2.5 : 2;
-    ctx.stroke();
     
-    // Subtle fill
-    ctx.fillStyle = isActive ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.03)';
-    ctx.fill();
+    ctx.restore();
   }, [imageToScreen]);
 
   /**
-   * Draw a blue source marker (circular pin like Lightroom)
+   * Draw blue source marker
    */
   const drawSourceMarker = useCallback((
     ctx: CanvasRenderingContext2D,
@@ -284,18 +388,25 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
     const screenPos = imageToScreen(x, y);
     if (!screenPos) return;
 
-    const radius = isActive ? 14 : 12;
+    const radius = isActive ? 16 : 14;
     const innerRadius = isActive ? 4 : 3;
 
-    // Outer blue circle
+    // Outer blue circle with gradient
+    const gradient = ctx.createRadialGradient(
+      screenPos.x, screenPos.y, 0,
+      screenPos.x, screenPos.y, radius
+    );
+    gradient.addColorStop(0, 'rgba(66, 133, 244, 1)');
+    gradient.addColorStop(1, 'rgba(52, 108, 200, 1)');
+    
     ctx.beginPath();
     ctx.arc(screenPos.x, screenPos.y, radius, 0, Math.PI * 2);
-    ctx.fillStyle = isActive ? 'rgba(66, 133, 244, 1)' : 'rgba(66, 133, 244, 0.9)';
+    ctx.fillStyle = gradient;
     ctx.fill();
     
     // White border
     ctx.strokeStyle = 'rgba(255, 255, 255, 1)';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2.5;
     ctx.stroke();
 
     // White center dot
@@ -306,7 +417,7 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
   }, [imageToScreen]);
 
   /**
-   * Draw connecting line between stroke center and source
+   * Draw connecting line
    */
   const drawConnectionLine = useCallback((
     ctx: CanvasRenderingContext2D,
@@ -322,15 +433,15 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
     ctx.beginPath();
     ctx.moveTo(fromScreen.x, fromScreen.y);
     ctx.lineTo(toScreen.x, toScreen.y);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 4]);
     ctx.stroke();
     ctx.setLineDash([]);
   }, [imageToScreen]);
 
   /**
-   * Main drawing effect
+   * Main render
    */
   useEffect(() => {
     const overlay = overlayRef.current;
@@ -350,12 +461,10 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
     const scaleY = rect.height / image.height;
     const avgScale = (scaleX + scaleY) / 2;
 
-    // Draw completed strokes (Lightroom-style)
+    // Draw completed strokes
     completedStrokes.forEach((stroke) => {
-      // Draw stroke outline
-      drawStrokeOutline(ctx, stroke.points, stroke.size, avgScale, false);
+      drawSmoothStrokeOutline(ctx, stroke.points, stroke.size, avgScale, false);
       
-      // Draw source marker and connection line
       if (stroke.sourcePoint && (stroke.mode === 'clone' || stroke.mode === 'heal')) {
         const center = getStrokeCenter(stroke.points);
         drawConnectionLine(ctx, center.x, center.y, stroke.sourcePoint.x, stroke.sourcePoint.y);
@@ -363,18 +472,17 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
       }
     });
 
-    // Draw current stroke being drawn
+    // Draw current stroke
     if (currentStroke.length > 0) {
-      drawStrokeOutline(ctx, currentStroke, brushSize, avgScale, true);
+      drawSmoothStrokeOutline(ctx, currentStroke, brushSize, avgScale, true);
       
-      // Draw connection to source if set
       if (sourcePoint && (brushMode === 'clone' || brushMode === 'heal')) {
         const center = getStrokeCenter(currentStroke);
         drawConnectionLine(ctx, center.x, center.y, sourcePoint.x, sourcePoint.y);
       }
     }
 
-    // Draw the active source point marker (if set)
+    // Draw active source marker
     if (sourcePoint && (brushMode === 'clone' || brushMode === 'heal')) {
       drawSourceMarker(ctx, sourcePoint.x, sourcePoint.y, true);
     }
@@ -385,14 +493,12 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
       if (screenPos) {
         const screenBrushSize = brushSize * avgScale;
 
-        // Cursor circle
         ctx.beginPath();
         ctx.arc(screenPos.x, screenPos.y, screenBrushSize / 2, 0, Math.PI * 2);
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
         ctx.lineWidth = 1.5;
         ctx.stroke();
 
-        // Center crosshair
         const crossSize = 6;
         ctx.beginPath();
         ctx.moveTo(screenPos.x - crossSize, screenPos.y);
@@ -403,21 +509,17 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
         ctx.lineWidth = 1;
         ctx.stroke();
 
-        // Show hint if no source is set
         if ((brushMode === 'clone' || brushMode === 'heal') && !sourcePoint) {
           ctx.fillStyle = 'rgba(255, 200, 100, 0.9)';
-          ctx.font = 'bold 11px system-ui, sans-serif';
-          ctx.fillText('Alt+Click to set source', screenPos.x + screenBrushSize / 2 + 10, screenPos.y);
+          ctx.font = 'bold 12px system-ui, sans-serif';
+          ctx.fillText('Alt+Click to set source', screenPos.x + screenBrushSize / 2 + 12, screenPos.y + 4);
         }
       }
     }
   }, [canvasRef, image, currentStroke, cursorPos, sourcePoint, brushSize, brushMode, 
-      imageToScreen, isDrawing, completedStrokes, drawStrokeOutline, drawSourceMarker, 
+      imageToScreen, isDrawing, completedStrokes, drawSmoothStrokeOutline, drawSourceMarker, 
       drawConnectionLine, getStrokeCenter]);
 
-  /**
-   * Sync overlay position with canvas
-   */
   useEffect(() => {
     const canvas = canvasRef.current;
     const overlay = overlayRef.current;
@@ -433,10 +535,7 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
       overlay.style.height = `${rect.height}px`;
     };
 
-    const resizeObserver = new ResizeObserver(() => {
-      requestAnimationFrame(updateOverlay);
-    });
-
+    const resizeObserver = new ResizeObserver(() => requestAnimationFrame(updateOverlay));
     updateOverlay();
     resizeObserver.observe(canvas);
     window.addEventListener('scroll', updateOverlay, true);
@@ -460,11 +559,7 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseLeave}
       onWheel={handleWheel}
-      style={{
-        cursor: 'none',
-        position: 'fixed',
-        pointerEvents: 'auto',
-      }}
+      style={{ cursor: 'none', position: 'fixed', pointerEvents: 'auto' }}
     />
   );
 };

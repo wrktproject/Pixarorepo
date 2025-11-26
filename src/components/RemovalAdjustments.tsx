@@ -26,7 +26,7 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
   const imageState = useSelector((state: RootState) => state.image);
   
   const [brushMode, setBrushMode] = useState<BrushMode>('heal');
-  const [brushSize, setBrushSize] = useState(40);
+  const [brushSize, setBrushSize] = useState(80); // Bigger default brush
   const [feather, setFeather] = useState(0.5);
   const [opacity, setOpacity] = useState(1.0);
   const [strokes, setStrokes] = useState<BrushStroke[]>([]);
