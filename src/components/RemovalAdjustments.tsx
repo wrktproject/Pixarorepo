@@ -3,7 +3,7 @@
  * Professional healing/clone/content-aware tool with direct drawing
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import type { RootState } from '../store';
 import { setActiveTool } from '../store/uiSlice';
@@ -26,13 +26,31 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
   const imageState = useSelector((state: RootState) => state.image);
   
   const [brushMode, setBrushMode] = useState<BrushMode>('heal');
-  const [brushSize, setBrushSize] = useState(80); // Bigger default brush
+  const [brushSize, setBrushSize] = useState(80);
   const [feather, setFeather] = useState(0.5);
   const [opacity, setOpacity] = useState(1.0);
   const [strokes, setStrokes] = useState<BrushStroke[]>([]);
   const [sourcePoint, setSourcePoint] = useState<{ x: number; y: number } | null>(null);
   const [originalImageBeforeEdits, setOriginalImageBeforeEdits] = useState<ImageData | null>(null);
   const [workingImage, setWorkingImage] = useState<ImageData | null>(null);
+  
+  // Use ref to always have current working image in callbacks (avoid stale closure)
+  const workingImageRef = useRef<ImageData | null>(null);
+  const originalImageRef = useRef<ImageData | null>(null);
+  const sourcePointRef = useRef<{ x: number; y: number } | null>(null);
+
+  // Keep refs in sync with state
+  useEffect(() => {
+    workingImageRef.current = workingImage;
+  }, [workingImage]);
+
+  useEffect(() => {
+    originalImageRef.current = originalImageBeforeEdits;
+  }, [originalImageBeforeEdits]);
+
+  useEffect(() => {
+    sourcePointRef.current = sourcePoint;
+  }, [sourcePoint]);
 
   const isToolActive = activeTool === 'removal';
   const hasImage = imageState.current !== null;
@@ -41,7 +59,15 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
    * Activate tool
    */
   const handleActivate = useCallback(() => {
-    if (!hasImage || !imageState.current) return;
+    if (!hasImage || !imageState.current) {
+      console.error('Cannot activate: no image available');
+      return;
+    }
+    
+    console.log('🔧 Activating healing tool with image:', {
+      width: imageState.current.data.width,
+      height: imageState.current.data.height,
+    });
     
     // Store a copy of current image as backup
     const imageDataCopy = new ImageData(
@@ -50,15 +76,25 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
       imageState.current.data.height
     );
     
-    setOriginalImageBeforeEdits(imageDataCopy);
-    setWorkingImage(new ImageData(
+    const workingCopy = new ImageData(
       new Uint8ClampedArray(imageState.current.data.data),
       imageState.current.data.width,
       imageState.current.data.height
-    ));
+    );
+    
+    // Set both state and refs immediately
+    setOriginalImageBeforeEdits(imageDataCopy);
+    setWorkingImage(workingCopy);
+    workingImageRef.current = workingCopy;
+    originalImageRef.current = imageDataCopy;
+    
     setStrokes([]);
     setSourcePoint(null);
+    sourcePointRef.current = null;
+    
     dispatch(setActiveTool('removal'));
+    
+    console.log('✅ Healing tool activated');
   }, [dispatch, hasImage, imageState.current]);
 
   /**
@@ -66,8 +102,14 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
    */
   const handleStrokeComplete = useCallback(
     (stroke: BrushStroke) => {
-      if (!workingImage) {
-        console.error('No working image available');
+      // Use ref to get current working image (avoids stale closure)
+      const currentWorkingImage = workingImageRef.current;
+      const currentSourcePoint = sourcePointRef.current;
+      
+      if (!currentWorkingImage) {
+        console.error('No working image available - ref is null');
+        console.log('State workingImage:', workingImage);
+        console.log('Ref workingImage:', workingImageRef.current);
         return;
       }
 
@@ -76,21 +118,21 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
         points: stroke.points.length,
         size: stroke.size,
         hasSourceOffset: !!stroke.sourceOffset,
-        sourceOffset: stroke.sourceOffset,
+        imageSize: `${currentWorkingImage.width}x${currentWorkingImage.height}`,
       });
 
       // Add stroke to list (include source point for visualization)
       const strokeWithSource = {
         ...stroke,
-        sourcePoint: sourcePoint ? { ...sourcePoint } : undefined,
+        sourcePoint: currentSourcePoint ? { ...currentSourcePoint } : undefined,
       };
       setStrokes((prev) => [...prev, strokeWithSource]);
 
       // Create new image data to work with (clone of working image)
       const modifiedImage = new ImageData(
-        new Uint8ClampedArray(workingImage.data),
-        workingImage.width,
-        workingImage.height
+        new Uint8ClampedArray(currentWorkingImage.data),
+        currentWorkingImage.width,
+        currentWorkingImage.height
       );
 
       // Apply stroke to the new image
@@ -99,13 +141,12 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
         paintBrushStroke(modifiedImage, stroke.points, {
           mode: stroke.mode,
           sourceOffset: stroke.sourceOffset,
-          radius: stroke.size / 2, // Convert diameter to radius
+          radius: stroke.size / 2,
           feather: stroke.feather,
           opacity: stroke.opacity,
         });
       } else if (stroke.mode === 'content-aware') {
         console.log('Applying content-aware fill...');
-        // Calculate bounding box of stroke
         let minX = Infinity,
           minY = Infinity,
           maxX = -Infinity,
@@ -128,8 +169,9 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
 
       console.log('Updating canvas with modified image...');
 
-      // Update working image
+      // Update both state and ref
       setWorkingImage(modifiedImage);
+      workingImageRef.current = modifiedImage;
 
       // Update the displayed image so user sees the changes
       dispatch(setCurrentImage({
@@ -141,32 +183,33 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
 
       console.log('Canvas update dispatched');
     },
-    [workingImage, dispatch]
+    [dispatch, workingImage]
   );
 
   /**
    * Apply changes
    */
   const handleApply = useCallback(() => {
-    // Changes are already applied to current image via handleStrokeComplete
-    // Just clean up and deactivate
     dispatch(setActiveTool('none'));
     setStrokes([]);
     setWorkingImage(null);
     setOriginalImageBeforeEdits(null);
     setSourcePoint(null);
+    workingImageRef.current = null;
+    originalImageRef.current = null;
+    sourcePointRef.current = null;
   }, [dispatch]);
 
   /**
    * Cancel changes
    */
   const handleCancel = useCallback(() => {
-    // Restore original image from before any edits
-    if (originalImageBeforeEdits) {
+    const originalImage = originalImageRef.current;
+    if (originalImage) {
       dispatch(setCurrentImage({
-        data: originalImageBeforeEdits,
-        width: originalImageBeforeEdits.width,
-        height: originalImageBeforeEdits.height,
+        data: originalImage,
+        width: originalImage.width,
+        height: originalImage.height,
         colorSpace: 'sRGB',
       }));
     }
@@ -175,23 +218,25 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
     setWorkingImage(null);
     setOriginalImageBeforeEdits(null);
     setSourcePoint(null);
-  }, [dispatch, originalImageBeforeEdits]);
+    workingImageRef.current = null;
+    originalImageRef.current = null;
+    sourcePointRef.current = null;
+  }, [dispatch]);
 
   /**
    * Undo last stroke
    */
   const handleUndo = useCallback(() => {
-    if (strokes.length === 0 || !originalImageBeforeEdits) return;
+    const originalImage = originalImageRef.current;
+    if (strokes.length === 0 || !originalImage) return;
 
-    // Remove last stroke
     const newStrokes = strokes.slice(0, -1);
     setStrokes(newStrokes);
 
-    // Reapply all remaining strokes from original image
     const freshImage = new ImageData(
-      new Uint8ClampedArray(originalImageBeforeEdits.data),
-      originalImageBeforeEdits.width,
-      originalImageBeforeEdits.height
+      new Uint8ClampedArray(originalImage.data),
+      originalImage.width,
+      originalImage.height
     );
 
     newStrokes.forEach((stroke) => {
@@ -207,15 +252,15 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
     });
 
     setWorkingImage(freshImage);
+    workingImageRef.current = freshImage;
 
-    // Update display
     dispatch(setCurrentImage({
       data: freshImage,
       width: freshImage.width,
       height: freshImage.height,
       colorSpace: 'sRGB',
     }));
-  }, [strokes, originalImageBeforeEdits, dispatch]);
+  }, [strokes, dispatch]);
 
   /**
    * Keyboard shortcuts
