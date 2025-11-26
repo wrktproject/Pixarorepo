@@ -159,9 +159,11 @@ export interface AdjustmentState {
   vibrance: number;       // -100 to +100
   saturation: number;     // -100 to +100
 
-  // Detail adjustments
-  sharpening: number;     // 0 to 150
-  clarity: number;        // -100 to +100
+  // Detail adjustments (Darktable-style)
+  sharpening: number;        // 0 to 150 (amount * 75)
+  sharpenRadius: number;     // 0.5 to 10.0 (default 2.0)
+  sharpenThreshold: number;  // 0 to 100 (maps to 0-0.1)
+  clarity: number;           // -100 to +100
   noiseReductionLuma: number;    // 0 to 100
   noiseReductionColor: number;   // 0 to 100
 

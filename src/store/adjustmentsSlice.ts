@@ -57,9 +57,15 @@ const adjustmentsSlice = createSlice({
       state.saturation = clamp(action.payload, -100, 100);
     },
 
-    // Detail adjustments
+    // Detail adjustments (Darktable-style sharpening)
     setSharpening: (state, action: PayloadAction<number>) => {
       state.sharpening = clamp(action.payload, 0, 150);
+    },
+    setSharpenRadius: (state, action: PayloadAction<number>) => {
+      state.sharpenRadius = clamp(action.payload, 0.5, 10);
+    },
+    setSharpenThreshold: (state, action: PayloadAction<number>) => {
+      state.sharpenThreshold = clamp(action.payload, 0, 100);
     },
     setClarity: (state, action: PayloadAction<number>) => {
       state.clarity = clamp(action.payload, -100, 100);
@@ -375,6 +381,8 @@ export const {
   setVibrance,
   setSaturation,
   setSharpening,
+  setSharpenRadius,
+  setSharpenThreshold,
   setClarity,
   setNoiseReductionLuma,
   setNoiseReductionColor,

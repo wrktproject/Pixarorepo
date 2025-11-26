@@ -83,6 +83,8 @@ export {
   setVibrance,
   setSaturation,
   setSharpening,
+  setSharpenRadius,
+  setSharpenThreshold,
   setClarity,
   setNoiseReductionLuma,
   setNoiseReductionColor,

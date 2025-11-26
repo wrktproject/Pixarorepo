@@ -250,7 +250,7 @@ export class ShaderPipeline {
       ['a_position', 'a_texCoord']
     );
 
-    // Detail shader (clarity removed - now handled by ClarityPipeline)
+    // Detail shader (Darktable-inspired sharpening with radius and threshold)
     this.detailProgram = this.shaderCompiler.createProgram(
       detailVertexShader,
       detailFragmentShader,
@@ -258,6 +258,8 @@ export class ShaderPipeline {
         'u_texture',
         'u_texelSize',
         'u_sharpening',
+        'u_sharpenRadius',
+        'u_sharpenThreshold',
         'u_noiseReductionLuma',
         'u_noiseReductionColor',
       ],
@@ -664,6 +666,8 @@ export class ShaderPipeline {
       case 'detail':
         applyDetailUniforms(this.gl, pass.program.uniforms, {
           sharpening: adjustments.sharpening,
+          sharpenRadius: adjustments.sharpenRadius,
+          sharpenThreshold: adjustments.sharpenThreshold,
           noiseReductionLuma: adjustments.noiseReductionLuma,
           noiseReductionColor: adjustments.noiseReductionColor,
           texelSize: { width: this.previewWidth, height: this.previewHeight },

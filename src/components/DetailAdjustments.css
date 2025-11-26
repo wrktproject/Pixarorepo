@@ -1,12 +1,42 @@
 /**
  * DetailAdjustments Component Styles
+ * Darktable-inspired sharpening and detail enhancement
  */
 
 .detail-adjustments {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.25rem;
   padding: 0.5rem 0;
+}
+
+.detail-adjustments__section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+}
+
+.detail-adjustments__section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.detail-adjustments__section-title {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary, #fff);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.detail-adjustments__section-desc {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-tertiary, #888);
+  font-style: italic;
 }
 
 .detail-adjustments__toggle {
@@ -21,15 +51,16 @@
   gap: 0.5rem;
   cursor: pointer;
   user-select: none;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 500;
+  color: var(--text-secondary, #aaa);
 }
 
 .detail-adjustments__checkbox {
-  width: 1.2rem;
-  height: 1.2rem;
+  width: 1.1rem;
+  height: 1.1rem;
   cursor: pointer;
-  accent-color: var(--primary-color, #007bff);
+  accent-color: var(--accent-primary, #4a9eff);
 }
 
 .detail-adjustments__checkbox:disabled {
@@ -38,20 +69,18 @@
 }
 
 .detail-adjustments__info {
-  padding: 0.75rem;
-  background-color: var(--info-bg, rgba(0, 123, 255, 0.1));
-  border-left: 3px solid var(--info-border, #007bff);
-  border-radius: 4px;
-  font-size: 0.85rem;
+  padding: 0.6rem 0.75rem;
+  background-color: rgba(100, 100, 100, 0.15);
+  border-left: 3px solid var(--text-tertiary, #666);
+  border-radius: 0 4px 4px 0;
+  font-size: 0.75rem;
   line-height: 1.4;
-  color: var(--text-secondary, #666);
-  margin-top: 0.5rem;
+  color: var(--text-tertiary, #888);
+  margin-top: 0.25rem;
 }
 
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-  .detail-adjustments__info {
-    background-color: rgba(0, 123, 255, 0.15);
-    color: var(--text-secondary-dark, #aaa);
-  }
+.detail-adjustments__info--active {
+  background-color: rgba(74, 158, 255, 0.1);
+  border-left-color: var(--accent-primary, #4a9eff);
+  color: var(--text-secondary, #aaa);
 }

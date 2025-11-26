@@ -20,8 +20,10 @@ export const createInitialAdjustmentState = (): AdjustmentState => ({
   vibrance: 0,
   saturation: 0,
 
-  // Detail adjustments
+  // Detail adjustments (Darktable-style sharpening)
   sharpening: 0,
+  sharpenRadius: 2.0,      // Darktable default
+  sharpenThreshold: 0.5,   // Darktable default (maps to 0.005)
   clarity: 0,
   noiseReductionLuma: 0,
   noiseReductionColor: 0,

@@ -1,13 +1,16 @@
 /**
  * DetailAdjustments Component
- * Section for guided filter-based detail enhancement
- * Provides edge-aware sharpening and smoothing controls
+ * Darktable-inspired sharpening with radius and threshold controls
+ * Plus edge-aware guided filter for advanced detail enhancement
  */
 
 import React, { useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import type { RootState } from '../store';
 import {
+  setSharpening,
+  setSharpenRadius,
+  setSharpenThreshold,
   setGuidedFilterEnabled,
   setGuidedFilterRadius,
   setGuidedFilterEpsilon,
@@ -28,15 +31,41 @@ export const DetailAdjustments: React.FC<DetailAdjustmentsProps> = ({
   expanded 
 }) => {
   const dispatch = useDispatch();
-  const guidedFilter = useSelector((state: RootState) => state.adjustments.guidedFilter);
   const adjustments = useSelector((state: RootState) => state.adjustments);
+  const guidedFilter = adjustments.guidedFilter;
+  const sharpening = adjustments.sharpening;
+  const sharpenRadius = adjustments.sharpenRadius;
+  const sharpenThreshold = adjustments.sharpenThreshold;
 
   // Handler for saving to history when slider is released
   const handleChangeComplete = useCallback(() => {
     dispatch(addToHistory(adjustments));
   }, [dispatch, adjustments]);
 
-  const handleEnabledChange = useCallback(
+  // Sharpening handlers (Darktable-style)
+  const handleSharpeningChange = useCallback(
+    (value: number) => {
+      dispatch(setSharpening(value));
+    },
+    [dispatch]
+  );
+
+  const handleSharpenRadiusChange = useCallback(
+    (value: number) => {
+      dispatch(setSharpenRadius(value));
+    },
+    [dispatch]
+  );
+
+  const handleSharpenThresholdChange = useCallback(
+    (value: number) => {
+      dispatch(setSharpenThreshold(value));
+    },
+    [dispatch]
+  );
+
+  // Guided filter handlers
+  const handleGuidedEnabledChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       dispatch(setGuidedFilterEnabled(event.target.checked));
       dispatch(addToHistory({ 
@@ -47,21 +76,21 @@ export const DetailAdjustments: React.FC<DetailAdjustmentsProps> = ({
     [dispatch, adjustments, guidedFilter]
   );
 
-  const handleStrengthChange = useCallback(
+  const handleGuidedStrengthChange = useCallback(
     (value: number) => {
       dispatch(setGuidedFilterStrength(value));
     },
     [dispatch]
   );
 
-  const handleRadiusChange = useCallback(
+  const handleGuidedRadiusChange = useCallback(
     (value: number) => {
       dispatch(setGuidedFilterRadius(value));
     },
     [dispatch]
   );
 
-  const handleEpsilonChange = useCallback(
+  const handleGuidedEpsilonChange = useCallback(
     (value: number) => {
       dispatch(setGuidedFilterEpsilon(value));
     },
@@ -70,77 +99,127 @@ export const DetailAdjustments: React.FC<DetailAdjustmentsProps> = ({
 
   return (
     <CollapsibleSection 
-      title="Detail Enhancement" 
+      title="Detail" 
       defaultExpanded={false} 
       expanded={expanded} 
       disabled={disabled}
     >
       <div className="detail-adjustments">
-        {/* Enable/Disable Toggle */}
-        <div className="detail-adjustments__toggle">
-          <label className="detail-adjustments__toggle-label">
-            <input
-              type="checkbox"
-              checked={guidedFilter.enabled}
-              onChange={handleEnabledChange}
-              disabled={disabled}
-              className="detail-adjustments__checkbox"
-            />
-            <span>Enable Detail Enhancement</span>
-          </label>
+        {/* Darktable-Style Sharpening Section */}
+        <div className="detail-adjustments__section">
+          <h4 className="detail-adjustments__section-title">Sharpening</h4>
+          <p className="detail-adjustments__section-desc">
+            Unsharp Mask (USM) algorithm inspired by Darktable
+          </p>
+
+          <SliderControl
+            label="Amount"
+            value={sharpening}
+            min={0}
+            max={150}
+            step={1}
+            precision={0}
+            onChange={handleSharpeningChange}
+            onChangeComplete={handleChangeComplete}
+            tooltip="Sharpening strength. Controls how much the edges are enhanced. Higher values = stronger sharpening."
+            disabled={disabled}
+          />
+
+          <SliderControl
+            label="Radius"
+            value={sharpenRadius}
+            min={0.5}
+            max={10}
+            step={0.1}
+            precision={1}
+            onChange={handleSharpenRadiusChange}
+            onChangeComplete={handleChangeComplete}
+            tooltip="Spatial extent of the blur used for unsharp masking. Larger radius = affects larger features. Smaller radius = finer detail sharpening."
+            disabled={disabled}
+          />
+
+          <SliderControl
+            label="Threshold"
+            value={sharpenThreshold}
+            min={0}
+            max={100}
+            step={0.5}
+            precision={1}
+            onChange={handleSharpenThresholdChange}
+            onChangeComplete={handleChangeComplete}
+            tooltip="Noise gate threshold. Only sharpen pixels where the difference exceeds this value. Prevents sharpening of noise. Higher = less sharpening of subtle details."
+            disabled={disabled}
+          />
+
+          {sharpening > 0 && (
+            <div className="detail-adjustments__info detail-adjustments__info--active">
+              ✓ Sharpening active: Amount {sharpening}%, Radius {sharpenRadius}px
+            </div>
+          )}
         </div>
 
-        {/* Detail Strength Slider */}
-        <SliderControl
-          label="Detail Strength"
-          value={guidedFilter.strength}
-          min={-2.0}
-          max={2.0}
-          step={0.1}
-          precision={1}
-          onChange={handleStrengthChange}
-          onChangeComplete={handleChangeComplete}
-          tooltip="Controls detail enhancement strength. Positive values sharpen and enhance details. Negative values smooth and reduce details (denoising). Uses edge-aware guided filter to prevent halos."
-          disabled={disabled || !guidedFilter.enabled}
-        />
-
-        {/* Radius Slider */}
-        <SliderControl
-          label="Radius"
-          value={guidedFilter.radius}
-          min={1}
-          max={20}
-          step={1}
-          precision={0}
-          onChange={handleRadiusChange}
-          onChangeComplete={handleChangeComplete}
-          tooltip="Filter radius in pixels. Larger radius affects broader areas and produces smoother results. Smaller radius preserves finer details. Typical range: 3-10 pixels."
-          disabled={disabled || !guidedFilter.enabled}
-        />
-
-        {/* Edge Threshold (Epsilon) Slider */}
-        <SliderControl
-          label="Edge Threshold"
-          value={guidedFilter.epsilon}
-          min={0.001}
-          max={1.0}
-          step={0.001}
-          precision={3}
-          onChange={handleEpsilonChange}
-          onChangeComplete={handleChangeComplete}
-          tooltip="Edge preservation threshold (epsilon). Lower values preserve more edges and create sharper transitions. Higher values smooth across edges. Typical range: 0.01-0.1."
-          disabled={disabled || !guidedFilter.enabled}
-        />
-
-        {/* Info Text */}
-        {guidedFilter.enabled && (
-          <div className="detail-adjustments__info">
-            Guided filter provides edge-aware detail enhancement without halos.
-            {guidedFilter.strength > 0 && ' Positive strength sharpens and enhances details.'}
-            {guidedFilter.strength < 0 && ' Negative strength smooths and reduces noise.'}
-            {guidedFilter.strength === 0 && ' Set strength above 0 to sharpen or below 0 to smooth.'}
+        {/* Guided Filter Section */}
+        <div className="detail-adjustments__section">
+          <h4 className="detail-adjustments__section-title">Advanced Detail Enhancement</h4>
+          
+          <div className="detail-adjustments__toggle">
+            <label className="detail-adjustments__toggle-label">
+              <input
+                type="checkbox"
+                checked={guidedFilter.enabled}
+                onChange={handleGuidedEnabledChange}
+                disabled={disabled}
+                className="detail-adjustments__checkbox"
+              />
+              <span>Enable Guided Filter</span>
+            </label>
           </div>
-        )}
+
+          <SliderControl
+            label="Detail Strength"
+            value={guidedFilter.strength}
+            min={-2.0}
+            max={2.0}
+            step={0.1}
+            precision={1}
+            onChange={handleGuidedStrengthChange}
+            onChangeComplete={handleChangeComplete}
+            tooltip="Edge-aware detail enhancement. Positive = sharpen. Negative = denoise."
+            disabled={disabled || !guidedFilter.enabled}
+          />
+
+          <SliderControl
+            label="Filter Radius"
+            value={guidedFilter.radius}
+            min={1}
+            max={20}
+            step={1}
+            precision={0}
+            onChange={handleGuidedRadiusChange}
+            onChangeComplete={handleChangeComplete}
+            tooltip="Filter radius in pixels. Larger = broader effect."
+            disabled={disabled || !guidedFilter.enabled}
+          />
+
+          <SliderControl
+            label="Edge Threshold"
+            value={guidedFilter.epsilon}
+            min={0.001}
+            max={1.0}
+            step={0.001}
+            precision={3}
+            onChange={handleGuidedEpsilonChange}
+            onChangeComplete={handleChangeComplete}
+            tooltip="Edge preservation. Lower = sharper edges. Higher = smoother."
+            disabled={disabled || !guidedFilter.enabled}
+          />
+
+          {guidedFilter.enabled && (
+            <div className="detail-adjustments__info">
+              Guided filter provides edge-aware enhancement without halos.
+            </div>
+          )}
+        </div>
       </div>
     </CollapsibleSection>
   );
