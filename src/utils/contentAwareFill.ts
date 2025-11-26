@@ -1,15 +1,23 @@
 /**
  * Content-Aware Fill Implementation
- * Fast texture synthesis using downscaled processing
+ * Multi-scale PatchMatch with gradient blending
+ * 
+ * Strategy:
+ * 1. Downsample to ~512px max dimension (16-64x speedup)
+ * 2. Run PatchMatch at low resolution
+ * 3. Propagate + random search iterations
+ * 4. Upscale result
+ * 5. Gradient blend at edges
  */
 
 export interface ContentAwareFillOptions {
-  quality?: 'fast' | 'medium' | 'high';
+  maxWorkingSize?: number;
+  patchSize?: number;
+  iterations?: number;
 }
 
 /**
- * Fast content-aware fill using multi-resolution approach
- * Works at lower resolution for speed, then upscales
+ * Main content-aware fill function
  */
 export function contentAwareFillWithMask(
   imageData: ImageData,
@@ -17,81 +25,49 @@ export function contentAwareFillWithMask(
   bounds: { minX: number; minY: number; maxX: number; maxY: number },
   options: ContentAwareFillOptions = {}
 ): void {
-  const { quality = 'fast' } = options;
-  
-  // Calculate scale factor based on mask size
-  const maskWidth = bounds.maxX - bounds.minX;
-  const maskHeight = bounds.maxY - bounds.minY;
-  const maskPixels = maskWidth * maskHeight;
-  
-  // For large areas, work at reduced resolution
-  const maxWorkingPixels = quality === 'fast' ? 50000 : quality === 'medium' ? 100000 : 200000;
-  const scale = maskPixels > maxWorkingPixels ? Math.sqrt(maxWorkingPixels / maskPixels) : 1;
-  
-  console.log('Content-aware fill:', { 
-    maskPixels, 
-    scale: scale.toFixed(2),
-    quality
-  });
-  
-  if (scale < 0.9) {
-    // Work at reduced resolution
-    fillAtReducedResolution(imageData, mask, bounds, scale);
-  } else {
-    // Work at full resolution
-    fillDirect(imageData, mask, bounds);
-  }
-  
-  console.log('Content-aware fill complete');
-}
-
-/**
- * Fill at reduced resolution for large areas
- */
-function fillAtReducedResolution(
-  imageData: ImageData,
-  mask: Float32Array,
-  bounds: { minX: number; minY: number; maxX: number; maxY: number },
-  scale: number
-): void {
   const { width, height, data } = imageData;
+  const { maxWorkingSize = 512, patchSize = 7, iterations = 5 } = options;
   
-  // Expand bounds for context
-  const padding = Math.ceil(50 / scale);
+  // Calculate region size
+  const regionWidth = bounds.maxX - bounds.minX + 1;
+  const regionHeight = bounds.maxY - bounds.minY + 1;
+  
+  // Expand bounds for context (need surrounding pixels for patches)
+  const contextPad = Math.max(patchSize * 2, 50);
   const workBounds = {
-    minX: Math.max(0, bounds.minX - padding),
-    minY: Math.max(0, bounds.minY - padding),
-    maxX: Math.min(width - 1, bounds.maxX + padding),
-    maxY: Math.min(height - 1, bounds.maxY + padding),
+    minX: Math.max(0, bounds.minX - contextPad),
+    minY: Math.max(0, bounds.minY - contextPad),
+    maxX: Math.min(width - 1, bounds.maxX + contextPad),
+    maxY: Math.min(height - 1, bounds.maxY + contextPad),
   };
   
-  const srcWidth = workBounds.maxX - workBounds.minX + 1;
-  const srcHeight = workBounds.maxY - workBounds.minY + 1;
-  const dstWidth = Math.ceil(srcWidth * scale);
-  const dstHeight = Math.ceil(srcHeight * scale);
+  const workWidth = workBounds.maxX - workBounds.minX + 1;
+  const workHeight = workBounds.maxY - workBounds.minY + 1;
   
-  // Downsample image region
-  const downsampled = new Uint8ClampedArray(dstWidth * dstHeight * 4);
-  const downMask = new Float32Array(dstWidth * dstHeight);
+  // Calculate scale factor
+  const maxDim = Math.max(workWidth, workHeight);
+  const scale = maxDim > maxWorkingSize ? maxWorkingSize / maxDim : 1;
   
-  for (let dy = 0; dy < dstHeight; dy++) {
-    for (let dx = 0; dx < dstWidth; dx++) {
-      const sx = Math.floor(dx / scale) + workBounds.minX;
-      const sy = Math.floor(dy / scale) + workBounds.minY;
-      
-      const srcIdx = (sy * width + sx) * 4;
-      const dstIdx = (dy * dstWidth + dx) * 4;
-      
-      downsampled[dstIdx] = data[srcIdx];
-      downsampled[dstIdx + 1] = data[srcIdx + 1];
-      downsampled[dstIdx + 2] = data[srcIdx + 2];
-      downsampled[dstIdx + 3] = 255;
-      
-      downMask[dy * dstWidth + dx] = mask[sy * width + sx];
-    }
-  }
+  const scaledWidth = Math.ceil(workWidth * scale);
+  const scaledHeight = Math.ceil(workHeight * scale);
+  const scaledPatchSize = Math.max(3, Math.ceil(patchSize * scale));
   
-  // Fill at low resolution
+  console.log('Content-aware fill:', {
+    original: `${regionWidth}x${regionHeight}`,
+    working: `${scaledWidth}x${scaledHeight}`,
+    scale: scale.toFixed(3),
+    patchSize: scaledPatchSize,
+    iterations
+  });
+  
+  const startTime = performance.now();
+  
+  // Extract and downsample working region
+  const { image: scaledImage, mask: scaledMask } = downsampleRegion(
+    data, mask, width, workBounds, scaledWidth, scaledHeight, scale
+  );
+  
+  // Compute scaled mask bounds
   const scaledBounds = {
     minX: Math.floor((bounds.minX - workBounds.minX) * scale),
     minY: Math.floor((bounds.minY - workBounds.minY) * scale),
@@ -99,41 +75,312 @@ function fillAtReducedResolution(
     maxY: Math.ceil((bounds.maxY - workBounds.minY) * scale),
   };
   
-  fillTextureAtScale(downsampled, downMask, dstWidth, dstHeight, scaledBounds);
+  // Run PatchMatch at low resolution
+  patchMatchFill(scaledImage, scaledMask, scaledWidth, scaledHeight, scaledBounds, scaledPatchSize, iterations);
   
-  // Upsample result back
+  // Upsample and blend back to original
+  upsampleAndBlend(data, scaledImage, mask, width, height, workBounds, scaledWidth, scaledHeight, scale, bounds);
+  
+  // Gradient blend at edges
+  gradientBlendEdges(data, mask, width, bounds);
+  
+  console.log(`Content-aware fill complete in ${(performance.now() - startTime).toFixed(0)}ms`);
+}
+
+/**
+ * Downsample image region and mask
+ */
+function downsampleRegion(
+  data: Uint8ClampedArray,
+  mask: Float32Array,
+  width: number,
+  bounds: { minX: number; minY: number; maxX: number; maxY: number },
+  dstWidth: number,
+  dstHeight: number,
+  scale: number
+): { image: Uint8ClampedArray; mask: Float32Array } {
+  const image = new Uint8ClampedArray(dstWidth * dstHeight * 4);
+  const dstMask = new Float32Array(dstWidth * dstHeight);
+  
+  for (let dy = 0; dy < dstHeight; dy++) {
+    for (let dx = 0; dx < dstWidth; dx++) {
+      const sx = Math.floor(dx / scale) + bounds.minX;
+      const sy = Math.floor(dy / scale) + bounds.minY;
+      
+      const srcIdx = (sy * width + sx) * 4;
+      const dstIdx = (dy * dstWidth + dx) * 4;
+      
+      image[dstIdx] = data[srcIdx];
+      image[dstIdx + 1] = data[srcIdx + 1];
+      image[dstIdx + 2] = data[srcIdx + 2];
+      image[dstIdx + 3] = 255;
+      
+      dstMask[dy * dstWidth + dx] = mask[sy * width + sx];
+    }
+  }
+  
+  return { image, mask: dstMask };
+}
+
+/**
+ * PatchMatch-style fill algorithm
+ * Uses propagation + random search for fast approximate nearest neighbor
+ */
+function patchMatchFill(
+  image: Uint8ClampedArray,
+  mask: Float32Array,
+  width: number,
+  height: number,
+  bounds: { minX: number; minY: number; maxX: number; maxY: number },
+  patchSize: number,
+  iterations: number
+): void {
+  const halfPatch = Math.floor(patchSize / 2);
+  
+  // NNF (Nearest Neighbor Field) - stores offset to best matching source patch
+  // For each masked pixel, store the (dx, dy) offset to the best source
+  const nnfX = new Int16Array(width * height);
+  const nnfY = new Int16Array(width * height);
+  const nnfDist = new Float32Array(width * height);
+  nnfDist.fill(Infinity);
+  
+  // Collect source patch centers (valid patches fully outside mask)
+  const sourceCenters: Array<{ x: number; y: number }> = [];
+  for (let y = halfPatch; y < height - halfPatch; y++) {
+    for (let x = halfPatch; x < width - halfPatch; x++) {
+      let valid = true;
+      for (let py = -halfPatch; py <= halfPatch && valid; py++) {
+        for (let px = -halfPatch; px <= halfPatch && valid; px++) {
+          if (mask[(y + py) * width + (x + px)] > 0.3) valid = false;
+        }
+      }
+      if (valid) sourceCenters.push({ x, y });
+    }
+  }
+  
+  if (sourceCenters.length === 0) {
+    console.warn('No valid source patches found');
+    return;
+  }
+  
+  console.log(`PatchMatch: ${sourceCenters.length} source patches`);
+  
+  // Initialize NNF with random assignments
   for (let y = bounds.minY; y <= bounds.maxY; y++) {
     for (let x = bounds.minX; x <= bounds.maxX; x++) {
+      const idx = y * width + x;
+      if (mask[idx] < 0.3) continue;
+      
+      const src = sourceCenters[Math.floor(Math.random() * sourceCenters.length)];
+      nnfX[idx] = src.x - x;
+      nnfY[idx] = src.y - y;
+    }
+  }
+  
+  // PatchMatch iterations: propagate + random search
+  for (let iter = 0; iter < iterations; iter++) {
+    // Alternate scan direction
+    const reverse = iter % 2 === 1;
+    
+    const yStart = reverse ? bounds.maxY : bounds.minY;
+    const yEnd = reverse ? bounds.minY - 1 : bounds.maxY + 1;
+    const yStep = reverse ? -1 : 1;
+    
+    const xStart = reverse ? bounds.maxX : bounds.minX;
+    const xEnd = reverse ? bounds.minX - 1 : bounds.maxX + 1;
+    const xStep = reverse ? -1 : 1;
+    
+    for (let y = yStart; y !== yEnd; y += yStep) {
+      for (let x = xStart; x !== xEnd; x += xStep) {
+        const idx = y * width + x;
+        if (mask[idx] < 0.3) continue;
+        
+        // Current best
+        let bestDx = nnfX[idx];
+        let bestDy = nnfY[idx];
+        let bestDist = computePatchDistance(image, mask, width, height, x, y, x + bestDx, y + bestDy, halfPatch);
+        
+        // Propagation: check if neighbors have better matches
+        const propDirs = reverse ? [[1, 0], [0, 1]] : [[-1, 0], [0, -1]];
+        for (const [dx, dy] of propDirs) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+          
+          const nIdx = ny * width + nx;
+          const candDx = nnfX[nIdx];
+          const candDy = nnfY[nIdx];
+          
+          // Try this neighbor's offset
+          const srcX = x + candDx;
+          const srcY = y + candDy;
+          
+          if (srcX < halfPatch || srcX >= width - halfPatch || 
+              srcY < halfPatch || srcY >= height - halfPatch) continue;
+          
+          const dist = computePatchDistance(image, mask, width, height, x, y, srcX, srcY, halfPatch);
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestDx = candDx;
+            bestDy = candDy;
+          }
+        }
+        
+        // Random search: try random offsets at decreasing radii
+        let searchRadius = Math.max(width, height);
+        while (searchRadius > 1) {
+          const randDx = bestDx + Math.floor((Math.random() * 2 - 1) * searchRadius);
+          const randDy = bestDy + Math.floor((Math.random() * 2 - 1) * searchRadius);
+          
+          const srcX = x + randDx;
+          const srcY = y + randDy;
+          
+          if (srcX >= halfPatch && srcX < width - halfPatch && 
+              srcY >= halfPatch && srcY < height - halfPatch) {
+            // Check if source is valid (not in mask)
+            let valid = true;
+            for (let py = -halfPatch; py <= halfPatch && valid; py++) {
+              for (let px = -halfPatch; px <= halfPatch && valid; px++) {
+                if (mask[(srcY + py) * width + (srcX + px)] > 0.3) valid = false;
+              }
+            }
+            
+            if (valid) {
+              const dist = computePatchDistance(image, mask, width, height, x, y, srcX, srcY, halfPatch);
+              if (dist < bestDist) {
+                bestDist = dist;
+                bestDx = randDx;
+                bestDy = randDy;
+              }
+            }
+          }
+          
+          searchRadius = Math.floor(searchRadius / 2);
+        }
+        
+        nnfX[idx] = bestDx;
+        nnfY[idx] = bestDy;
+        nnfDist[idx] = bestDist;
+      }
+    }
+  }
+  
+  // Fill masked pixels using NNF
+  for (let y = bounds.minY; y <= bounds.maxY; y++) {
+    for (let x = bounds.minX; x <= bounds.maxX; x++) {
+      const idx = y * width + x;
+      if (mask[idx] < 0.3) continue;
+      
+      const srcX = x + nnfX[idx];
+      const srcY = y + nnfY[idx];
+      
+      if (srcX >= 0 && srcX < width && srcY >= 0 && srcY < height) {
+        const srcIdx = (srcY * width + srcX) * 4;
+        const dstIdx = idx * 4;
+        
+        image[dstIdx] = image[srcIdx];
+        image[dstIdx + 1] = image[srcIdx + 1];
+        image[dstIdx + 2] = image[srcIdx + 2];
+      }
+    }
+  }
+}
+
+/**
+ * Compute SSD distance between two patches (only using known pixels)
+ */
+function computePatchDistance(
+  image: Uint8ClampedArray,
+  mask: Float32Array,
+  width: number,
+  height: number,
+  x1: number, y1: number,
+  x2: number, y2: number,
+  halfPatch: number
+): number {
+  let sum = 0;
+  let count = 0;
+  
+  for (let dy = -halfPatch; dy <= halfPatch; dy++) {
+    for (let dx = -halfPatch; dx <= halfPatch; dx++) {
+      const tx = x1 + dx;
+      const ty = y1 + dy;
+      const sx = x2 + dx;
+      const sy = y2 + dy;
+      
+      if (tx < 0 || tx >= width || ty < 0 || ty >= height) continue;
+      if (sx < 0 || sx >= width || sy < 0 || sy >= height) continue;
+      
+      // Only compare known pixels in target
+      if (mask[ty * width + tx] > 0.3) continue;
+      
+      const tIdx = (ty * width + tx) * 4;
+      const sIdx = (sy * width + sx) * 4;
+      
+      const dr = image[tIdx] - image[sIdx];
+      const dg = image[tIdx + 1] - image[sIdx + 1];
+      const db = image[tIdx + 2] - image[sIdx + 2];
+      
+      sum += dr * dr + dg * dg + db * db;
+      count++;
+    }
+  }
+  
+  return count > 0 ? sum / count : Infinity;
+}
+
+/**
+ * Upsample filled region and blend into original image
+ */
+function upsampleAndBlend(
+  data: Uint8ClampedArray,
+  scaledImage: Uint8ClampedArray,
+  mask: Float32Array,
+  width: number,
+  height: number,
+  workBounds: { minX: number; minY: number; maxX: number; maxY: number },
+  scaledWidth: number,
+  scaledHeight: number,
+  scale: number,
+  maskBounds: { minX: number; minY: number; maxX: number; maxY: number }
+): void {
+  // Bilinear upsample with mask-based blending
+  for (let y = maskBounds.minY; y <= maskBounds.maxY; y++) {
+    for (let x = maskBounds.minX; x <= maskBounds.maxX; x++) {
+      if (y < 0 || y >= height || x < 0 || x >= width) continue;
+      
       const maskVal = mask[y * width + x];
       if (maskVal < 0.05) continue;
       
-      // Bilinear interpolation from downsampled
-      const dx = (x - workBounds.minX) * scale;
-      const dy = (y - workBounds.minY) * scale;
+      // Map to scaled coordinates
+      const sx = (x - workBounds.minX) * scale;
+      const sy = (y - workBounds.minY) * scale;
       
-      const x0 = Math.floor(dx);
-      const y0 = Math.floor(dy);
-      const x1 = Math.min(x0 + 1, dstWidth - 1);
-      const y1 = Math.min(y0 + 1, dstHeight - 1);
+      // Bilinear interpolation
+      const x0 = Math.floor(sx);
+      const y0 = Math.floor(sy);
+      const x1 = Math.min(x0 + 1, scaledWidth - 1);
+      const y1 = Math.min(y0 + 1, scaledHeight - 1);
       
-      const fx = dx - x0;
-      const fy = dy - y0;
+      const fx = sx - x0;
+      const fy = sy - y0;
       
-      const idx00 = (y0 * dstWidth + x0) * 4;
-      const idx10 = (y0 * dstWidth + x1) * 4;
-      const idx01 = (y1 * dstWidth + x0) * 4;
-      const idx11 = (y1 * dstWidth + x1) * 4;
+      const idx00 = (y0 * scaledWidth + x0) * 4;
+      const idx10 = (y0 * scaledWidth + x1) * 4;
+      const idx01 = (y1 * scaledWidth + x0) * 4;
+      const idx11 = (y1 * scaledWidth + x1) * 4;
       
-      const r = bilinear(downsampled[idx00], downsampled[idx10], downsampled[idx01], downsampled[idx11], fx, fy);
-      const g = bilinear(downsampled[idx00 + 1], downsampled[idx10 + 1], downsampled[idx01 + 1], downsampled[idx11 + 1], fx, fy);
-      const b = bilinear(downsampled[idx00 + 2], downsampled[idx10 + 2], downsampled[idx01 + 2], downsampled[idx11 + 2], fx, fy);
+      const r = bilinear(scaledImage[idx00], scaledImage[idx10], scaledImage[idx01], scaledImage[idx11], fx, fy);
+      const g = bilinear(scaledImage[idx00 + 1], scaledImage[idx10 + 1], scaledImage[idx01 + 1], scaledImage[idx11 + 1], fx, fy);
+      const b = bilinear(scaledImage[idx00 + 2], scaledImage[idx10 + 2], scaledImage[idx01 + 2], scaledImage[idx11 + 2], fx, fy);
       
       const pixelIdx = (y * width + x) * 4;
       
-      // Blend based on mask
-      data[pixelIdx] = Math.round(data[pixelIdx] * (1 - maskVal) + r * maskVal);
-      data[pixelIdx + 1] = Math.round(data[pixelIdx + 1] * (1 - maskVal) + g * maskVal);
-      data[pixelIdx + 2] = Math.round(data[pixelIdx + 2] * (1 - maskVal) + b * maskVal);
+      // Blend based on mask (soft edges)
+      const blend = Math.min(1, maskVal);
+      data[pixelIdx] = Math.round(data[pixelIdx] * (1 - blend) + r * blend);
+      data[pixelIdx + 1] = Math.round(data[pixelIdx + 1] * (1 - blend) + g * blend);
+      data[pixelIdx + 2] = Math.round(data[pixelIdx + 2] * (1 - blend) + b * blend);
     }
   }
 }
@@ -143,214 +390,61 @@ function bilinear(v00: number, v10: number, v01: number, v11: number, fx: number
 }
 
 /**
- * Fast texture fill at given scale
+ * Apply gradient-based edge blending (simplified Poisson-like blending)
  */
-function fillTextureAtScale(
+function gradientBlendEdges(
   data: Uint8ClampedArray,
   mask: Float32Array,
   width: number,
-  height: number,
   bounds: { minX: number; minY: number; maxX: number; maxY: number }
 ): void {
-  const patchSize = 5;
-  const halfPatch = 2;
+  const blendRadius = 3;
+  const temp = new Uint8ClampedArray(data);
   
-  // Collect source patches from outside mask
-  const sourcePatches: Array<{ x: number, y: number, colors: number[] }> = [];
-  const step = Math.max(1, patchSize - 1);
-  
-  for (let y = halfPatch; y < height - halfPatch; y += step) {
-    for (let x = halfPatch; x < width - halfPatch; x += step) {
-      // Check if patch is fully outside mask
-      let inMask = false;
-      for (let dy = -halfPatch; dy <= halfPatch && !inMask; dy++) {
-        for (let dx = -halfPatch; dx <= halfPatch && !inMask; dx++) {
-          if (mask[(y + dy) * width + (x + dx)] > 0.3) inMask = true;
-        }
-      }
-      if (inMask) continue;
-      
-      // Store patch
-      const colors: number[] = [];
-      for (let dy = -halfPatch; dy <= halfPatch; dy++) {
-        for (let dx = -halfPatch; dx <= halfPatch; dx++) {
-          const idx = ((y + dy) * width + (x + dx)) * 4;
-          colors.push(data[idx], data[idx + 1], data[idx + 2]);
-        }
-      }
-      sourcePatches.push({ x, y, colors });
-    }
-  }
-  
-  console.log(`Found ${sourcePatches.length} source patches`);
-  
-  if (sourcePatches.length === 0) {
-    // Fallback: just use edge colors
-    fillFromEdges(data, mask, width, height, bounds);
-    return;
-  }
-  
-  // Create result buffer
-  const result = new Uint8ClampedArray(data);
-  const filled = new Float32Array(mask.length);
-  
-  // Fill from edges inward using best matching patches
-  let iterations = 0;
-  const maxIter = 1000;
-  
-  while (iterations < maxIter) {
-    let anyFilled = false;
-    
-    // Find boundary pixels
-    for (let y = Math.max(halfPatch, bounds.minY); y <= Math.min(height - halfPatch - 1, bounds.maxY); y++) {
-      for (let x = Math.max(halfPatch, bounds.minX); x <= Math.min(width - halfPatch - 1, bounds.maxX); x++) {
-        const idx = y * width + x;
-        if (mask[idx] < 0.3 || filled[idx] > 0) continue;
+  // Multiple passes for smoother transition
+  for (let pass = 0; pass < 2; pass++) {
+    for (let y = bounds.minY; y <= bounds.maxY; y++) {
+      for (let x = bounds.minX; x <= bounds.maxX; x++) {
+        const maskVal = mask[y * width + x];
         
-        // Check if has filled/unmasked neighbor
-        let hasContext = false;
-        for (let dy = -1; dy <= 1 && !hasContext; dy++) {
-          for (let dx = -1; dx <= 1 && !hasContext; dx++) {
-            const nIdx = (y + dy) * width + (x + dx);
-            if (mask[nIdx] < 0.3 || filled[nIdx] > 0) hasContext = true;
-          }
-        }
-        if (!hasContext) continue;
+        // Only blend edge pixels (transition zone)
+        if (maskVal < 0.1 || maskVal > 0.9) continue;
         
-        // Get context patch
-        const context: number[] = [];
-        const contextMask: boolean[] = [];
-        for (let dy = -halfPatch; dy <= halfPatch; dy++) {
-          for (let dx = -halfPatch; dx <= halfPatch; dx++) {
-            const pIdx = ((y + dy) * width + (x + dx)) * 4;
-            const mIdx = (y + dy) * width + (x + dx);
-            context.push(result[pIdx], result[pIdx + 1], result[pIdx + 2]);
-            contextMask.push(mask[mIdx] < 0.3 || filled[mIdx] > 0);
+        let sumR = 0, sumG = 0, sumB = 0;
+        let totalWeight = 0;
+        
+        for (let dy = -blendRadius; dy <= blendRadius; dy++) {
+          for (let dx = -blendRadius; dx <= blendRadius; dx++) {
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx < 0 || nx >= width || ny < 0 || ny >= bounds.maxY + 1) continue;
+            
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const weight = 1 / (1 + dist);
+            
+            const nIdx = (ny * width + nx) * 4;
+            sumR += temp[nIdx] * weight;
+            sumG += temp[nIdx + 1] * weight;
+            sumB += temp[nIdx + 2] * weight;
+            totalWeight += weight;
           }
         }
         
-        // Find best matching source patch
-        let bestPatch = sourcePatches[0];
-        let bestScore = Infinity;
-        
-        // Sample random patches for speed
-        const sampleSize = Math.min(sourcePatches.length, 50);
-        const sampleStep = Math.max(1, Math.floor(sourcePatches.length / sampleSize));
-        
-        for (let i = 0; i < sourcePatches.length; i += sampleStep) {
-          const patch = sourcePatches[i];
-          let score = 0;
-          let count = 0;
-          
-          for (let j = 0; j < context.length; j += 3) {
-            if (!contextMask[j / 3]) continue;
-            const dr = context[j] - patch.colors[j];
-            const dg = context[j + 1] - patch.colors[j + 1];
-            const db = context[j + 2] - patch.colors[j + 2];
-            score += dr * dr + dg * dg + db * db;
-            count++;
-          }
-          
-          if (count > 0 && score / count < bestScore) {
-            bestScore = score / count;
-            bestPatch = patch;
-          }
+        if (totalWeight > 0) {
+          const pixelIdx = (y * width + x) * 4;
+          const blend = 0.5; // Blend factor
+          data[pixelIdx] = Math.round(temp[pixelIdx] * (1 - blend) + (sumR / totalWeight) * blend);
+          data[pixelIdx + 1] = Math.round(temp[pixelIdx + 1] * (1 - blend) + (sumG / totalWeight) * blend);
+          data[pixelIdx + 2] = Math.round(temp[pixelIdx + 2] * (1 - blend) + (sumB / totalWeight) * blend);
         }
-        
-        // Copy center pixel from best patch
-        const centerOffset = (halfPatch * (patchSize) + halfPatch) * 3;
-        const pixelIdx = idx * 4;
-        result[pixelIdx] = bestPatch.colors[centerOffset];
-        result[pixelIdx + 1] = bestPatch.colors[centerOffset + 1];
-        result[pixelIdx + 2] = bestPatch.colors[centerOffset + 2];
-        filled[idx] = 1;
-        anyFilled = true;
       }
     }
     
-    if (!anyFilled) break;
-    iterations++;
-  }
-  
-  // Copy result back
-  for (let i = 0; i < data.length; i++) {
-    data[i] = result[i];
-  }
-}
-
-/**
- * Simple fallback: fill from edge colors
- */
-function fillFromEdges(
-  data: Uint8ClampedArray,
-  mask: Float32Array,
-  width: number,
-  _height: number,
-  bounds: { minX: number; minY: number; maxX: number; maxY: number }
-): void {
-  // Collect edge colors
-  const edgeColors: Array<{ r: number, g: number, b: number }> = [];
-  
-  for (let y = bounds.minY; y <= bounds.maxY; y++) {
-    for (let x = bounds.minX; x <= bounds.maxX; x++) {
-      const idx = y * width + x;
-      if (mask[idx] > 0.1 && mask[idx] < 0.5) {
-        const pixelIdx = idx * 4;
-        edgeColors.push({
-          r: data[pixelIdx],
-          g: data[pixelIdx + 1],
-          b: data[pixelIdx + 2]
-        });
-      }
+    // Copy for next pass
+    for (let i = 0; i < data.length; i++) {
+      temp[i] = data[i];
     }
   }
-  
-  if (edgeColors.length === 0) return;
-  
-  // Calculate average edge color
-  let avgR = 0, avgG = 0, avgB = 0;
-  for (const c of edgeColors) {
-    avgR += c.r;
-    avgG += c.g;
-    avgB += c.b;
-  }
-  avgR /= edgeColors.length;
-  avgG /= edgeColors.length;
-  avgB /= edgeColors.length;
-  
-  // Fill with average + slight variation
-  for (let y = bounds.minY; y <= bounds.maxY; y++) {
-    for (let x = bounds.minX; x <= bounds.maxX; x++) {
-      const idx = y * width + x;
-      const maskVal = mask[idx];
-      if (maskVal < 0.3) continue;
-      
-      // Add subtle noise
-      const noise = (Math.random() - 0.5) * 20;
-      
-      const pixelIdx = idx * 4;
-      data[pixelIdx] = Math.max(0, Math.min(255, Math.round(avgR + noise)));
-      data[pixelIdx + 1] = Math.max(0, Math.min(255, Math.round(avgG + noise)));
-      data[pixelIdx + 2] = Math.max(0, Math.min(255, Math.round(avgB + noise)));
-    }
-  }
-}
-
-/**
- * Fill directly at full resolution (for smaller areas)
- */
-function fillDirect(
-  imageData: ImageData,
-  mask: Float32Array,
-  bounds: { minX: number; minY: number; maxX: number; maxY: number }
-): void {
-  fillTextureAtScale(
-    imageData.data,
-    mask,
-    imageData.width,
-    imageData.height,
-    bounds
-  );
 }
 
 /**
