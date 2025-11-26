@@ -2,11 +2,10 @@
  * Healing Brush Implementation
  * Lightroom-style content-aware healing
  * 
- * Key difference from naive approach:
- * - Heals entire regions at once, not overlapping stamps
- * - Creates a mask from the brush stroke
- * - Calculates mean colors for entire source/target regions
- * - Applies texture transfer uniformly
+ * Key features:
+ * - Fills closed shapes completely (not just the border)
+ * - Uses proper polygon fill algorithm
+ * - Applies texture transfer uniformly across the region
  */
 
 export interface HealingPatch {
@@ -31,10 +30,73 @@ export interface BrushStrokeOptions {
 }
 
 /**
- * Create a mask from brush stroke points
- * Returns a Float32Array where each pixel has a weight 0-1
+ * Check if a point is inside a polygon using ray casting
  */
-function createMaskFromStroke(
+function isPointInPolygon(x: number, y: number, polygon: BrushStrokePoint[]): boolean {
+  let inside = false;
+  const n = polygon.length;
+  
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    const xi = polygon[i].x, yi = polygon[i].y;
+    const xj = polygon[j].x, yj = polygon[j].y;
+    
+    if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) {
+      inside = !inside;
+    }
+  }
+  
+  return inside;
+}
+
+/**
+ * Simplify polygon to reduce point count (Douglas-Peucker algorithm)
+ */
+function simplifyPolygon(points: BrushStrokePoint[], tolerance: number): BrushStrokePoint[] {
+  if (points.length <= 2) return points;
+  
+  // Find the point with the maximum distance from the line between first and last
+  let maxDist = 0;
+  let maxIdx = 0;
+  
+  const first = points[0];
+  const last = points[points.length - 1];
+  
+  for (let i = 1; i < points.length - 1; i++) {
+    const dist = perpendicularDistance(points[i], first, last);
+    if (dist > maxDist) {
+      maxDist = dist;
+      maxIdx = i;
+    }
+  }
+  
+  if (maxDist > tolerance) {
+    const left = simplifyPolygon(points.slice(0, maxIdx + 1), tolerance);
+    const right = simplifyPolygon(points.slice(maxIdx), tolerance);
+    return [...left.slice(0, -1), ...right];
+  }
+  
+  return [first, last];
+}
+
+function perpendicularDistance(point: BrushStrokePoint, lineStart: BrushStrokePoint, lineEnd: BrushStrokePoint): number {
+  const dx = lineEnd.x - lineStart.x;
+  const dy = lineEnd.y - lineStart.y;
+  
+  if (dx === 0 && dy === 0) {
+    return Math.sqrt((point.x - lineStart.x) ** 2 + (point.y - lineStart.y) ** 2);
+  }
+  
+  const t = ((point.x - lineStart.x) * dx + (point.y - lineStart.y) * dy) / (dx * dx + dy * dy);
+  const nearestX = lineStart.x + t * dx;
+  const nearestY = lineStart.y + t * dy;
+  
+  return Math.sqrt((point.x - nearestX) ** 2 + (point.y - nearestY) ** 2);
+}
+
+/**
+ * Create a mask that fills the entire interior of a closed stroke
+ */
+function createFilledMask(
   width: number,
   height: number,
   points: BrushStrokePoint[],
@@ -43,112 +105,148 @@ function createMaskFromStroke(
 ): { mask: Float32Array; bounds: { minX: number; minY: number; maxX: number; maxY: number } } {
   const mask = new Float32Array(width * height);
   
-  // Calculate bounds
+  // Calculate bounds with padding for feather
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const p of points) {
-    minX = Math.min(minX, p.x - brushRadius);
-    minY = Math.min(minY, p.y - brushRadius);
-    maxX = Math.max(maxX, p.x + brushRadius);
-    maxY = Math.max(maxY, p.y + brushRadius);
+    minX = Math.min(minX, p.x);
+    minY = Math.min(minY, p.y);
+    maxX = Math.max(maxX, p.x);
+    maxY = Math.max(maxY, p.y);
   }
   
-  // Clamp to image bounds
-  minX = Math.max(0, Math.floor(minX));
-  minY = Math.max(0, Math.floor(minY));
-  maxX = Math.min(width - 1, Math.ceil(maxX));
-  maxY = Math.min(height - 1, Math.ceil(maxY));
+  // Add padding for brush radius and feather
+  const padding = brushRadius + brushRadius * feather;
+  minX = Math.max(0, Math.floor(minX - padding));
+  minY = Math.max(0, Math.floor(minY - padding));
+  maxX = Math.min(width - 1, Math.ceil(maxX + padding));
+  maxY = Math.min(height - 1, Math.ceil(maxY + padding));
   
-  // Fill mask based on distance to stroke
-  for (let y = minY; y <= maxY; y++) {
-    for (let x = minX; x <= maxX; x++) {
-      // Find minimum distance to any stroke point
-      let minDist = Infinity;
-      for (const p of points) {
-        const dist = Math.sqrt((x - p.x) ** 2 + (y - p.y) ** 2);
-        minDist = Math.min(minDist, dist);
-      }
-      
-      // Calculate weight based on distance and feather
-      if (minDist <= brushRadius) {
-        const normalizedDist = minDist / brushRadius;
-        const falloffStart = 1 - feather;
-        
-        if (normalizedDist < falloffStart) {
+  // Check if stroke is closed
+  const start = points[0];
+  const end = points[points.length - 1];
+  const closeDist = Math.sqrt((end.x - start.x) ** 2 + (end.y - start.y) ** 2);
+  const isClosed = points.length >= 10 && closeDist < brushRadius * 2;
+  
+  console.log('Creating mask:', { isClosed, pointCount: points.length, closeDist, brushRadius });
+  
+  if (isClosed) {
+    // CLOSED SHAPE: Fill the entire interior
+    // Simplify the polygon for faster point-in-polygon tests
+    const simplified = simplifyPolygon(points, brushRadius / 4);
+    
+    // Close the polygon explicitly
+    const polygon = [...simplified];
+    if (polygon.length > 0) {
+      polygon.push(polygon[0]); // Close the loop
+    }
+    
+    console.log('Filling closed shape with', polygon.length, 'vertices');
+    
+    // Fill interior using point-in-polygon test
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        if (isPointInPolygon(x, y, polygon)) {
+          // Inside the polygon - full weight
           mask[y * width + x] = 1;
         } else {
-          // Smooth falloff
-          const t = (normalizedDist - falloffStart) / feather;
-          mask[y * width + x] = 1 - t * t * (3 - 2 * t);
+          // Outside - check distance to polygon edge for feathering
+          let minDistToEdge = Infinity;
+          for (let i = 0; i < polygon.length - 1; i++) {
+            const dist = distanceToLineSegment(x, y, polygon[i], polygon[i + 1]);
+            minDistToEdge = Math.min(minDistToEdge, dist);
+          }
+          
+          // Apply feather on the outside edge
+          if (minDistToEdge < brushRadius * feather) {
+            const t = minDistToEdge / (brushRadius * feather);
+            mask[y * width + x] = 1 - t * t * (3 - 2 * t); // Smoothstep falloff
+          }
+        }
+      }
+    }
+    
+    // Also ensure the stroke path itself is included with brush radius
+    for (const p of points) {
+      for (let dy = -brushRadius; dy <= brushRadius; dy++) {
+        for (let dx = -brushRadius; dx <= brushRadius; dx++) {
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist <= brushRadius) {
+            const px = Math.round(p.x + dx);
+            const py = Math.round(p.y + dy);
+            if (px >= 0 && px < width && py >= 0 && py < height) {
+              const idx = py * width + px;
+              const normalizedDist = dist / brushRadius;
+              const falloffStart = 1 - feather;
+              let weight = 1;
+              if (normalizedDist > falloffStart && feather > 0) {
+                const t = (normalizedDist - falloffStart) / feather;
+                weight = 1 - t * t * (3 - 2 * t);
+              }
+              mask[idx] = Math.max(mask[idx], weight);
+            }
+          }
+        }
+      }
+    }
+  } else {
+    // OPEN STROKE: Just paint the brush path
+    for (const p of points) {
+      for (let dy = -brushRadius; dy <= brushRadius; dy++) {
+        for (let dx = -brushRadius; dx <= brushRadius; dx++) {
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist <= brushRadius) {
+            const px = Math.round(p.x + dx);
+            const py = Math.round(p.y + dy);
+            if (px >= 0 && px < width && py >= 0 && py < height) {
+              const idx = py * width + px;
+              const normalizedDist = dist / brushRadius;
+              const falloffStart = 1 - feather;
+              let weight = 1;
+              if (normalizedDist > falloffStart && feather > 0) {
+                const t = (normalizedDist - falloffStart) / feather;
+                weight = 1 - t * t * (3 - 2 * t);
+              }
+              mask[idx] = Math.max(mask[idx], weight);
+            }
+          }
         }
       }
     }
   }
   
+  // Count filled pixels
+  let filledCount = 0;
+  for (let i = 0; i < mask.length; i++) {
+    if (mask[i] > 0) filledCount++;
+  }
+  console.log('Mask created:', filledCount, 'pixels affected');
+  
   return { mask, bounds: { minX, minY, maxX, maxY } };
 }
 
 /**
- * Check if a stroke forms a closed shape and fill it
+ * Distance from point to line segment
  */
-function fillClosedShape(
-  mask: Float32Array,
-  width: number,
-  height: number,
-  points: BrushStrokePoint[],
-  brushRadius: number,
-  bounds: { minX: number; minY: number; maxX: number; maxY: number }
-): void {
-  if (points.length < 10) return;
+function distanceToLineSegment(px: number, py: number, a: BrushStrokePoint, b: BrushStrokePoint): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const lengthSq = dx * dx + dy * dy;
   
-  // Check if closed (end near start)
-  const start = points[0];
-  const end = points[points.length - 1];
-  const dist = Math.sqrt((end.x - start.x) ** 2 + (end.y - start.y) ** 2);
-  
-  if (dist > brushRadius) return; // Not closed
-  
-  // Use scanline fill algorithm
-  // First, create edge list from points
-  const edges: Array<{ x1: number; y1: number; x2: number; y2: number }> = [];
-  for (let i = 0; i < points.length - 1; i++) {
-    edges.push({ x1: points[i].x, y1: points[i].y, x2: points[i + 1].x, y2: points[i + 1].y });
+  if (lengthSq === 0) {
+    return Math.sqrt((px - a.x) ** 2 + (py - a.y) ** 2);
   }
-  // Close the shape
-  edges.push({ x1: end.x, y1: end.y, x2: start.x, y2: start.y });
   
-  // Scanline fill
-  for (let y = bounds.minY; y <= bounds.maxY; y++) {
-    const intersections: number[] = [];
-    
-    for (const edge of edges) {
-      const { x1, y1, x2, y2 } = edge;
-      
-      // Check if scanline intersects this edge
-      if ((y1 <= y && y2 > y) || (y2 <= y && y1 > y)) {
-        // Calculate x intersection
-        const t = (y - y1) / (y2 - y1);
-        const x = x1 + t * (x2 - x1);
-        intersections.push(x);
-      }
-    }
-    
-    // Sort intersections
-    intersections.sort((a, b) => a - b);
-    
-    // Fill between pairs
-    for (let i = 0; i < intersections.length - 1; i += 2) {
-      const xStart = Math.max(bounds.minX, Math.ceil(intersections[i]));
-      const xEnd = Math.min(bounds.maxX, Math.floor(intersections[i + 1]));
-      
-      for (let x = xStart; x <= xEnd; x++) {
-        mask[y * width + x] = 1;
-      }
-    }
-  }
+  let t = ((px - a.x) * dx + (py - a.y) * dy) / lengthSq;
+  t = Math.max(0, Math.min(1, t));
+  
+  const nearestX = a.x + t * dx;
+  const nearestY = a.y + t * dy;
+  
+  return Math.sqrt((px - nearestX) ** 2 + (py - nearestY) ** 2);
 }
 
 /**
- * Get centroid (center) of masked region
+ * Get centroid of masked region
  */
 function getMaskCentroid(
   mask: Float32Array,
@@ -168,12 +266,14 @@ function getMaskCentroid(
     }
   }
   
-  if (sumWeight === 0) return { x: (bounds.minX + bounds.maxX) / 2, y: (bounds.minY + bounds.maxY) / 2 };
+  if (sumWeight === 0) {
+    return { x: (bounds.minX + bounds.maxX) / 2, y: (bounds.minY + bounds.maxY) / 2 };
+  }
   return { x: sumX / sumWeight, y: sumY / sumWeight };
 }
 
 /**
- * Calculate mean RGB for a region defined by mask
+ * Calculate mean RGB for a region
  */
 function calculateRegionMean(
   imageData: ImageData,
@@ -214,14 +314,7 @@ function calculateRegionMean(
 }
 
 /**
- * Apply healing to a region
- * This is the core algorithm that makes it work like Lightroom:
- * 1. Calculate mean colors for both source and target regions (using the mask)
- * 2. For each pixel in the mask:
- *    - Get source pixel
- *    - Extract texture: texture = source_pixel - source_mean
- *    - Recolor: healed = target_mean + texture
- *    - Blend with target based on mask weight
+ * Apply healing: copies texture from source, recolors to match target
  */
 function applyRegionHeal(
   imageData: ImageData,
@@ -232,9 +325,11 @@ function applyRegionHeal(
 ): void {
   const { width, height, data } = imageData;
   
-  // Calculate mean colors for source and target regions
+  // Calculate mean colors
   const targetMean = calculateRegionMean(imageData, mask, 0, 0, bounds);
   const sourceMean = calculateRegionMean(imageData, mask, sourceOffset.x, sourceOffset.y, bounds);
+  
+  console.log('Healing region:', { targetMean, sourceMean, sourceOffset });
   
   // Apply healing
   for (let y = bounds.minY; y <= bounds.maxY; y++) {
@@ -250,24 +345,21 @@ function applyRegionHeal(
       const targetIdx = (y * width + x) * 4;
       const sourceIdx = (sy * width + sx) * 4;
       
-      // For each color channel
       for (let c = 0; c < 3; c++) {
-        // Extract texture from source (high-frequency detail)
+        // Extract texture from source
         const texture = data[sourceIdx + c] - sourceMean[c];
-        
-        // Apply texture to target mean (recolor)
+        // Apply to target mean
         const healed = targetMean[c] + texture;
-        
-        // Clamp and blend
-        const clampedHealed = Math.max(0, Math.min(255, healed));
-        data[targetIdx + c] = data[targetIdx + c] * (1 - maskWeight) + clampedHealed * maskWeight;
+        // Blend
+        const clamped = Math.max(0, Math.min(255, healed));
+        data[targetIdx + c] = data[targetIdx + c] * (1 - maskWeight) + clamped * maskWeight;
       }
     }
   }
 }
 
 /**
- * Apply cloning to a region (direct copy)
+ * Apply cloning: direct copy from source
  */
 function applyRegionClone(
   imageData: ImageData,
@@ -291,7 +383,6 @@ function applyRegionClone(
       const targetIdx = (y * width + x) * 4;
       const sourceIdx = (sy * width + sx) * 4;
       
-      // Direct copy with blending
       for (let c = 0; c < 4; c++) {
         data[targetIdx + c] = data[targetIdx + c] * (1 - maskWeight) + data[sourceIdx + c] * maskWeight;
       }
@@ -300,7 +391,7 @@ function applyRegionClone(
 }
 
 /**
- * Find a good source patch automatically
+ * Auto-find a good source region
  */
 export function findSourcePatch(
   imageData: ImageData,
@@ -322,30 +413,30 @@ export function findSourcePatch(
       count++;
     }
   }
-  targetLum /= count;
+  targetLum /= count || 1;
   
   // Search for similar region
-  const searchRadius = radius * 4;
+  const searchRadius = radius * 6;
   const minDist = radius * 2;
   let bestX = targetX + minDist, bestY = targetY, bestScore = Infinity;
   
-  for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
-    for (let dist = minDist; dist < searchRadius; dist += Math.max(2, radius / 2)) {
+  for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 12) {
+    for (let dist = minDist; dist < searchRadius; dist += Math.max(4, radius / 3)) {
       const sx = Math.round(targetX + Math.cos(angle) * dist);
       const sy = Math.round(targetY + Math.sin(angle) * dist);
       
       if (sx - radius < 0 || sx + radius >= width || sy - radius < 0 || sy + radius >= height) continue;
       
       let sourceLum = 0, sCount = 0;
-      for (let dy = -radius; dy <= radius; dy++) {
-        for (let dx = -radius; dx <= radius; dx++) {
+      for (let dy = -radius; dy <= radius; dy += 2) {
+        for (let dx = -radius; dx <= radius; dx += 2) {
           if (dx * dx + dy * dy > radius * radius) continue;
           const idx = ((sy + dy) * width + (sx + dx)) * 4;
           sourceLum += 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
           sCount++;
         }
       }
-      sourceLum /= sCount;
+      sourceLum /= sCount || 1;
       
       const score = Math.abs(sourceLum - targetLum);
       if (score < bestScore) {
@@ -360,8 +451,7 @@ export function findSourcePatch(
 }
 
 /**
- * Main function: Apply brush stroke as a single healed region
- * This is the key to getting Lightroom-quality results
+ * Main function: Apply brush stroke healing/cloning
  */
 export function paintBrushStroke(
   imageData: ImageData,
@@ -375,18 +465,23 @@ export function paintBrushStroke(
   
   const { width, height } = imageData;
   
-  // Create mask from the entire brush stroke
-  const { mask, bounds } = createMaskFromStroke(width, height, points, radius, feather);
+  console.log('paintBrushStroke called:', { 
+    mode, 
+    pointCount: points.length, 
+    radius, 
+    feather, 
+    hasSourceOffset: !!sourceOffset 
+  });
   
-  // Check if it's a closed shape and fill interior
-  fillClosedShape(mask, width, height, points, radius, bounds);
+  // Create filled mask
+  const { mask, bounds } = createFilledMask(width, height, points, radius, feather);
   
-  // Get centroid of the masked region
+  // Get centroid
   const centroid = getMaskCentroid(mask, width, bounds);
   
-  // Auto-find source if not provided
+  // Auto-find source if needed
   if (!sourceOffset) {
-    const autoSource = findSourcePatch(imageData, Math.round(centroid.x), Math.round(centroid.y), radius);
+    const autoSource = findSourcePatch(imageData, Math.round(centroid.x), Math.round(centroid.y), radius * 2);
     sourceOffset = {
       x: autoSource.x - Math.round(centroid.x),
       y: autoSource.y - Math.round(centroid.y),
@@ -394,24 +489,19 @@ export function paintBrushStroke(
     console.log('Auto-selected source:', autoSource, 'offset:', sourceOffset);
   }
   
-  // Apply the appropriate operation to the entire region at once
+  // Apply operation
   if (mode === 'clone') {
     applyRegionClone(imageData, mask, sourceOffset, bounds, opacity);
   } else {
     applyRegionHeal(imageData, mask, sourceOffset, bounds, opacity);
   }
   
-  console.log(`Applied ${mode} to region:`, bounds, 'with offset:', sourceOffset);
+  console.log(`Applied ${mode} to region:`, bounds);
 }
 
-// Legacy exports for compatibility
-export function healPatch(
-  imageData: ImageData,
-  patch: HealingPatch,
-  feather: number = 0.3
-): void {
-  const points = [{ x: patch.targetX, y: patch.targetY }];
-  paintBrushStroke(imageData, points, {
+// Legacy compatibility
+export function healPatch(imageData: ImageData, patch: HealingPatch, feather: number = 0.3): void {
+  paintBrushStroke(imageData, [{ x: patch.targetX, y: patch.targetY }], {
     mode: 'heal',
     sourceOffset: { x: patch.sourceX - patch.targetX, y: patch.sourceY - patch.targetY },
     radius: patch.radius,
@@ -420,14 +510,8 @@ export function healPatch(
   });
 }
 
-export function clonePatch(
-  imageData: ImageData,
-  patch: HealingPatch,
-  feather: number = 0.3,
-  opacity: number = 1.0
-): void {
-  const points = [{ x: patch.targetX, y: patch.targetY }];
-  paintBrushStroke(imageData, points, {
+export function clonePatch(imageData: ImageData, patch: HealingPatch, feather: number = 0.3, opacity: number = 1.0): void {
+  paintBrushStroke(imageData, [{ x: patch.targetX, y: patch.targetY }], {
     mode: 'clone',
     sourceOffset: { x: patch.sourceX - patch.targetX, y: patch.sourceY - patch.targetY },
     radius: patch.radius,
