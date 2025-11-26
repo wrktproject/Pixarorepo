@@ -33,6 +33,7 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
   const [sourcePoint, setSourcePoint] = useState<{ x: number; y: number } | null>(null);
   const [originalImageBeforeEdits, setOriginalImageBeforeEdits] = useState<ImageData | null>(null);
   const [workingImage, setWorkingImage] = useState<ImageData | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
   
   // Use ref to always have current working image in callbacks (avoid stale closure)
   const workingImageRef = useRef<ImageData | null>(null);
@@ -155,6 +156,7 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
         });
       } else if (stroke.mode === 'content-aware') {
         console.log('Applying content-aware fill...');
+        setIsProcessing(true);
         
         // Create mask from stroke shape (same as heal/clone)
         const { mask, bounds } = createStrokeMask(
@@ -165,8 +167,10 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
           stroke.feather
         );
         
-        // Use LaMa neural network with PatchMatch fallback
-        await contentAwareFillWithMaskAsync(modifiedImage, mask, bounds);
+        // Use PatchMatch (LaMa disabled - too slow and poor quality in WASM)
+        // Pass useLama: false to skip the neural network
+        await contentAwareFillWithMaskAsync(modifiedImage, mask, bounds, { useLama: false });
+        setIsProcessing(false);
       }
 
       console.log('Updating canvas with modified image...');
@@ -471,6 +475,16 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
         sourcePoint={sourcePoint}
         onSourcePointChange={setSourcePoint}
       />
+      
+      {/* Processing overlay */}
+      {isProcessing && (
+        <div className="removal-adjustments__processing-overlay">
+          <div className="removal-adjustments__processing-spinner" />
+          <div className="removal-adjustments__processing-text">
+            Processing content-aware fill...
+          </div>
+        </div>
+      )}
     </div>
   );
 };
