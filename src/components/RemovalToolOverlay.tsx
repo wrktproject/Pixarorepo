@@ -1,7 +1,6 @@
 /**
  * RemovalToolOverlay Component
- * Interactive overlay for drawing healing/clone brush strokes directly on the image
- * Shows real-time brush cursor and stroke history
+ * Lightroom-style spot healing overlay with outlined strokes and source markers
  */
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
@@ -13,7 +12,8 @@ export interface BrushStroke {
   id: string;
   mode: 'clone' | 'heal' | 'content-aware';
   points: Array<{ x: number; y: number }>;
-  sourceOffset?: { x: number; y: number }; // For clone/heal
+  sourceOffset?: { x: number; y: number };
+  sourcePoint?: { x: number; y: number }; // Actual source location
   size: number;
   feather: number;
   opacity: number;
@@ -27,8 +27,8 @@ interface RemovalToolOverlayProps {
   feather: number;
   opacity: number;
   onBrushSizeChange?: (size: number) => void;
-  completedStrokes?: BrushStroke[]; // Show completed strokes
-  sourcePoint?: { x: number; y: number } | null; // External source point
+  completedStrokes?: BrushStroke[];
+  sourcePoint?: { x: number; y: number } | null;
   onSourcePointChange?: (point: { x: number; y: number } | null) => void;
 }
 
@@ -50,7 +50,6 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
   const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
   const [internalSourcePoint, setInternalSourcePoint] = useState<{ x: number; y: number } | null>(null);
 
-  // Use external source point if provided, otherwise use internal
   const sourcePoint = externalSourcePoint ?? internalSourcePoint;
   const setSourcePoint = onSourcePointChange ?? setInternalSourcePoint;
 
@@ -66,11 +65,9 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
       const canvas = canvasRef.current;
       const rect = canvas.getBoundingClientRect();
       
-      // Convert screen position to canvas position
       const canvasX = screenX - rect.left;
       const canvasY = screenY - rect.top;
 
-      // Convert canvas position to image coordinates
       const scaleX = image.width / rect.width;
       const scaleY = image.height / rect.height;
 
@@ -83,7 +80,7 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
   );
 
   /**
-   * Convert image coordinates to screen coordinates (for drawing overlay)
+   * Convert image coordinates to screen coordinates
    */
   const imageToScreen = useCallback(
     (imageX: number, imageY: number): { x: number; y: number } | null => {
@@ -104,7 +101,20 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
   );
 
   /**
-   * Handle mouse down - start drawing or set source point
+   * Calculate the center point of a stroke
+   */
+  const getStrokeCenter = useCallback((points: Array<{ x: number; y: number }>): { x: number; y: number } => {
+    if (points.length === 0) return { x: 0, y: 0 };
+    
+    const sum = points.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }), { x: 0, y: 0 });
+    return {
+      x: sum.x / points.length,
+      y: sum.y / points.length,
+    };
+  }, []);
+
+  /**
+   * Handle mouse down
    */
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -113,14 +123,13 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
       const imageCoords = screenToImage(e.clientX, e.clientY);
       if (!imageCoords) return;
 
-      // Alt+Click sets source point for clone/heal
+      // Alt+Click sets source point
       if (e.altKey && (brushMode === 'clone' || brushMode === 'heal')) {
         setSourcePoint(imageCoords);
         console.log('Source point set:', imageCoords);
         return;
       }
 
-      // Start drawing stroke
       setIsDrawing(true);
       setCurrentStroke([imageCoords]);
     },
@@ -128,7 +137,7 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
   );
 
   /**
-   * Handle mouse move - add to stroke or update cursor
+   * Handle mouse move
    */
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
@@ -145,21 +154,30 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
   );
 
   /**
-   * Handle mouse up - complete stroke
+   * Handle mouse up
    */
   const handleMouseUp = useCallback(() => {
     if (isDrawing && currentStroke.length > 0) {
-      // Create stroke object
+      const strokeCenter = getStrokeCenter(currentStroke);
+      
+      // Calculate source point for this stroke
+      let strokeSourcePoint: { x: number; y: number } | undefined;
+      let strokeSourceOffset: { x: number; y: number } | undefined;
+      
+      if (sourcePoint) {
+        strokeSourcePoint = { ...sourcePoint };
+        strokeSourceOffset = {
+          x: sourcePoint.x - strokeCenter.x,
+          y: sourcePoint.y - strokeCenter.y,
+        };
+      }
+
       const stroke: BrushStroke = {
         id: `stroke-${Date.now()}`,
         mode: brushMode,
         points: [...currentStroke],
-        sourceOffset: sourcePoint
-          ? {
-              x: sourcePoint.x - currentStroke[0].x,
-              y: sourcePoint.y - currentStroke[0].y,
-            }
-          : undefined,
+        sourceOffset: strokeSourceOffset,
+        sourcePoint: strokeSourcePoint,
         size: brushSize,
         feather,
         opacity,
@@ -168,8 +186,8 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
       console.log('Completing stroke:', {
         mode: brushMode,
         pointCount: currentStroke.length,
-        hasSource: !!sourcePoint,
-        sourceOffset: stroke.sourceOffset,
+        center: strokeCenter,
+        sourcePoint: strokeSourcePoint,
       });
 
       onStrokeComplete(stroke);
@@ -177,10 +195,10 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
     }
 
     setIsDrawing(false);
-  }, [isDrawing, currentStroke, sourcePoint, brushMode, brushSize, feather, opacity, onStrokeComplete]);
+  }, [isDrawing, currentStroke, sourcePoint, brushMode, brushSize, feather, opacity, onStrokeComplete, getStrokeCenter]);
 
   /**
-   * Handle mouse leave - cancel drawing
+   * Handle mouse leave
    */
   const handleMouseLeave = useCallback(() => {
     setCursorPos(null);
@@ -191,32 +209,134 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
   }, [isDrawing]);
 
   /**
-   * Handle wheel event - Ctrl+Scroll to change brush size
+   * Handle wheel for brush size
    */
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
       if (!e.ctrlKey || !onBrushSizeChange) return;
-
       e.preventDefault();
-
-      // Calculate size change (negative deltaY = scroll up = increase)
       const delta = -Math.sign(e.deltaY) * 5;
-      const newSize = Math.max(10, Math.min(150, brushSize + delta));
-
+      const newSize = Math.max(10, Math.min(200, brushSize + delta));
       onBrushSizeChange(newSize);
     },
     [brushSize, onBrushSizeChange]
   );
 
   /**
-   * Draw overlay visualization (cursor, source point, strokes)
+   * Draw a stroke outline (Lightroom-style white outline)
+   */
+  const drawStrokeOutline = useCallback((
+    ctx: CanvasRenderingContext2D,
+    points: Array<{ x: number; y: number }>,
+    size: number,
+    avgScale: number,
+    isActive: boolean = false
+  ) => {
+    if (points.length === 0) return;
+
+    const screenBrushSize = size * avgScale;
+    
+    // Create a path that encompasses all the brush strokes
+    ctx.beginPath();
+    
+    if (points.length === 1) {
+      // Single point - draw a circle
+      const screenPos = imageToScreen(points[0].x, points[0].y);
+      if (screenPos) {
+        ctx.arc(screenPos.x, screenPos.y, screenBrushSize / 2, 0, Math.PI * 2);
+      }
+    } else {
+      // Multiple points - draw rounded path
+      // First pass: draw filled circles to create the shape
+      ctx.save();
+      
+      // Create a temporary canvas for the mask
+      points.forEach((point) => {
+        const screenPos = imageToScreen(point.x, point.y);
+        if (screenPos) {
+          ctx.moveTo(screenPos.x + screenBrushSize / 2, screenPos.y);
+          ctx.arc(screenPos.x, screenPos.y, screenBrushSize / 2, 0, Math.PI * 2);
+        }
+      });
+      
+      ctx.restore();
+    }
+
+    // Draw the white outline
+    ctx.strokeStyle = isActive ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.9)';
+    ctx.lineWidth = isActive ? 2.5 : 2;
+    ctx.stroke();
+    
+    // Subtle fill
+    ctx.fillStyle = isActive ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.03)';
+    ctx.fill();
+  }, [imageToScreen]);
+
+  /**
+   * Draw a blue source marker (circular pin like Lightroom)
+   */
+  const drawSourceMarker = useCallback((
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    isActive: boolean = false
+  ) => {
+    const screenPos = imageToScreen(x, y);
+    if (!screenPos) return;
+
+    const radius = isActive ? 14 : 12;
+    const innerRadius = isActive ? 4 : 3;
+
+    // Outer blue circle
+    ctx.beginPath();
+    ctx.arc(screenPos.x, screenPos.y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = isActive ? 'rgba(66, 133, 244, 1)' : 'rgba(66, 133, 244, 0.9)';
+    ctx.fill();
+    
+    // White border
+    ctx.strokeStyle = 'rgba(255, 255, 255, 1)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // White center dot
+    ctx.beginPath();
+    ctx.arc(screenPos.x, screenPos.y, innerRadius, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255, 255, 255, 1)';
+    ctx.fill();
+  }, [imageToScreen]);
+
+  /**
+   * Draw connecting line between stroke center and source
+   */
+  const drawConnectionLine = useCallback((
+    ctx: CanvasRenderingContext2D,
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number
+  ) => {
+    const fromScreen = imageToScreen(fromX, fromY);
+    const toScreen = imageToScreen(toX, toY);
+    if (!fromScreen || !toScreen) return;
+
+    ctx.beginPath();
+    ctx.moveTo(fromScreen.x, fromScreen.y);
+    ctx.lineTo(toScreen.x, toScreen.y);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }, [imageToScreen]);
+
+  /**
+   * Main drawing effect
    */
   useEffect(() => {
     const overlay = overlayRef.current;
     const canvas = canvasRef.current;
     if (!overlay || !canvas || !image) return;
 
-    // Match overlay size to canvas
     const rect = canvas.getBoundingClientRect();
     overlay.width = rect.width;
     overlay.height = rect.height;
@@ -226,166 +346,77 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
 
     ctx.clearRect(0, 0, overlay.width, overlay.height);
 
-    // Calculate scale for brush size visualization
     const scaleX = rect.width / image.width;
     const scaleY = rect.height / image.height;
     const avgScale = (scaleX + scaleY) / 2;
-    const screenBrushSize = brushSize * avgScale;
 
-    // Draw completed strokes (faded to show they're applied)
-    completedStrokes.forEach((stroke, strokeIndex) => {
-      const strokeOpacity = 0.15 + (strokeIndex / completedStrokes.length) * 0.15;
-      ctx.fillStyle = `rgba(100, 200, 100, ${strokeOpacity})`;
-      ctx.strokeStyle = `rgba(100, 200, 100, ${strokeOpacity + 0.3})`;
-      ctx.lineWidth = 1;
-
-      const strokeBrushSize = stroke.size * avgScale;
-
-      stroke.points.forEach((point) => {
-        const screenPos = imageToScreen(point.x, point.y);
-        if (screenPos) {
-          ctx.beginPath();
-          ctx.arc(screenPos.x, screenPos.y, strokeBrushSize / 2, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      });
+    // Draw completed strokes (Lightroom-style)
+    completedStrokes.forEach((stroke) => {
+      // Draw stroke outline
+      drawStrokeOutline(ctx, stroke.points, stroke.size, avgScale, false);
+      
+      // Draw source marker and connection line
+      if (stroke.sourcePoint && (stroke.mode === 'clone' || stroke.mode === 'heal')) {
+        const center = getStrokeCenter(stroke.points);
+        drawConnectionLine(ctx, center.x, center.y, stroke.sourcePoint.x, stroke.sourcePoint.y);
+        drawSourceMarker(ctx, stroke.sourcePoint.x, stroke.sourcePoint.y, false);
+      }
     });
 
-    // Draw current stroke preview (bright blue)
+    // Draw current stroke being drawn
     if (currentStroke.length > 0) {
-      ctx.fillStyle = 'rgba(74, 158, 255, 0.4)';
-      ctx.strokeStyle = 'rgba(74, 158, 255, 0.9)';
-      ctx.lineWidth = 2;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-
-      // Draw filled circles at each point to show brush coverage
-      currentStroke.forEach((point) => {
-        const screenPos = imageToScreen(point.x, point.y);
-        if (screenPos) {
-          ctx.beginPath();
-          ctx.arc(screenPos.x, screenPos.y, screenBrushSize / 2, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      });
-
-      // Draw connecting line
-      ctx.beginPath();
-      currentStroke.forEach((point, i) => {
-        const screenPos = imageToScreen(point.x, point.y);
-        if (!screenPos) return;
-
-        if (i === 0) {
-          ctx.moveTo(screenPos.x, screenPos.y);
-        } else {
-          ctx.lineTo(screenPos.x, screenPos.y);
-        }
-      });
-      ctx.stroke();
+      drawStrokeOutline(ctx, currentStroke, brushSize, avgScale, true);
+      
+      // Draw connection to source if set
+      if (sourcePoint && (brushMode === 'clone' || brushMode === 'heal')) {
+        const center = getStrokeCenter(currentStroke);
+        drawConnectionLine(ctx, center.x, center.y, sourcePoint.x, sourcePoint.y);
+      }
     }
 
-    // Draw source point indicator (for clone/heal)
+    // Draw the active source point marker (if set)
     if (sourcePoint && (brushMode === 'clone' || brushMode === 'heal')) {
-      const screenPos = imageToScreen(sourcePoint.x, sourcePoint.y);
-      if (screenPos) {
-        // Draw outer glow
-        ctx.strokeStyle = 'rgba(255, 100, 100, 0.3)';
-        ctx.lineWidth = 6;
-        ctx.beginPath();
-        ctx.arc(screenPos.x, screenPos.y, screenBrushSize / 2 + 3, 0, Math.PI * 2);
-        ctx.stroke();
-
-        // Draw main circle
-        ctx.strokeStyle = 'rgba(255, 100, 100, 1)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(screenPos.x, screenPos.y, screenBrushSize / 2, 0, Math.PI * 2);
-        ctx.stroke();
-
-        // Draw crosshair
-        const size = 15;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(screenPos.x - size, screenPos.y);
-        ctx.lineTo(screenPos.x + size, screenPos.y);
-        ctx.moveTo(screenPos.x, screenPos.y - size);
-        ctx.lineTo(screenPos.x, screenPos.y + size);
-        ctx.stroke();
-
-        // Label
-        ctx.fillStyle = 'rgba(255, 100, 100, 1)';
-        ctx.font = 'bold 11px system-ui, sans-serif';
-        ctx.fillText('SOURCE', screenPos.x + screenBrushSize / 2 + 8, screenPos.y + 4);
-      }
-
-      // Draw source-to-cursor line when drawing
-      if (isDrawing && currentStroke.length > 0 && cursorPos) {
-        const sourceScreen = imageToScreen(sourcePoint.x, sourcePoint.y);
-        const cursorScreen = imageToScreen(cursorPos.x, cursorPos.y);
-        
-        if (sourceScreen && cursorScreen) {
-          ctx.strokeStyle = 'rgba(255, 200, 100, 0.5)';
-          ctx.lineWidth = 1;
-          ctx.setLineDash([4, 4]);
-          ctx.beginPath();
-          ctx.moveTo(sourceScreen.x, sourceScreen.y);
-          ctx.lineTo(cursorScreen.x, cursorScreen.y);
-          ctx.stroke();
-          ctx.setLineDash([]);
-        }
-      }
+      drawSourceMarker(ctx, sourcePoint.x, sourcePoint.y, true);
     }
 
-    // Draw brush cursor (always show when cursor is in canvas)
-    if (cursorPos) {
+    // Draw brush cursor
+    if (cursorPos && !isDrawing) {
       const screenPos = imageToScreen(cursorPos.x, cursorPos.y);
       if (screenPos) {
-        // Draw outer shadow for visibility on any background
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.6)';
-        ctx.lineWidth = 3;
+        const screenBrushSize = brushSize * avgScale;
+
+        // Cursor circle
         ctx.beginPath();
         ctx.arc(screenPos.x, screenPos.y, screenBrushSize / 2, 0, Math.PI * 2);
-        ctx.stroke();
-
-        // Draw main cursor circle
-        ctx.strokeStyle = 'rgba(255, 255, 255, 1)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(screenPos.x, screenPos.y, screenBrushSize / 2, 0, Math.PI * 2);
-        ctx.stroke();
-
-        // Draw center crosshair
-        const crosshairSize = Math.min(8, screenBrushSize / 4);
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(screenPos.x - crosshairSize, screenPos.y);
-        ctx.lineTo(screenPos.x + crosshairSize, screenPos.y);
-        ctx.moveTo(screenPos.x, screenPos.y - crosshairSize);
-        ctx.lineTo(screenPos.x, screenPos.y + crosshairSize);
-        ctx.stroke();
-
-        ctx.strokeStyle = 'rgba(255, 255, 255, 1)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
         ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(screenPos.x - crosshairSize, screenPos.y);
-        ctx.lineTo(screenPos.x + crosshairSize, screenPos.y);
-        ctx.moveTo(screenPos.x, screenPos.y - crosshairSize);
-        ctx.lineTo(screenPos.x, screenPos.y + crosshairSize);
         ctx.stroke();
 
-        // Show "No Source" warning for clone/heal without source point
+        // Center crosshair
+        const crossSize = 6;
+        ctx.beginPath();
+        ctx.moveTo(screenPos.x - crossSize, screenPos.y);
+        ctx.lineTo(screenPos.x + crossSize, screenPos.y);
+        ctx.moveTo(screenPos.x, screenPos.y - crossSize);
+        ctx.lineTo(screenPos.x, screenPos.y + crossSize);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Show hint if no source is set
         if ((brushMode === 'clone' || brushMode === 'heal') && !sourcePoint) {
           ctx.fillStyle = 'rgba(255, 200, 100, 0.9)';
           ctx.font = 'bold 11px system-ui, sans-serif';
-          ctx.fillText('Alt+Click to set source', screenPos.x + screenBrushSize / 2 + 8, screenPos.y - 5);
+          ctx.fillText('Alt+Click to set source', screenPos.x + screenBrushSize / 2 + 10, screenPos.y);
         }
       }
     }
-  }, [canvasRef, image, currentStroke, cursorPos, sourcePoint, brushSize, brushMode, imageToScreen, isDrawing, completedStrokes]);
+  }, [canvasRef, image, currentStroke, cursorPos, sourcePoint, brushSize, brushMode, 
+      imageToScreen, isDrawing, completedStrokes, drawStrokeOutline, drawSourceMarker, 
+      drawConnectionLine, getStrokeCenter]);
 
   /**
-   * Sync overlay size and position with canvas on resize
+   * Sync overlay position with canvas
    */
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -396,8 +427,6 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
       const rect = canvas.getBoundingClientRect();
       overlay.width = rect.width;
       overlay.height = rect.height;
-      
-      // Position overlay exactly over canvas
       overlay.style.top = `${rect.top}px`;
       overlay.style.left = `${rect.left}px`;
       overlay.style.width = `${rect.width}px`;
@@ -408,12 +437,8 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
       requestAnimationFrame(updateOverlay);
     });
 
-    // Initial positioning
     updateOverlay();
-    
     resizeObserver.observe(canvas);
-    
-    // Also update on scroll/resize since canvas might move
     window.addEventListener('scroll', updateOverlay, true);
     window.addEventListener('resize', updateOverlay);
     

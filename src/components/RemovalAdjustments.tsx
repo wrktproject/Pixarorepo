@@ -79,8 +79,12 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
         sourceOffset: stroke.sourceOffset,
       });
 
-      // Add stroke to list
-      setStrokes((prev) => [...prev, stroke]);
+      // Add stroke to list (include source point for visualization)
+      const strokeWithSource = {
+        ...stroke,
+        sourcePoint: sourcePoint ? { ...sourcePoint } : undefined,
+      };
+      setStrokes((prev) => [...prev, strokeWithSource]);
 
       // Create new image data to work with (clone of working image)
       const modifiedImage = new ImageData(
