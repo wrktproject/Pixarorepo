@@ -15,7 +15,7 @@ import {
   setPresent,
   resetHistory,
 } from '../store';
-import { setPreviewImage } from '../store/imageSlice';
+import { setPreviewImage, clearImage } from '../store/imageSlice';
 
 /**
  * Hook to sync adjustments with the library and handle photo switching
@@ -38,9 +38,15 @@ export function usePhotoSync() {
     }
   }, [adjustments, currentPhotoId, dispatch]);
 
-  // Handle photo switching
+  // Handle photo switching and clearing
   useEffect(() => {
+    // If no current photo, clear the image state
     if (!currentPhotoId) {
+      if (previousPhotoIdRef.current !== null) {
+        // We had a photo before but now we don't - clear everything
+        console.log('🗑️ No current photo, clearing image state');
+        dispatch(clearImage());
+      }
       previousPhotoIdRef.current = null;
       return;
     }
