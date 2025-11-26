@@ -23,7 +23,8 @@ export interface BrushStrokePoint {
 
 export interface BrushStrokeOptions {
   mode: 'clone' | 'heal';
-  sourceOffset?: { x: number; y: number };
+  sourcePoint?: { x: number; y: number };  // Absolute source point (preferred)
+  sourceOffset?: { x: number; y: number }; // Legacy: offset from centroid
   radius: number;
   feather: number;
   opacity: number;
@@ -460,7 +461,7 @@ export function paintBrushStroke(
 ): void {
   if (points.length === 0) return;
   
-  const { mode, radius, feather, opacity } = options;
+  const { mode, radius, feather, opacity, sourcePoint } = options;
   let { sourceOffset } = options;
   
   const { width, height } = imageData;
@@ -470,23 +471,45 @@ export function paintBrushStroke(
     pointCount: points.length, 
     radius, 
     feather, 
+    hasSourcePoint: !!sourcePoint,
     hasSourceOffset: !!sourceOffset 
   });
   
   // Create filled mask
   const { mask, bounds } = createFilledMask(width, height, points, radius, feather);
   
-  // Get centroid
+  // Get centroid of the mask (this is the CENTER of the target region)
   const centroid = getMaskCentroid(mask, width, bounds);
   
-  // Auto-find source if needed
-  if (!sourceOffset) {
+  console.log('Mask centroid:', centroid, 'bounds:', bounds);
+  
+  // Calculate source offset from centroid
+  if (sourcePoint) {
+    // User provided absolute source point - calculate offset from centroid
+    sourceOffset = {
+      x: sourcePoint.x - Math.round(centroid.x),
+      y: sourcePoint.y - Math.round(centroid.y),
+    };
+    console.log('Source point provided:', sourcePoint, '-> offset from centroid:', sourceOffset);
+  } else if (!sourceOffset) {
+    // No source provided - auto-find one
     const autoSource = findSourcePatch(imageData, Math.round(centroid.x), Math.round(centroid.y), radius * 2);
     sourceOffset = {
       x: autoSource.x - Math.round(centroid.x),
       y: autoSource.y - Math.round(centroid.y),
     };
     console.log('Auto-selected source:', autoSource, 'offset:', sourceOffset);
+  }
+  
+  // Validate source offset - make sure source region is within bounds
+  const sourceRegionValid = 
+    bounds.minX + sourceOffset.x >= 0 &&
+    bounds.maxX + sourceOffset.x < width &&
+    bounds.minY + sourceOffset.y >= 0 &&
+    bounds.maxY + sourceOffset.y < height;
+  
+  if (!sourceRegionValid) {
+    console.warn('Source region partially outside image bounds, some pixels may be skipped');
   }
   
   // Apply operation

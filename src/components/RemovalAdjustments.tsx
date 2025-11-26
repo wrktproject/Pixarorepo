@@ -138,9 +138,11 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
       // Apply stroke to the new image
       if (stroke.mode === 'clone' || stroke.mode === 'heal') {
         console.log('Applying', stroke.mode, 'stroke...');
+        // Pass the absolute source point, not the offset
+        // The healing brush will calculate the correct offset from the mask centroid
         paintBrushStroke(modifiedImage, stroke.points, {
           mode: stroke.mode,
-          sourceOffset: stroke.sourceOffset,
+          sourcePoint: currentSourcePoint || undefined, // Absolute source point
           radius: stroke.size / 2,
           feather: stroke.feather,
           opacity: stroke.opacity,
