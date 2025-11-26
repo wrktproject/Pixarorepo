@@ -24,22 +24,19 @@ async function initSession(): Promise<ort.InferenceSession | null> {
   
   sessionLoading = (async () => {
     try {
-      // Configure ONNX Runtime
-      ort.env.wasm.wasmPaths = '/';
+      // Configure ONNX Runtime to use CDN for WASM files
+      const ortVersion = '1.23.2'; // Match installed version
+      ort.env.wasm.wasmPaths = `https://cdn.jsdelivr.net/npm/onnxruntime-web@${ortVersion}/dist/`;
       
-      // Try WebGPU first, fall back to WebAssembly
-      const providers: string[] = [];
+      // Disable multi-threading to avoid SharedArrayBuffer issues
+      ort.env.wasm.numThreads = 1;
       
-      // Check for WebGPU support
-      if ('gpu' in navigator) {
-        providers.push('webgpu');
-      }
-      providers.push('wasm');
+      console.log('Loading LaMa model...');
       
-      console.log('Loading LaMa model...', { providers });
-      
+      // Try WASM backend (most compatible)
+      // WebGPU requires specific setup and may not work in all browsers
       session = await ort.InferenceSession.create(MODEL_URL, {
-        executionProviders: providers,
+        executionProviders: ['wasm'],
         graphOptimizationLevel: 'all',
       });
       
