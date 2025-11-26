@@ -1,6 +1,7 @@
 /**
  * RemovalToolOverlay Component
- * Lightroom-style spot healing overlay with smooth outlined strokes and source markers
+ * Lightroom-style spot healing overlay with smooth outlined strokes
+ * Automatically fills closed shapes
  */
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
@@ -17,6 +18,7 @@ export interface BrushStroke {
   size: number;
   feather: number;
   opacity: number;
+  isClosed?: boolean; // Whether the stroke forms a closed shape
 }
 
 interface RemovalToolOverlayProps {
@@ -93,6 +95,20 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
     return { x: sum.x / points.length, y: sum.y / points.length };
   }, []);
 
+  /**
+   * Check if a stroke forms a closed shape
+   * Returns true if the end point is close to the start point
+   */
+  const isStrokeClosed = useCallback((points: Array<{ x: number; y: number }>, threshold: number = 30): boolean => {
+    if (points.length < 10) return false; // Need enough points to form a shape
+    
+    const start = points[0];
+    const end = points[points.length - 1];
+    const distance = Math.sqrt(Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2));
+    
+    return distance < threshold;
+  }, []);
+
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       if (!image) return;
@@ -125,6 +141,7 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
   const handleMouseUp = useCallback(() => {
     if (isDrawing && currentStroke.length > 0) {
       const strokeCenter = getStrokeCenter(currentStroke);
+      const isClosed = isStrokeClosed(currentStroke, brushSize);
       
       let strokeSourcePoint: { x: number; y: number } | undefined;
       let strokeSourceOffset: { x: number; y: number } | undefined;
@@ -146,13 +163,15 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
         size: brushSize,
         feather,
         opacity,
+        isClosed,
       };
 
+      console.log('Stroke completed:', { isClosed, pointCount: currentStroke.length });
       onStrokeComplete(stroke);
       setCurrentStroke([]);
     }
     setIsDrawing(false);
-  }, [isDrawing, currentStroke, sourcePoint, brushMode, brushSize, feather, opacity, onStrokeComplete, getStrokeCenter]);
+  }, [isDrawing, currentStroke, sourcePoint, brushMode, brushSize, feather, opacity, onStrokeComplete, getStrokeCenter, isStrokeClosed]);
 
   const handleMouseLeave = useCallback(() => {
     setCursorPos(null);
@@ -174,14 +193,14 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
   );
 
   /**
-   * Draw a smooth stroke outline using thick line with round caps
-   * This creates the Lightroom-style smooth outlined shape
+   * Draw a stroke - either as outlined path or filled closed shape
    */
-  const drawSmoothStrokeOutline = useCallback((
+  const drawStroke = useCallback((
     ctx: CanvasRenderingContext2D,
     points: Array<{ x: number; y: number }>,
     size: number,
     avgScale: number,
+    isClosed: boolean = false,
     isActive: boolean = false
   ) => {
     if (points.length === 0) return;
@@ -201,17 +220,11 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
 
     ctx.save();
     
-    // Draw the thick stroke path (this creates the filled shape)
-    ctx.beginPath();
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.lineWidth = screenBrushSize;
-    
-    if (screenPoints.length === 1) {
-      // Single point - draw as arc
-      ctx.arc(screenPoints[0].x, screenPoints[0].y, screenBrushSize / 2, 0, Math.PI * 2);
-    } else {
-      // Smooth curve through points using quadratic bezier
+    if (isClosed || (screenPoints.length > 10 && isStrokeClosed(points, size))) {
+      // CLOSED SHAPE - Fill the interior
+      
+      // Draw filled shape
+      ctx.beginPath();
       ctx.moveTo(screenPoints[0].x, screenPoints[0].y);
       
       for (let i = 1; i < screenPoints.length - 1; i++) {
@@ -220,161 +233,81 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
         ctx.quadraticCurveTo(screenPoints[i].x, screenPoints[i].y, xc, yc);
       }
       
-      // Last point
-      if (screenPoints.length > 1) {
-        const last = screenPoints[screenPoints.length - 1];
-        ctx.lineTo(last.x, last.y);
-      }
-    }
-    
-    // Stroke with thick line to create the shape
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.0)'; // Invisible, just for shape
-    ctx.stroke();
-    
-    // Now we need to draw the outline of this thick stroke
-    // We'll use a compositing trick: draw the thick stroke, then draw outline
-    
-    ctx.restore();
-    ctx.save();
-    
-    // Draw filled shape first (subtle fill)
-    ctx.beginPath();
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.lineWidth = screenBrushSize;
-    
-    if (screenPoints.length === 1) {
-      ctx.arc(screenPoints[0].x, screenPoints[0].y, screenBrushSize / 2, 0, Math.PI * 2);
-      ctx.fillStyle = isActive ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 0.03)';
+      // Close the path back to start
+      ctx.closePath();
+      
+      // Fill with semi-transparent white
+      ctx.fillStyle = isActive ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.1)';
       ctx.fill();
-    } else {
-      ctx.moveTo(screenPoints[0].x, screenPoints[0].y);
-      for (let i = 1; i < screenPoints.length - 1; i++) {
-        const xc = (screenPoints[i].x + screenPoints[i + 1].x) / 2;
-        const yc = (screenPoints[i].y + screenPoints[i + 1].y) / 2;
-        ctx.quadraticCurveTo(screenPoints[i].x, screenPoints[i].y, xc, yc);
-      }
-      if (screenPoints.length > 1) {
-        ctx.lineTo(screenPoints[screenPoints.length - 1].x, screenPoints[screenPoints.length - 1].y);
-      }
-      ctx.strokeStyle = isActive ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 0.03)';
+      
+      // Draw white outline
+      ctx.strokeStyle = isActive ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.9)';
+      ctx.lineWidth = isActive ? 2.5 : 2;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
       ctx.stroke();
+      
+    } else {
+      // OPEN STROKE - Draw as thick line with outline
+      
+      if (screenPoints.length === 1) {
+        // Single point - draw circle
+        ctx.beginPath();
+        ctx.arc(screenPoints[0].x, screenPoints[0].y, screenBrushSize / 2, 0, Math.PI * 2);
+        ctx.fillStyle = isActive ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.05)';
+        ctx.fill();
+        ctx.strokeStyle = isActive ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.9)';
+        ctx.lineWidth = isActive ? 2.5 : 2;
+        ctx.stroke();
+      } else {
+        // Multiple points - draw thick stroke with outline
+        
+        // First draw the thick stroke (fill)
+        ctx.beginPath();
+        ctx.moveTo(screenPoints[0].x, screenPoints[0].y);
+        
+        for (let i = 1; i < screenPoints.length - 1; i++) {
+          const xc = (screenPoints[i].x + screenPoints[i + 1].x) / 2;
+          const yc = (screenPoints[i].y + screenPoints[i + 1].y) / 2;
+          ctx.quadraticCurveTo(screenPoints[i].x, screenPoints[i].y, xc, yc);
+        }
+        
+        if (screenPoints.length > 1) {
+          ctx.lineTo(screenPoints[screenPoints.length - 1].x, screenPoints[screenPoints.length - 1].y);
+        }
+        
+        // Draw thick stroke as the "fill"
+        ctx.lineWidth = screenBrushSize;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = isActive ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.05)';
+        ctx.stroke();
+        
+        // Draw the outline on top
+        ctx.beginPath();
+        ctx.moveTo(screenPoints[0].x, screenPoints[0].y);
+        
+        for (let i = 1; i < screenPoints.length - 1; i++) {
+          const xc = (screenPoints[i].x + screenPoints[i + 1].x) / 2;
+          const yc = (screenPoints[i].y + screenPoints[i + 1].y) / 2;
+          ctx.quadraticCurveTo(screenPoints[i].x, screenPoints[i].y, xc, yc);
+        }
+        
+        if (screenPoints.length > 1) {
+          ctx.lineTo(screenPoints[screenPoints.length - 1].x, screenPoints[screenPoints.length - 1].y);
+        }
+        
+        ctx.lineWidth = screenBrushSize;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = isActive ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.9)';
+        ctx.lineWidth = isActive ? 2.5 : 2;
+        ctx.stroke();
+      }
     }
     
     ctx.restore();
-    
-    // Draw the white outline border
-    ctx.save();
-    ctx.beginPath();
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.lineWidth = screenBrushSize + 3; // Slightly larger for outer edge
-    
-    if (screenPoints.length === 1) {
-      ctx.arc(screenPoints[0].x, screenPoints[0].y, screenBrushSize / 2 + 1.5, 0, Math.PI * 2);
-      ctx.strokeStyle = isActive ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.85)';
-      ctx.lineWidth = isActive ? 2.5 : 2;
-      ctx.stroke();
-    } else {
-      ctx.moveTo(screenPoints[0].x, screenPoints[0].y);
-      for (let i = 1; i < screenPoints.length - 1; i++) {
-        const xc = (screenPoints[i].x + screenPoints[i + 1].x) / 2;
-        const yc = (screenPoints[i].y + screenPoints[i + 1].y) / 2;
-        ctx.quadraticCurveTo(screenPoints[i].x, screenPoints[i].y, xc, yc);
-      }
-      if (screenPoints.length > 1) {
-        ctx.lineTo(screenPoints[screenPoints.length - 1].x, screenPoints[screenPoints.length - 1].y);
-      }
-      
-      // Draw as thick stroke, then draw outline on top
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0)';
-      ctx.lineWidth = screenBrushSize;
-      ctx.stroke();
-      
-      // Redraw just the outline
-      ctx.beginPath();
-      ctx.moveTo(screenPoints[0].x, screenPoints[0].y);
-      for (let i = 1; i < screenPoints.length - 1; i++) {
-        const xc = (screenPoints[i].x + screenPoints[i + 1].x) / 2;
-        const yc = (screenPoints[i].y + screenPoints[i + 1].y) / 2;
-        ctx.quadraticCurveTo(screenPoints[i].x, screenPoints[i].y, xc, yc);
-      }
-      if (screenPoints.length > 1) {
-        ctx.lineTo(screenPoints[screenPoints.length - 1].x, screenPoints[screenPoints.length - 1].y);
-      }
-      ctx.strokeStyle = isActive ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.85)';
-      ctx.lineWidth = screenBrushSize;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      
-      // Use shadow to create outline effect
-      ctx.save();
-      ctx.globalCompositeOperation = 'source-over';
-      
-      // First, draw the filled stroke shape (transparent)
-      ctx.beginPath();
-      ctx.moveTo(screenPoints[0].x, screenPoints[0].y);
-      for (let i = 1; i < screenPoints.length - 1; i++) {
-        const xc = (screenPoints[i].x + screenPoints[i + 1].x) / 2;
-        const yc = (screenPoints[i].y + screenPoints[i + 1].y) / 2;
-        ctx.quadraticCurveTo(screenPoints[i].x, screenPoints[i].y, xc, yc);
-      }
-      if (screenPoints.length > 1) {
-        ctx.lineTo(screenPoints[screenPoints.length - 1].x, screenPoints[screenPoints.length - 1].y);
-      }
-      ctx.lineWidth = screenBrushSize;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.strokeStyle = isActive ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.04)';
-      ctx.stroke();
-      
-      // Then draw the outline on top
-      ctx.beginPath();
-      ctx.moveTo(screenPoints[0].x, screenPoints[0].y);
-      for (let i = 1; i < screenPoints.length - 1; i++) {
-        const xc = (screenPoints[i].x + screenPoints[i + 1].x) / 2;
-        const yc = (screenPoints[i].y + screenPoints[i + 1].y) / 2;
-        ctx.quadraticCurveTo(screenPoints[i].x, screenPoints[i].y, xc, yc);
-      }
-      if (screenPoints.length > 1) {
-        ctx.lineTo(screenPoints[screenPoints.length - 1].x, screenPoints[screenPoints.length - 1].y);
-      }
-      ctx.lineWidth = screenBrushSize + (isActive ? 3 : 2.5);
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0)';
-      ctx.shadowColor = isActive ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.85)';
-      ctx.shadowBlur = 0;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 0;
-      
-      // Actually draw outline by stroking with smaller width on top
-      ctx.stroke();
-      
-      // Clear shadow and draw proper outline
-      ctx.shadowColor = 'transparent';
-      ctx.beginPath();
-      ctx.moveTo(screenPoints[0].x, screenPoints[0].y);
-      for (let i = 1; i < screenPoints.length - 1; i++) {
-        const xc = (screenPoints[i].x + screenPoints[i + 1].x) / 2;
-        const yc = (screenPoints[i].y + screenPoints[i + 1].y) / 2;
-        ctx.quadraticCurveTo(screenPoints[i].x, screenPoints[i].y, xc, yc);
-      }
-      if (screenPoints.length > 1) {
-        ctx.lineTo(screenPoints[screenPoints.length - 1].x, screenPoints[screenPoints.length - 1].y);
-      }
-      ctx.lineWidth = screenBrushSize;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.strokeStyle = isActive ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.85)';
-      ctx.lineWidth = isActive ? 2.5 : 2;
-      ctx.stroke();
-      
-      ctx.restore();
-    }
-    
-    ctx.restore();
-  }, [imageToScreen]);
+  }, [imageToScreen, isStrokeClosed]);
 
   /**
    * Draw blue source marker
@@ -391,7 +324,7 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
     const radius = isActive ? 16 : 14;
     const innerRadius = isActive ? 4 : 3;
 
-    // Outer blue circle with gradient
+    // Outer blue circle
     const gradient = ctx.createRadialGradient(
       screenPos.x, screenPos.y, 0,
       screenPos.x, screenPos.y, radius
@@ -463,7 +396,7 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
 
     // Draw completed strokes
     completedStrokes.forEach((stroke) => {
-      drawSmoothStrokeOutline(ctx, stroke.points, stroke.size, avgScale, false);
+      drawStroke(ctx, stroke.points, stroke.size, avgScale, stroke.isClosed, false);
       
       if (stroke.sourcePoint && (stroke.mode === 'clone' || stroke.mode === 'heal')) {
         const center = getStrokeCenter(stroke.points);
@@ -472,9 +405,10 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
       }
     });
 
-    // Draw current stroke
+    // Draw current stroke (check if it's becoming closed)
     if (currentStroke.length > 0) {
-      drawSmoothStrokeOutline(ctx, currentStroke, brushSize, avgScale, true);
+      const currentIsClosed = isStrokeClosed(currentStroke, brushSize);
+      drawStroke(ctx, currentStroke, brushSize, avgScale, currentIsClosed, true);
       
       if (sourcePoint && (brushMode === 'clone' || brushMode === 'heal')) {
         const center = getStrokeCenter(currentStroke);
@@ -517,8 +451,8 @@ export const RemovalToolOverlay: React.FC<RemovalToolOverlayProps> = ({
       }
     }
   }, [canvasRef, image, currentStroke, cursorPos, sourcePoint, brushSize, brushMode, 
-      imageToScreen, isDrawing, completedStrokes, drawSmoothStrokeOutline, drawSourceMarker, 
-      drawConnectionLine, getStrokeCenter]);
+      imageToScreen, isDrawing, completedStrokes, drawStroke, drawSourceMarker, 
+      drawConnectionLine, getStrokeCenter, isStrokeClosed]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
