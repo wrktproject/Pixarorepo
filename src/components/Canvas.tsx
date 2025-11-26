@@ -203,8 +203,8 @@ export const Canvas: React.FC<CanvasProps> = ({ canvasRef: externalCanvasRef }) 
           
           // IMPORTANT: Use the NEW image dimensions, ignoring adjustments during initial load
           // Adjustments will be applied in the next render cycle once everything is synced
-          let effectiveWidth = image.width;
-          let effectiveHeight = image.height;
+          const effectiveWidth = image.width;
+          const effectiveHeight = image.height;
           
           console.log('  Using full image dimensions for initial load:', effectiveWidth, 'x', effectiveHeight);
           
@@ -703,22 +703,6 @@ export const Canvas: React.FC<CanvasProps> = ({ canvasRef: externalCanvasRef }) 
           >
             Before
           </button>
-          <button
-            className={`${styles.controlButtonSmall} ${showHistogram ? styles.active : ''}`}
-            onClick={handleToggleHistogram}
-            title="Toggle histogram"
-            aria-label="Toggle histogram display"
-            aria-pressed={showHistogram}
-          >
-            Histogram
-          </button>
-        </div>
-      )}
-
-      {/* Histogram display */}
-      {image && showHistogram && (
-        <div className={styles.histogramContainer} role="region" aria-label="Image histogram">
-          <Histogram imageData={renderedImageData} width={200} height={85} />
         </div>
       )}
 

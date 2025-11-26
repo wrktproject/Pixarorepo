@@ -13,6 +13,7 @@ interface HistogramProps {
   width?: number;
   height?: number;
   onClippingToggle?: (type: 'shadows' | 'highlights', enabled: boolean) => void;
+  onClose?: () => void;
 }
 
 export const Histogram: React.FC<HistogramProps> = ({
@@ -20,6 +21,7 @@ export const Histogram: React.FC<HistogramProps> = ({
   width = 256,
   height = 100,
   onClippingToggle,
+  onClose,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -293,6 +295,17 @@ export const Histogram: React.FC<HistogramProps> = ({
   return (
     <div className={styles.container} ref={containerRef}>
       <div className={styles.header}>
+        {/* Close button */}
+        {onClose && (
+          <button
+            className={styles.closeButton}
+            onClick={onClose}
+            title="Close histogram"
+            aria-label="Close histogram"
+          >
+            ×
+          </button>
+        )}
         <span className={styles.title}>Histogram</span>
         <div className={styles.controls}>
           <button

@@ -4,7 +4,6 @@
  */
 
 import type { RemovalMask } from './adjustments';
-import type { ExportSettings } from './components';
 
 export type WorkerTaskType =
   | 'decode-raw'

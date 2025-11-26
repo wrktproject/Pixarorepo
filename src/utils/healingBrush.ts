@@ -299,7 +299,19 @@ export function paintBrushStroke(
 ): void {
   if (points.length === 0) return;
 
-  const { mode, sourceOffset, radius, feather, opacity, spacing = radius / 4 } = options;
+  const { mode, radius, feather, opacity, spacing = radius / 4 } = options;
+  let { sourceOffset } = options;
+
+  // Auto-find source point if not provided (for heal/clone modes)
+  if ((mode === 'clone' || mode === 'heal') && !sourceOffset) {
+    const firstPoint = points[0];
+    const autoSource = findSourcePatch(imageData, firstPoint.x, firstPoint.y, radius);
+    sourceOffset = {
+      x: autoSource.x - firstPoint.x,
+      y: autoSource.y - firstPoint.y,
+    };
+    console.log('Auto-selected source point:', autoSource);
+  }
 
   // For single point, just apply one stamp
   if (points.length === 1) {

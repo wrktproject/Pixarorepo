@@ -4,17 +4,11 @@
  */
 
 .removal-tool-overlay {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  pointer-events: all;
-  z-index: 10;
+  position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: auto;
+  z-index: 500;
   touch-action: none;
   user-select: none;
 }
-
-.removal-tool-overlay:active {
-  cursor: none !important;
-}
-

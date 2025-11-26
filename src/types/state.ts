@@ -4,7 +4,6 @@
  */
 
 import type { AdjustmentState } from './adjustments';
-import type { ImageState } from './image';
 import type { Preset, EditingSection } from './components';
 import type { LibraryState } from '../store/librarySlice';
 

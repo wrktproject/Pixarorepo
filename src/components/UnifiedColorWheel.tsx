@@ -13,19 +13,21 @@ import './UnifiedColorWheel.css';
 
 // RGB (0..1) → XYZ
 // @ts-expect-error - used via labToRgb chain
-function rgbToXyz(_r: number, _g: number, _b: number): [number, number, number] {
+function rgbToXyz(r: number, g: number, b: number): [number, number, number] {
   const f = (v: number) => (v > 0.04045 ? Math.pow((v + 0.055) / 1.055, 2.4) : v / 12.92);
-  r = f(r); g = f(g); b = f(b);
+  const rLinear = f(r);
+  const gLinear = f(g);
+  const bLinear = f(b);
   return [
-    r * 0.4124 + g * 0.3576 + b * 0.1805,
-    r * 0.2126 + g * 0.7152 + b * 0.0722,
-    r * 0.0193 + g * 0.1192 + b * 0.9505
+    rLinear * 0.4124 + gLinear * 0.3576 + bLinear * 0.1805,
+    rLinear * 0.2126 + gLinear * 0.7152 + bLinear * 0.0722,
+    rLinear * 0.0193 + gLinear * 0.1192 + bLinear * 0.9505
   ];
 }
 
 // XYZ → Lab
 // @ts-expect-error - used via labToRgb chain
-function xyzToLab(_x: number, _y: number, _z: number): [number, number, number] {
+function xyzToLab(x: number, y: number, z: number): [number, number, number] {
   const refX = 0.95047, refY = 1.00000, refZ = 1.08883;
   const f = (t: number) => t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116;
   const fx = f(x / refX), fy = f(y / refY), fz = f(z / refZ);

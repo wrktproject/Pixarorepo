@@ -138,7 +138,7 @@ function checkMissingFeatures(): string[] {
 
   // Check ES6 support (basic check)
   try {
-    // eslint-disable-next-line no-new-func
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval
     new Function('() => {}');
   } catch {
     missing.push('ES6 Arrow Functions');
@@ -206,7 +206,7 @@ function checkFileAPI(): boolean {
 
 function checkES6(): boolean {
   try {
-    // eslint-disable-next-line no-new-func
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval
     new Function('() => {}');
     return true;
   } catch {

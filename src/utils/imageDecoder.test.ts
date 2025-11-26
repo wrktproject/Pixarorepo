@@ -10,7 +10,7 @@ import { ErrorCode } from '../types/errors';
 // Mock EXIF library
 vi.mock('exif-js', () => ({
   default: {
-    getData: (img: any, callback: Function) => {
+    getData: (img: HTMLImageElement, callback: (this: HTMLImageElement) => void) => {
       callback.call(img);
     },
     getAllTags: () => ({
@@ -120,6 +120,7 @@ describe('imageDecoder', () => {
         })),
       };
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       HTMLCanvasElement.prototype.getContext = vi.fn(() => mockContext) as any;
     });
 
@@ -149,6 +150,7 @@ describe('imageDecoder', () => {
             }
           }, 0);
         }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any;
 
       const file = new File(['corrupted'], 'corrupted.jpg', { type: 'image/jpeg' });
@@ -157,6 +159,7 @@ describe('imageDecoder', () => {
     });
 
     it('handles files without canvas context', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       HTMLCanvasElement.prototype.getContext = vi.fn(() => null) as any;
 
       const file = new File(['fake-image-data'], 'test.jpg', { type: 'image/jpeg' });

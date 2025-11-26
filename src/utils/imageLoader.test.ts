@@ -11,7 +11,7 @@ import * as imageDecoder from './imageDecoder';
 // Mock EXIF library
 vi.mock('exif-js', () => ({
   default: {
-    getData: (img: any, callback: Function) => {
+    getData: (img: HTMLImageElement, callback: (this: HTMLImageElement) => void) => {
       callback.call(img);
     },
     getAllTags: () => ({
@@ -37,6 +37,7 @@ describe('imageLoader', () => {
           }
         }, 0);
       }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any;
 
     // Mock URL methods
@@ -54,6 +55,7 @@ describe('imageLoader', () => {
       })),
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     HTMLCanvasElement.prototype.getContext = vi.fn(() => mockContext) as any;
   });
 
@@ -113,6 +115,7 @@ describe('imageLoader', () => {
           }
         }, 0);
       }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any;
 
     const file = new File(['corrupted'], 'corrupted.jpg', { type: 'image/jpeg' });
