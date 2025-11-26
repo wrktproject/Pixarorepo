@@ -1,16 +1,15 @@
 /**
  * Content-Aware Fill Implementation
- * Fast inpainting using exemplar-based synthesis
+ * Fast inpainting using edge-based propagation
  */
 
 export interface ContentAwareFillOptions {
-  patchSize?: number;
-  searchRadius?: number;
+  iterations?: number;
 }
 
 /**
- * Fast content-aware fill using the stroke mask
- * Uses a simplified but fast inpainting algorithm
+ * Fast content-aware fill using edge propagation
+ * Much faster than patch matching - fills from edges inward
  */
 export function contentAwareFillWithMask(
   imageData: ImageData,
@@ -19,160 +18,107 @@ export function contentAwareFillWithMask(
   options: ContentAwareFillOptions = {}
 ): void {
   const { width, height, data } = imageData;
-  const { patchSize = 7, searchRadius = 100 } = options;
-  const halfPatch = Math.floor(patchSize / 2);
+  const { iterations = 50 } = options;
   
-  console.log('Content-aware fill:', { bounds, patchSize, searchRadius });
+  const pixelCount = (bounds.maxX - bounds.minX) * (bounds.maxY - bounds.minY);
+  console.log('Content-aware fill:', { bounds, pixelCount, iterations });
   
-  // Get list of pixels to fill (inside mask)
-  const pixelsToFill: Array<{ x: number; y: number; priority: number }> = [];
+  // Create working buffer
+  const buffer = new Float32Array(width * height * 3);
   
+  // Initialize buffer with current image data
+  for (let y = bounds.minY; y <= bounds.maxY; y++) {
+    for (let x = bounds.minX; x <= bounds.maxX; x++) {
+      const idx = y * width + x;
+      const pixelIdx = idx * 4;
+      buffer[idx * 3] = data[pixelIdx];
+      buffer[idx * 3 + 1] = data[pixelIdx + 1];
+      buffer[idx * 3 + 2] = data[pixelIdx + 2];
+    }
+  }
+  
+  // Iterative edge propagation - fills from edges inward
+  // Each iteration, masked pixels take the average of their known neighbors
+  for (let iter = 0; iter < iterations; iter++) {
+    let changed = false;
+    
+    for (let y = bounds.minY; y <= bounds.maxY; y++) {
+      for (let x = bounds.minX; x <= bounds.maxX; x++) {
+        const maskWeight = mask[y * width + x];
+        if (maskWeight < 0.1) continue; // Skip unmasked pixels
+        
+        // Calculate weighted average of neighbors
+        let sumR = 0, sumG = 0, sumB = 0;
+        let totalWeight = 0;
+        
+        // Check 8 neighbors
+        const neighbors = [
+          { dx: -1, dy: 0 }, { dx: 1, dy: 0 },
+          { dx: 0, dy: -1 }, { dx: 0, dy: 1 },
+          { dx: -1, dy: -1 }, { dx: 1, dy: -1 },
+          { dx: -1, dy: 1 }, { dx: 1, dy: 1 },
+        ];
+        
+        for (const { dx, dy } of neighbors) {
+          const nx = x + dx;
+          const ny = y + dy;
+          
+          if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+          
+          const nIdx = ny * width + nx;
+          const nMask = mask[nIdx];
+          
+          // Weight by inverse mask (known pixels have more weight)
+          const weight = 1 - nMask * 0.8;
+          
+          sumR += buffer[nIdx * 3] * weight;
+          sumG += buffer[nIdx * 3 + 1] * weight;
+          sumB += buffer[nIdx * 3 + 2] * weight;
+          totalWeight += weight;
+        }
+        
+        if (totalWeight > 0) {
+          const idx = y * width + x;
+          const newR = sumR / totalWeight;
+          const newG = sumG / totalWeight;
+          const newB = sumB / totalWeight;
+          
+          // Blend based on iteration progress (more blending later)
+          const blendFactor = Math.min(1, (iter + 1) / 10);
+          buffer[idx * 3] = buffer[idx * 3] * (1 - blendFactor) + newR * blendFactor;
+          buffer[idx * 3 + 1] = buffer[idx * 3 + 1] * (1 - blendFactor) + newG * blendFactor;
+          buffer[idx * 3 + 2] = buffer[idx * 3 + 2] * (1 - blendFactor) + newB * blendFactor;
+          changed = true;
+        }
+      }
+    }
+    
+    if (!changed) break; // Converged early
+  }
+  
+  // Apply result with mask-based blending
   for (let y = bounds.minY; y <= bounds.maxY; y++) {
     for (let x = bounds.minX; x <= bounds.maxX; x++) {
       const maskWeight = mask[y * width + x];
-      if (maskWeight > 0.5) {
-        // Calculate priority based on edge proximity (fill from edges inward)
-        let edgeDist = Infinity;
-        for (let dy = -3; dy <= 3; dy++) {
-          for (let dx = -3; dx <= 3; dx++) {
-            const nx = x + dx;
-            const ny = y + dy;
-            if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-              if (mask[ny * width + nx] < 0.3) {
-                edgeDist = Math.min(edgeDist, Math.abs(dx) + Math.abs(dy));
-              }
-            }
-          }
-        }
-        pixelsToFill.push({ x, y, priority: edgeDist });
-      }
+      if (maskWeight < 0.05) continue;
+      
+      const idx = y * width + x;
+      const pixelIdx = idx * 4;
+      
+      // Blend filled result with original based on mask
+      data[pixelIdx] = Math.round(
+        data[pixelIdx] * (1 - maskWeight) + buffer[idx * 3] * maskWeight
+      );
+      data[pixelIdx + 1] = Math.round(
+        data[pixelIdx + 1] * (1 - maskWeight) + buffer[idx * 3 + 1] * maskWeight
+      );
+      data[pixelIdx + 2] = Math.round(
+        data[pixelIdx + 2] * (1 - maskWeight) + buffer[idx * 3 + 2] * maskWeight
+      );
     }
   }
-  
-  // Sort by priority (edge pixels first)
-  pixelsToFill.sort((a, b) => a.priority - b.priority);
-  
-  console.log(`Filling ${pixelsToFill.length} pixels...`);
-  
-  // Create a copy for reading while we write
-  const originalData = new Uint8ClampedArray(data);
-  const filled = new Set<string>();
-  
-  // Fill pixels from edges inward
-  for (const { x, y } of pixelsToFill) {
-    const key = `${x},${y}`;
-    if (filled.has(key)) continue;
-    
-    // Find best matching patch from surrounding area
-    let bestX = x;
-    let bestY = y;
-    let bestScore = Infinity;
-    
-    // Search in nearby unmasked areas
-    const searchStep = Math.max(2, Math.floor(searchRadius / 20));
-    
-    for (let sy = Math.max(halfPatch, y - searchRadius); sy < Math.min(height - halfPatch, y + searchRadius); sy += searchStep) {
-      for (let sx = Math.max(halfPatch, x - searchRadius); sx < Math.min(width - halfPatch, x + searchRadius); sx += searchStep) {
-        // Skip if source is in mask
-        if (mask[sy * width + sx] > 0.3) continue;
-        
-        // Calculate patch similarity (only using known pixels)
-        let score = 0;
-        let count = 0;
-        
-        for (let dy = -halfPatch; dy <= halfPatch; dy++) {
-          for (let dx = -halfPatch; dx <= halfPatch; dx++) {
-            const tx = x + dx;
-            const ty = y + dy;
-            const srcX = sx + dx;
-            const srcY = sy + dy;
-            
-            if (tx < 0 || tx >= width || ty < 0 || ty >= height) continue;
-            if (srcX < 0 || srcX >= width || srcY < 0 || srcY >= height) continue;
-            
-            // Only compare if target pixel is known (filled or outside mask)
-            const targetMask = mask[ty * width + tx];
-            if (targetMask < 0.3 || filled.has(`${tx},${ty}`)) {
-              const tidx = (ty * width + tx) * 4;
-              const sidx = (srcY * width + srcX) * 4;
-              
-              for (let c = 0; c < 3; c++) {
-                const diff = data[tidx + c] - originalData[sidx + c];
-                score += diff * diff;
-              }
-              count++;
-            }
-          }
-        }
-        
-        if (count > 0) {
-          score /= count;
-          if (score < bestScore) {
-            bestScore = score;
-            bestX = sx;
-            bestY = sy;
-          }
-        }
-      }
-    }
-    
-    // Copy the best matching pixel
-    const targetIdx = (y * width + x) * 4;
-    const sourceIdx = (bestY * width + bestX) * 4;
-    
-    data[targetIdx] = originalData[sourceIdx];
-    data[targetIdx + 1] = originalData[sourceIdx + 1];
-    data[targetIdx + 2] = originalData[sourceIdx + 2];
-    
-    filled.add(key);
-  }
-  
-  // Apply simple smoothing pass for better blending
-  applyEdgeSmoothing(imageData, mask, bounds);
   
   console.log('Content-aware fill complete');
-}
-
-/**
- * Smooth edges for better blending
- */
-function applyEdgeSmoothing(
-  imageData: ImageData,
-  mask: Float32Array,
-  bounds: { minX: number; minY: number; maxX: number; maxY: number }
-): void {
-  const { width, data } = imageData;
-  const tempData = new Uint8ClampedArray(data);
-  
-  // Apply 3x3 smoothing at edges
-  for (let y = bounds.minY; y <= bounds.maxY; y++) {
-    for (let x = bounds.minX; x <= bounds.maxX; x++) {
-      const maskWeight = mask[y * width + x];
-      
-      // Only smooth edge pixels (0.2 < weight < 0.8)
-      if (maskWeight > 0.2 && maskWeight < 0.8) {
-        const targetIdx = (y * width + x) * 4;
-        
-        for (let c = 0; c < 3; c++) {
-          let sum = 0;
-          let count = 0;
-          
-          for (let dy = -1; dy <= 1; dy++) {
-            for (let dx = -1; dx <= 1; dx++) {
-              const nx = x + dx;
-              const ny = y + dy;
-              if (nx >= 0 && nx < width && ny >= 0 && ny < imageData.height) {
-                sum += tempData[(ny * width + nx) * 4 + c];
-                count++;
-              }
-            }
-          }
-          
-          data[targetIdx + c] = Math.round(sum / count);
-        }
-      }
-    }
-  }
 }
 
 /**
