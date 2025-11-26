@@ -175,17 +175,19 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
       setWorkingImage(modifiedImage);
       workingImageRef.current = modifiedImage;
 
-      // Update the displayed image so user sees the changes
-      dispatch(setCurrentImage({
-        data: modifiedImage,
-        width: modifiedImage.width,
-        height: modifiedImage.height,
-        colorSpace: 'sRGB',
-      }));
-
-      console.log('Canvas update dispatched');
+      // Use setTimeout to ensure stroke state update completes before image dispatch
+      // This prevents the overlay from re-rendering with empty strokes
+      setTimeout(() => {
+        dispatch(setCurrentImage({
+          data: modifiedImage,
+          width: modifiedImage.width,
+          height: modifiedImage.height,
+          colorSpace: 'sRGB',
+        }));
+        console.log('Canvas update dispatched');
+      }, 0);
     },
-    [dispatch, workingImage]
+    [dispatch]
   );
 
   /**
