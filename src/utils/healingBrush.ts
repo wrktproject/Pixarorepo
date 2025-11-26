@@ -315,7 +315,8 @@ function calculateRegionMean(
 }
 
 /**
- * Apply healing: copies texture from source, recolors to match target
+ * Apply healing: for object removal, copy source pixels directly
+ * with edge color matching for seamless integration
  */
 function applyRegionHeal(
   imageData: ImageData,
@@ -326,13 +327,21 @@ function applyRegionHeal(
 ): void {
   const { width, height, data } = imageData;
   
-  // Calculate mean colors
-  const targetMean = calculateRegionMean(imageData, mask, 0, 0, bounds);
+  // For object removal, we REPLACE pixels with source pixels
+  // Calculate edge mean from TARGET boundary (not interior which has the object)
+  const edgeMean = calculateEdgeMean(imageData, mask, bounds, width);
   const sourceMean = calculateRegionMean(imageData, mask, sourceOffset.x, sourceOffset.y, bounds);
   
-  console.log('Healing region:', { targetMean, sourceMean, sourceOffset });
+  // Color correction to match edge colors
+  const colorCorrection = [
+    edgeMean[0] - sourceMean[0],
+    edgeMean[1] - sourceMean[1],
+    edgeMean[2] - sourceMean[2],
+  ];
   
-  // Apply healing
+  console.log('Healing region:', { edgeMean, sourceMean, colorCorrection, sourceOffset });
+  
+  // Apply healing - replace with source pixels, blend at edges
   for (let y = bounds.minY; y <= bounds.maxY; y++) {
     for (let x = bounds.minX; x <= bounds.maxX; x++) {
       const maskWeight = mask[y * width + x] * opacity;
@@ -346,17 +355,64 @@ function applyRegionHeal(
       const targetIdx = (y * width + x) * 4;
       const sourceIdx = (sy * width + sx) * 4;
       
+      // Apply stronger color correction at edges, less in center
+      const correctionStrength = Math.max(0, 1 - maskWeight * 1.5);
+      
       for (let c = 0; c < 3; c++) {
-        // Extract texture from source
-        const texture = data[sourceIdx + c] - sourceMean[c];
-        // Apply to target mean
-        const healed = targetMean[c] + texture;
-        // Blend
-        const clamped = Math.max(0, Math.min(255, healed));
+        // Take source pixel with color correction
+        const corrected = data[sourceIdx + c] + colorCorrection[c] * correctionStrength;
+        const clamped = Math.max(0, Math.min(255, corrected));
+        // Blend with original based on mask weight
         data[targetIdx + c] = data[targetIdx + c] * (1 - maskWeight) + clamped * maskWeight;
       }
     }
   }
+}
+
+/**
+ * Calculate mean color from edge pixels only (where mask weight is low)
+ * This gives us the surrounding color without the object we're removing
+ */
+function calculateEdgeMean(
+  imageData: ImageData,
+  mask: Float32Array,
+  bounds: { minX: number; minY: number; maxX: number; maxY: number },
+  width: number
+): number[] {
+  const { data } = imageData;
+  const sum = [0, 0, 0];
+  let count = 0;
+  
+  // Sample pixels at the edge of the mask (weight between 0.05 and 0.4)
+  for (let y = bounds.minY; y <= bounds.maxY; y++) {
+    for (let x = bounds.minX; x <= bounds.maxX; x++) {
+      const weight = mask[y * width + x];
+      if (weight > 0.05 && weight < 0.4) {
+        const idx = (y * width + x) * 4;
+        sum[0] += data[idx];
+        sum[1] += data[idx + 1];
+        sum[2] += data[idx + 2];
+        count++;
+      }
+    }
+  }
+  
+  if (count === 0) {
+    // Fallback: sample outside the bounds
+    for (let y = Math.max(0, bounds.minY - 10); y < bounds.minY; y++) {
+      for (let x = bounds.minX; x <= bounds.maxX; x++) {
+        const idx = (y * width + x) * 4;
+        sum[0] += data[idx];
+        sum[1] += data[idx + 1];
+        sum[2] += data[idx + 2];
+        count++;
+      }
+    }
+  }
+  
+  if (count === 0) return [128, 128, 128];
+  
+  return [sum[0] / count, sum[1] / count, sum[2] / count];
 }
 
 /**
