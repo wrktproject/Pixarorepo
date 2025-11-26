@@ -96,8 +96,9 @@ function perpendicularDistance(point: BrushStrokePoint, lineStart: BrushStrokePo
 
 /**
  * Create a mask that fills the entire interior of a closed stroke
+ * Exported for use by content-aware fill
  */
-function createFilledMask(
+export function createStrokeMask(
   width: number,
   height: number,
   points: BrushStrokePoint[],
@@ -598,7 +599,7 @@ export function paintBrushStroke(
   });
   
   // Create filled mask
-  const { mask, bounds } = createFilledMask(width, height, points, radius, feather);
+  const { mask, bounds } = createStrokeMask(width, height, points, radius, feather);
   
   // Get centroid of the mask (this is the CENTER of the target region)
   const centroid = getMaskCentroid(mask, width, bounds);

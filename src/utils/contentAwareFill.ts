@@ -1,308 +1,174 @@
 /**
  * Content-Aware Fill Implementation
- * Uses PatchMatch algorithm + Poisson blending for Photoshop-quality results
+ * Fast inpainting using exemplar-based synthesis
  */
 
-import { poissonBlend } from './poissonBlending';
-
-/**
- * PatchMatch: Fast approximate nearest neighbor field computation
- * Based on Barnes et al. 2009 paper
- */
-
-export interface PatchMatchOptions {
-  patchSize: number; // Size of patches to match (typically 5-9)
-  iterations: number; // Number of PatchMatch iterations (typically 4-8)
-  searchRadius: number; // Initial search radius
-}
-
-interface NearestNeighborField {
-  offsetX: number[][]; // Best matching patch X offset for each pixel
-  offsetY: number[][]; // Best matching patch Y offset for each pixel
-  distance: number[][]; // Distance/error for each match
+export interface ContentAwareFillOptions {
+  patchSize?: number;
+  searchRadius?: number;
 }
 
 /**
- * Calculate SSD (Sum of Squared Differences) between two patches
+ * Fast content-aware fill using the stroke mask
+ * Uses a simplified but fast inpainting algorithm
  */
-function calculatePatchDistance(
+export function contentAwareFillWithMask(
   imageData: ImageData,
-  x1: number,
-  y1: number,
-  x2: number,
-  y2: number,
-  patchSize: number,
-  mask?: boolean[][]
-): number {
-  const { data, width, height } = imageData;
+  mask: Float32Array,
+  bounds: { minX: number; minY: number; maxX: number; maxY: number },
+  options: ContentAwareFillOptions = {}
+): void {
+  const { width, height, data } = imageData;
+  const { patchSize = 7, searchRadius = 100 } = options;
   const halfPatch = Math.floor(patchSize / 2);
-  let sum = 0;
-  let count = 0;
-
-  for (let dy = -halfPatch; dy <= halfPatch; dy++) {
-    for (let dx = -halfPatch; dx <= halfPatch; dx++) {
-      const px1 = x1 + dx;
-      const py1 = y1 + dy;
-      const px2 = x2 + dx;
-      const py2 = y2 + dy;
-
-      // Skip if out of bounds
-      if (px1 < 0 || px1 >= width || py1 < 0 || py1 >= height) continue;
-      if (px2 < 0 || px2 >= width || py2 < 0 || py2 >= height) continue;
-
-      // Skip if masked (for target region)
-      if (mask && mask[py1] && mask[py1][px1]) continue;
-
-      const idx1 = (py1 * width + px1) * 4;
-      const idx2 = (py2 * width + px2) * 4;
-
-      // Calculate RGB distance (skip alpha)
-      for (let c = 0; c < 3; c++) {
-        const diff = data[idx1 + c] - data[idx2 + c];
-        sum += diff * diff;
-      }
-      count++;
-    }
-  }
-
-  return count > 0 ? sum / count : Infinity;
-}
-
-/**
- * Initialize nearest neighbor field with random offsets
- */
-function initializeNNF(
-  width: number,
-  height: number,
-  mask: boolean[][],
-  searchRadius: number
-): NearestNeighborField {
-  const offsetX: number[][] = [];
-  const offsetY: number[][] = [];
-  const distance: number[][] = [];
-
-  for (let y = 0; y < height; y++) {
-    offsetX[y] = [];
-    offsetY[y] = [];
-    distance[y] = [];
-
-    for (let x = 0; x < width; x++) {
-      if (mask[y][x]) {
-        // Random offset for masked pixels
-        const angle = Math.random() * Math.PI * 2;
-        const dist = Math.random() * searchRadius;
-        offsetX[y][x] = Math.round(Math.cos(angle) * dist);
-        offsetY[y][x] = Math.round(Math.sin(angle) * dist);
-        distance[y][x] = Infinity; // Will be calculated in first iteration
-      } else {
-        // Identity mapping for unmasked pixels
-        offsetX[y][x] = 0;
-        offsetY[y][x] = 0;
-        distance[y][x] = 0;
-      }
-    }
-  }
-
-  return { offsetX, offsetY, distance };
-}
-
-/**
- * Propagation step: Check if neighbors have better matches
- */
-function propagate(
-  imageData: ImageData,
-  nnf: NearestNeighborField,
-  mask: boolean[][],
-  patchSize: number,
-  isOddIteration: boolean
-): void {
-  const { width, height } = imageData;
-  const { offsetX, offsetY, distance } = nnf;
-
-  // Alternate scan direction each iteration
-  const yStart = isOddIteration ? 0 : height - 1;
-  const yEnd = isOddIteration ? height : -1;
-  const yStep = isOddIteration ? 1 : -1;
-  const xStart = isOddIteration ? 0 : width - 1;
-  const xEnd = isOddIteration ? width : -1;
-  const xStep = isOddIteration ? 1 : -1;
-
-  for (let y = yStart; y !== yEnd; y += yStep) {
-    for (let x = xStart; x !== xEnd; x += xStep) {
-      if (!mask[y][x]) continue; // Skip unmasked pixels
-
-      let bestOffsetX = offsetX[y][x];
-      let bestOffsetY = offsetY[y][x];
-      let bestDist = distance[y][x];
-
-      // Check neighbors (propagation)
-      const neighbors = isOddIteration
-        ? [{ dx: -1, dy: 0 }, { dx: 0, dy: -1 }] // Left and up
-        : [{ dx: 1, dy: 0 }, { dx: 0, dy: 1 }];  // Right and down
-
-      for (const { dx, dy } of neighbors) {
-        const nx = x + dx;
-        const ny = y + dy;
-
-        if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
-
-        // Try neighbor's offset
-        const candOffsetX = offsetX[ny][nx];
-        const candOffsetY = offsetY[ny][nx];
-        const candDist = calculatePatchDistance(
-          imageData,
-          x,
-          y,
-          x + candOffsetX,
-          y + candOffsetY,
-          patchSize,
-          mask
-        );
-
-        if (candDist < bestDist) {
-          bestOffsetX = candOffsetX;
-          bestOffsetY = candOffsetY;
-          bestDist = candDist;
-        }
-      }
-
-      offsetX[y][x] = bestOffsetX;
-      offsetY[y][x] = bestOffsetY;
-      distance[y][x] = bestDist;
-    }
-  }
-}
-
-/**
- * Random search step: Try random offsets at exponentially decreasing distances
- */
-function randomSearch(
-  imageData: ImageData,
-  nnf: NearestNeighborField,
-  mask: boolean[][],
-  patchSize: number,
-  searchRadius: number
-): void {
-  const { width, height } = imageData;
-  const { offsetX, offsetY, distance } = nnf;
-
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      if (!mask[y][x]) continue;
-
-      let bestOffsetX = offsetX[y][x];
-      let bestOffsetY = offsetY[y][x];
-      let bestDist = distance[y][x];
-
-      // Exponentially decreasing search radius
-      let radius = searchRadius;
-      while (radius >= 1) {
-        // Random offset within current radius
-        const angle = Math.random() * Math.PI * 2;
-        const dist = Math.random() * radius;
-        const candOffsetX = bestOffsetX + Math.round(Math.cos(angle) * dist);
-        const candOffsetY = bestOffsetY + Math.round(Math.sin(angle) * dist);
-
-        // Check if candidate is valid
-        const sourceX = x + candOffsetX;
-        const sourceY = y + candOffsetY;
-
-        if (sourceX >= 0 && sourceX < width && sourceY >= 0 && sourceY < height) {
-          // Don't match to masked regions
-          if (!mask[sourceY][sourceX]) {
-            const candDist = calculatePatchDistance(
-              imageData,
-              x,
-              y,
-              sourceX,
-              sourceY,
-              patchSize,
-              mask
-            );
-
-            if (candDist < bestDist) {
-              bestOffsetX = candOffsetX;
-              bestOffsetY = candOffsetY;
-              bestDist = candDist;
+  
+  console.log('Content-aware fill:', { bounds, patchSize, searchRadius });
+  
+  // Get list of pixels to fill (inside mask)
+  const pixelsToFill: Array<{ x: number; y: number; priority: number }> = [];
+  
+  for (let y = bounds.minY; y <= bounds.maxY; y++) {
+    for (let x = bounds.minX; x <= bounds.maxX; x++) {
+      const maskWeight = mask[y * width + x];
+      if (maskWeight > 0.5) {
+        // Calculate priority based on edge proximity (fill from edges inward)
+        let edgeDist = Infinity;
+        for (let dy = -3; dy <= 3; dy++) {
+          for (let dx = -3; dx <= 3; dx++) {
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+              if (mask[ny * width + nx] < 0.3) {
+                edgeDist = Math.min(edgeDist, Math.abs(dx) + Math.abs(dy));
+              }
             }
           }
         }
-
-        radius *= 0.5; // Exponential decrease
-      }
-
-      offsetX[y][x] = bestOffsetX;
-      offsetY[y][x] = bestOffsetY;
-      distance[y][x] = bestDist;
-    }
-  }
-}
-
-/**
- * Run PatchMatch algorithm to find best matching patches
- */
-export function runPatchMatch(
-  imageData: ImageData,
-  mask: boolean[][],
-  options: PatchMatchOptions
-): NearestNeighborField {
-  const { patchSize, iterations, searchRadius } = options;
-
-  // Initialize with random offsets
-  const nnf = initializeNNF(imageData.width, imageData.height, mask, searchRadius);
-
-  // Calculate initial distances
-  for (let y = 0; y < imageData.height; y++) {
-    for (let x = 0; x < imageData.width; x++) {
-      if (mask[y][x]) {
-        nnf.distance[y][x] = calculatePatchDistance(
-          imageData,
-          x,
-          y,
-          x + nnf.offsetX[y][x],
-          y + nnf.offsetY[y][x],
-          patchSize,
-          mask
-        );
+        pixelsToFill.push({ x, y, priority: edgeDist });
       }
     }
   }
-
-  // Iterate: Propagation + Random Search
-  for (let iter = 0; iter < iterations; iter++) {
-    propagate(imageData, nnf, mask, patchSize, iter % 2 === 0);
-    randomSearch(imageData, nnf, mask, patchSize, searchRadius);
+  
+  // Sort by priority (edge pixels first)
+  pixelsToFill.sort((a, b) => a.priority - b.priority);
+  
+  console.log(`Filling ${pixelsToFill.length} pixels...`);
+  
+  // Create a copy for reading while we write
+  const originalData = new Uint8ClampedArray(data);
+  const filled = new Set<string>();
+  
+  // Fill pixels from edges inward
+  for (const { x, y } of pixelsToFill) {
+    const key = `${x},${y}`;
+    if (filled.has(key)) continue;
+    
+    // Find best matching patch from surrounding area
+    let bestX = x;
+    let bestY = y;
+    let bestScore = Infinity;
+    
+    // Search in nearby unmasked areas
+    const searchStep = Math.max(2, Math.floor(searchRadius / 20));
+    
+    for (let sy = Math.max(halfPatch, y - searchRadius); sy < Math.min(height - halfPatch, y + searchRadius); sy += searchStep) {
+      for (let sx = Math.max(halfPatch, x - searchRadius); sx < Math.min(width - halfPatch, x + searchRadius); sx += searchStep) {
+        // Skip if source is in mask
+        if (mask[sy * width + sx] > 0.3) continue;
+        
+        // Calculate patch similarity (only using known pixels)
+        let score = 0;
+        let count = 0;
+        
+        for (let dy = -halfPatch; dy <= halfPatch; dy++) {
+          for (let dx = -halfPatch; dx <= halfPatch; dx++) {
+            const tx = x + dx;
+            const ty = y + dy;
+            const srcX = sx + dx;
+            const srcY = sy + dy;
+            
+            if (tx < 0 || tx >= width || ty < 0 || ty >= height) continue;
+            if (srcX < 0 || srcX >= width || srcY < 0 || srcY >= height) continue;
+            
+            // Only compare if target pixel is known (filled or outside mask)
+            const targetMask = mask[ty * width + tx];
+            if (targetMask < 0.3 || filled.has(`${tx},${ty}`)) {
+              const tidx = (ty * width + tx) * 4;
+              const sidx = (srcY * width + srcX) * 4;
+              
+              for (let c = 0; c < 3; c++) {
+                const diff = data[tidx + c] - originalData[sidx + c];
+                score += diff * diff;
+              }
+              count++;
+            }
+          }
+        }
+        
+        if (count > 0) {
+          score /= count;
+          if (score < bestScore) {
+            bestScore = score;
+            bestX = sx;
+            bestY = sy;
+          }
+        }
+      }
+    }
+    
+    // Copy the best matching pixel
+    const targetIdx = (y * width + x) * 4;
+    const sourceIdx = (bestY * width + bestX) * 4;
+    
+    data[targetIdx] = originalData[sourceIdx];
+    data[targetIdx + 1] = originalData[sourceIdx + 1];
+    data[targetIdx + 2] = originalData[sourceIdx + 2];
+    
+    filled.add(key);
   }
-
-  return nnf;
+  
+  // Apply simple smoothing pass for better blending
+  applyEdgeSmoothing(imageData, mask, bounds);
+  
+  console.log('Content-aware fill complete');
 }
 
 /**
- * Fill masked region using PatchMatch results
+ * Smooth edges for better blending
  */
-export function fillWithPatchMatch(
+function applyEdgeSmoothing(
   imageData: ImageData,
-  mask: boolean[][],
-  nnf: NearestNeighborField
+  mask: Float32Array,
+  bounds: { minX: number; minY: number; maxX: number; maxY: number }
 ): void {
-  const { data, width, height } = imageData;
-  const { offsetX, offsetY } = nnf;
-
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      if (!mask[y][x]) continue;
-
-      // Get best matching source pixel
-      const sourceX = x + offsetX[y][x];
-      const sourceY = y + offsetY[y][x];
-
-      if (sourceX >= 0 && sourceX < width && sourceY >= 0 && sourceY < height) {
-        const sourceIdx = (sourceY * width + sourceX) * 4;
+  const { width, data } = imageData;
+  const tempData = new Uint8ClampedArray(data);
+  
+  // Apply 3x3 smoothing at edges
+  for (let y = bounds.minY; y <= bounds.maxY; y++) {
+    for (let x = bounds.minX; x <= bounds.maxX; x++) {
+      const maskWeight = mask[y * width + x];
+      
+      // Only smooth edge pixels (0.2 < weight < 0.8)
+      if (maskWeight > 0.2 && maskWeight < 0.8) {
         const targetIdx = (y * width + x) * 4;
-
-        // Copy RGB values
+        
         for (let c = 0; c < 3; c++) {
-          data[targetIdx + c] = data[sourceIdx + c];
+          let sum = 0;
+          let count = 0;
+          
+          for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+              const nx = x + dx;
+              const ny = y + dy;
+              if (nx >= 0 && nx < width && ny >= 0 && ny < imageData.height) {
+                sum += tempData[(ny * width + nx) * 4 + c];
+                count++;
+              }
+            }
+          }
+          
+          data[targetIdx + c] = Math.round(sum / count);
         }
       }
     }
@@ -310,42 +176,36 @@ export function fillWithPatchMatch(
 }
 
 /**
- * Content-Aware Fill: High-level function
- * Combines PatchMatch with Poisson blending for seamless results
+ * Legacy content-aware fill (bounding box based) - kept for compatibility
  */
 export function contentAwareFill(
   imageData: ImageData,
-  maskRegion: { x: number; y: number; width: number; height: number },
-  usePoisson: boolean = true
+  maskRegion: { x: number; y: number; width: number; height: number }
 ): void {
   const { width, height } = imageData;
-
-  // Create boolean mask
-  const mask: boolean[][] = [];
+  
+  // Create Float32Array mask from bounding box
+  const mask = new Float32Array(width * height);
+  
   for (let y = 0; y < height; y++) {
-    mask[y] = [];
     for (let x = 0; x < width; x++) {
-      mask[y][x] =
+      if (
         x >= maskRegion.x &&
         x < maskRegion.x + maskRegion.width &&
         y >= maskRegion.y &&
-        y < maskRegion.y + maskRegion.height;
+        y < maskRegion.y + maskRegion.height
+      ) {
+        mask[y * width + x] = 1;
+      }
     }
   }
-
-  // Run PatchMatch to find best source patches
-  const nnf = runPatchMatch(imageData, mask, {
-    patchSize: 7,
-    iterations: 5,
-    searchRadius: Math.max(width, height) / 2,
-  });
-
-  // Fill using best matches
-  fillWithPatchMatch(imageData, mask, nnf);
-
-  // Apply Poisson blending for seamless integration
-  if (usePoisson) {
-    poissonBlend(imageData, mask, 50); // 50 iterations for good quality
-  }
+  
+  const bounds = {
+    minX: Math.max(0, maskRegion.x),
+    minY: Math.max(0, maskRegion.y),
+    maxX: Math.min(width - 1, maskRegion.x + maskRegion.width),
+    maxY: Math.min(height - 1, maskRegion.y + maskRegion.height),
+  };
+  
+  contentAwareFillWithMask(imageData, mask, bounds);
 }
-

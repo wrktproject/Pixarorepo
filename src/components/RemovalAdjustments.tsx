@@ -9,8 +9,8 @@ import type { RootState } from '../store';
 import { setActiveTool } from '../store/uiSlice';
 import { setCurrentImage } from '../store/imageSlice';
 import { RemovalToolOverlay, type BrushStroke } from './RemovalToolOverlay';
-import { paintBrushStroke } from '../utils/healingBrush';
-import { contentAwareFill } from '../utils/contentAwareFill';
+import { paintBrushStroke, createStrokeMask } from '../utils/healingBrush';
+import { contentAwareFillWithMask } from '../utils/contentAwareFill';
 import './RemovalAdjustments.css';
 
 type BrushMode = 'clone' | 'heal' | 'content-aware';
@@ -149,24 +149,18 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
         });
       } else if (stroke.mode === 'content-aware') {
         console.log('Applying content-aware fill...');
-        let minX = Infinity,
-          minY = Infinity,
-          maxX = -Infinity,
-          maxY = -Infinity;
-
-        stroke.points.forEach((p) => {
-          minX = Math.min(minX, p.x - stroke.size / 2);
-          minY = Math.min(minY, p.y - stroke.size / 2);
-          maxX = Math.max(maxX, p.x + stroke.size / 2);
-          maxY = Math.max(maxY, p.y + stroke.size / 2);
-        });
-
-        contentAwareFill(modifiedImage, {
-          x: Math.max(0, Math.floor(minX)),
-          y: Math.max(0, Math.floor(minY)),
-          width: Math.min(modifiedImage.width - minX, maxX - minX),
-          height: Math.min(modifiedImage.height - minY, maxY - minY),
-        });
+        
+        // Create mask from stroke shape (same as heal/clone)
+        const { mask, bounds } = createStrokeMask(
+          modifiedImage.width,
+          modifiedImage.height,
+          stroke.points,
+          stroke.size / 2,
+          stroke.feather
+        );
+        
+        // Use mask-based content-aware fill
+        contentAwareFillWithMask(modifiedImage, mask, bounds);
       }
 
       console.log('Updating canvas with modified image...');
