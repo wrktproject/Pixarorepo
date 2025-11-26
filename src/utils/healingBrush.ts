@@ -1,14 +1,13 @@
 /**
  * Healing Brush Implementation
- * Lightroom-style content-aware healing without external dependencies
+ * Lightroom-style content-aware healing
+ * 
+ * Key difference from naive approach:
+ * - Heals entire regions at once, not overlapping stamps
+ * - Creates a mask from the brush stroke
+ * - Calculates mean colors for entire source/target regions
+ * - Applies texture transfer uniformly
  */
-
-export interface HealingMask {
-  x: number;
-  y: number;
-  radius: number;
-  feather: number; // 0-1, amount of edge softness
-}
 
 export interface HealingPatch {
   sourceX: number;
@@ -18,51 +17,290 @@ export interface HealingPatch {
   radius: number;
 }
 
+export interface BrushStrokePoint {
+  x: number;
+  y: number;
+}
+
+export interface BrushStrokeOptions {
+  mode: 'clone' | 'heal';
+  sourceOffset?: { x: number; y: number };
+  radius: number;
+  feather: number;
+  opacity: number;
+}
+
 /**
- * Create a circular mask with soft falloff (Gaussian-like)
+ * Create a mask from brush stroke points
+ * Returns a Float32Array where each pixel has a weight 0-1
  */
-function createCircularMask(radius: number, feather: number): Float32Array {
-  const size = radius * 2 + 1;
-  const mask = new Float32Array(size * size);
-  const center = radius;
+function createMaskFromStroke(
+  width: number,
+  height: number,
+  points: BrushStrokePoint[],
+  brushRadius: number,
+  feather: number
+): { mask: Float32Array; bounds: { minX: number; minY: number; maxX: number; maxY: number } } {
+  const mask = new Float32Array(width * height);
   
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const dx = x - center;
-      const dy = y - center;
-      const dist = Math.sqrt(dx * dx + dy * dy);
+  // Calculate bounds
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const p of points) {
+    minX = Math.min(minX, p.x - brushRadius);
+    minY = Math.min(minY, p.y - brushRadius);
+    maxX = Math.max(maxX, p.x + brushRadius);
+    maxY = Math.max(maxY, p.y + brushRadius);
+  }
+  
+  // Clamp to image bounds
+  minX = Math.max(0, Math.floor(minX));
+  minY = Math.max(0, Math.floor(minY));
+  maxX = Math.min(width - 1, Math.ceil(maxX));
+  maxY = Math.min(height - 1, Math.ceil(maxY));
+  
+  // Fill mask based on distance to stroke
+  for (let y = minY; y <= maxY; y++) {
+    for (let x = minX; x <= maxX; x++) {
+      // Find minimum distance to any stroke point
+      let minDist = Infinity;
+      for (const p of points) {
+        const dist = Math.sqrt((x - p.x) ** 2 + (y - p.y) ** 2);
+        minDist = Math.min(minDist, dist);
+      }
       
-      if (dist > radius) {
-        mask[y * size + x] = 0;
-      } else {
-        // Smooth falloff from center to edge
-        const normalizedDist = dist / radius;
+      // Calculate weight based on distance and feather
+      if (minDist <= brushRadius) {
+        const normalizedDist = minDist / brushRadius;
         const falloffStart = 1 - feather;
         
         if (normalizedDist < falloffStart) {
-          mask[y * size + x] = 1;
+          mask[y * width + x] = 1;
         } else {
-          // Smooth cubic falloff in the feather region
+          // Smooth falloff
           const t = (normalizedDist - falloffStart) / feather;
-          mask[y * size + x] = 1 - t * t * (3 - 2 * t); // Smoothstep
+          mask[y * width + x] = 1 - t * t * (3 - 2 * t);
         }
       }
     }
   }
   
-  return mask;
+  return { mask, bounds: { minX, minY, maxX, maxY } };
 }
 
 /**
- * Calculate luminance of an RGB pixel
+ * Check if a stroke forms a closed shape and fill it
  */
-function getLuminance(r: number, g: number, b: number): number {
-  return 0.299 * r + 0.587 * g + 0.114 * b;
+function fillClosedShape(
+  mask: Float32Array,
+  width: number,
+  height: number,
+  points: BrushStrokePoint[],
+  brushRadius: number,
+  bounds: { minX: number; minY: number; maxX: number; maxY: number }
+): void {
+  if (points.length < 10) return;
+  
+  // Check if closed (end near start)
+  const start = points[0];
+  const end = points[points.length - 1];
+  const dist = Math.sqrt((end.x - start.x) ** 2 + (end.y - start.y) ** 2);
+  
+  if (dist > brushRadius) return; // Not closed
+  
+  // Use scanline fill algorithm
+  // First, create edge list from points
+  const edges: Array<{ x1: number; y1: number; x2: number; y2: number }> = [];
+  for (let i = 0; i < points.length - 1; i++) {
+    edges.push({ x1: points[i].x, y1: points[i].y, x2: points[i + 1].x, y2: points[i + 1].y });
+  }
+  // Close the shape
+  edges.push({ x1: end.x, y1: end.y, x2: start.x, y2: start.y });
+  
+  // Scanline fill
+  for (let y = bounds.minY; y <= bounds.maxY; y++) {
+    const intersections: number[] = [];
+    
+    for (const edge of edges) {
+      const { x1, y1, x2, y2 } = edge;
+      
+      // Check if scanline intersects this edge
+      if ((y1 <= y && y2 > y) || (y2 <= y && y1 > y)) {
+        // Calculate x intersection
+        const t = (y - y1) / (y2 - y1);
+        const x = x1 + t * (x2 - x1);
+        intersections.push(x);
+      }
+    }
+    
+    // Sort intersections
+    intersections.sort((a, b) => a - b);
+    
+    // Fill between pairs
+    for (let i = 0; i < intersections.length - 1; i += 2) {
+      const xStart = Math.max(bounds.minX, Math.ceil(intersections[i]));
+      const xEnd = Math.min(bounds.maxX, Math.floor(intersections[i + 1]));
+      
+      for (let x = xStart; x <= xEnd; x++) {
+        mask[y * width + x] = 1;
+      }
+    }
+  }
+}
+
+/**
+ * Get centroid (center) of masked region
+ */
+function getMaskCentroid(
+  mask: Float32Array,
+  width: number,
+  bounds: { minX: number; minY: number; maxX: number; maxY: number }
+): { x: number; y: number } {
+  let sumX = 0, sumY = 0, sumWeight = 0;
+  
+  for (let y = bounds.minY; y <= bounds.maxY; y++) {
+    for (let x = bounds.minX; x <= bounds.maxX; x++) {
+      const weight = mask[y * width + x];
+      if (weight > 0) {
+        sumX += x * weight;
+        sumY += y * weight;
+        sumWeight += weight;
+      }
+    }
+  }
+  
+  if (sumWeight === 0) return { x: (bounds.minX + bounds.maxX) / 2, y: (bounds.minY + bounds.maxY) / 2 };
+  return { x: sumX / sumWeight, y: sumY / sumWeight };
+}
+
+/**
+ * Calculate mean RGB for a region defined by mask
+ */
+function calculateRegionMean(
+  imageData: ImageData,
+  mask: Float32Array,
+  offsetX: number,
+  offsetY: number,
+  bounds: { minX: number; minY: number; maxX: number; maxY: number }
+): [number, number, number] {
+  const { width, height, data } = imageData;
+  const mean: [number, number, number] = [0, 0, 0];
+  let totalWeight = 0;
+  
+  for (let y = bounds.minY; y <= bounds.maxY; y++) {
+    for (let x = bounds.minX; x <= bounds.maxX; x++) {
+      const weight = mask[y * width + x];
+      if (weight === 0) continue;
+      
+      const sx = x + offsetX;
+      const sy = y + offsetY;
+      
+      if (sx < 0 || sx >= width || sy < 0 || sy >= height) continue;
+      
+      const idx = (sy * width + sx) * 4;
+      mean[0] += data[idx] * weight;
+      mean[1] += data[idx + 1] * weight;
+      mean[2] += data[idx + 2] * weight;
+      totalWeight += weight;
+    }
+  }
+  
+  if (totalWeight > 0) {
+    mean[0] /= totalWeight;
+    mean[1] /= totalWeight;
+    mean[2] /= totalWeight;
+  }
+  
+  return mean;
+}
+
+/**
+ * Apply healing to a region
+ * This is the core algorithm that makes it work like Lightroom:
+ * 1. Calculate mean colors for both source and target regions (using the mask)
+ * 2. For each pixel in the mask:
+ *    - Get source pixel
+ *    - Extract texture: texture = source_pixel - source_mean
+ *    - Recolor: healed = target_mean + texture
+ *    - Blend with target based on mask weight
+ */
+function applyRegionHeal(
+  imageData: ImageData,
+  mask: Float32Array,
+  sourceOffset: { x: number; y: number },
+  bounds: { minX: number; minY: number; maxX: number; maxY: number },
+  opacity: number
+): void {
+  const { width, height, data } = imageData;
+  
+  // Calculate mean colors for source and target regions
+  const targetMean = calculateRegionMean(imageData, mask, 0, 0, bounds);
+  const sourceMean = calculateRegionMean(imageData, mask, sourceOffset.x, sourceOffset.y, bounds);
+  
+  // Apply healing
+  for (let y = bounds.minY; y <= bounds.maxY; y++) {
+    for (let x = bounds.minX; x <= bounds.maxX; x++) {
+      const maskWeight = mask[y * width + x] * opacity;
+      if (maskWeight === 0) continue;
+      
+      const sx = x + sourceOffset.x;
+      const sy = y + sourceOffset.y;
+      
+      if (sx < 0 || sx >= width || sy < 0 || sy >= height) continue;
+      
+      const targetIdx = (y * width + x) * 4;
+      const sourceIdx = (sy * width + sx) * 4;
+      
+      // For each color channel
+      for (let c = 0; c < 3; c++) {
+        // Extract texture from source (high-frequency detail)
+        const texture = data[sourceIdx + c] - sourceMean[c];
+        
+        // Apply texture to target mean (recolor)
+        const healed = targetMean[c] + texture;
+        
+        // Clamp and blend
+        const clampedHealed = Math.max(0, Math.min(255, healed));
+        data[targetIdx + c] = data[targetIdx + c] * (1 - maskWeight) + clampedHealed * maskWeight;
+      }
+    }
+  }
+}
+
+/**
+ * Apply cloning to a region (direct copy)
+ */
+function applyRegionClone(
+  imageData: ImageData,
+  mask: Float32Array,
+  sourceOffset: { x: number; y: number },
+  bounds: { minX: number; minY: number; maxX: number; maxY: number },
+  opacity: number
+): void {
+  const { width, height, data } = imageData;
+  
+  for (let y = bounds.minY; y <= bounds.maxY; y++) {
+    for (let x = bounds.minX; x <= bounds.maxX; x++) {
+      const maskWeight = mask[y * width + x] * opacity;
+      if (maskWeight === 0) continue;
+      
+      const sx = x + sourceOffset.x;
+      const sy = y + sourceOffset.y;
+      
+      if (sx < 0 || sx >= width || sy < 0 || sy >= height) continue;
+      
+      const targetIdx = (y * width + x) * 4;
+      const sourceIdx = (sy * width + sx) * 4;
+      
+      // Direct copy with blending
+      for (let c = 0; c < 4; c++) {
+        data[targetIdx + c] = data[targetIdx + c] * (1 - maskWeight) + data[sourceIdx + c] * maskWeight;
+      }
+    }
+  }
 }
 
 /**
  * Find a good source patch automatically
- * Looks for nearby areas with similar texture/luminance
  */
 export function findSourcePatch(
   imageData: ImageData,
@@ -70,64 +308,46 @@ export function findSourcePatch(
   targetY: number,
   radius: number
 ): { x: number; y: number } {
-  const width = imageData.width;
-  const height = imageData.height;
-  const data = imageData.data;
+  const { width, height, data } = imageData;
   
-  // Calculate target patch average luminance
-  let targetLum = 0;
-  let count = 0;
-  
-  for (let y = -radius; y <= radius; y++) {
-    for (let x = -radius; x <= radius; x++) {
-      const px = targetX + x;
-      const py = targetY + y;
-      
+  // Calculate target luminance
+  let targetLum = 0, count = 0;
+  for (let dy = -radius; dy <= radius; dy++) {
+    for (let dx = -radius; dx <= radius; dx++) {
+      if (dx * dx + dy * dy > radius * radius) continue;
+      const px = targetX + dx, py = targetY + dy;
       if (px < 0 || px >= width || py < 0 || py >= height) continue;
-      if (x * x + y * y > radius * radius) continue;
-      
       const idx = (py * width + px) * 4;
-      targetLum += getLuminance(data[idx], data[idx + 1], data[idx + 2]);
+      targetLum += 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
       count++;
     }
   }
   targetLum /= count;
   
-  // Search in a ring around the target (not too close, not too far)
+  // Search for similar region
   const searchRadius = radius * 4;
   const minDist = radius * 2;
-  let bestX = targetX + minDist;
-  let bestY = targetY;
-  let bestScore = Infinity;
-  
-  const searchStep = Math.max(2, Math.floor(radius / 2));
+  let bestX = targetX + minDist, bestY = targetY, bestScore = Infinity;
   
   for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
-    for (let dist = minDist; dist < searchRadius; dist += searchStep) {
+    for (let dist = minDist; dist < searchRadius; dist += Math.max(2, radius / 2)) {
       const sx = Math.round(targetX + Math.cos(angle) * dist);
       const sy = Math.round(targetY + Math.sin(angle) * dist);
       
-      if (sx - radius < 0 || sx + radius >= width) continue;
-      if (sy - radius < 0 || sy + radius >= height) continue;
+      if (sx - radius < 0 || sx + radius >= width || sy - radius < 0 || sy + radius >= height) continue;
       
-      // Calculate source patch luminance
-      let sourceLum = 0;
-      let sourceCount = 0;
-      
-      for (let y = -radius; y <= radius; y++) {
-        for (let x = -radius; x <= radius; x++) {
-          if (x * x + y * y > radius * radius) continue;
-          
-          const idx = ((sy + y) * width + (sx + x)) * 4;
-          sourceLum += getLuminance(data[idx], data[idx + 1], data[idx + 2]);
-          sourceCount++;
+      let sourceLum = 0, sCount = 0;
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          if (dx * dx + dy * dy > radius * radius) continue;
+          const idx = ((sy + dy) * width + (sx + dx)) * 4;
+          sourceLum += 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
+          sCount++;
         }
       }
-      sourceLum /= sourceCount;
+      sourceLum /= sCount;
       
-      // Score based on luminance similarity
       const score = Math.abs(sourceLum - targetLum);
-      
       if (score < bestScore) {
         bestScore = score;
         bestX = sx;
@@ -140,157 +360,8 @@ export function findSourcePatch(
 }
 
 /**
- * Perform healing brush operation (Lightroom-style)
- * Copies texture from source but matches color/tone to target
- * 
- * Algorithm:
- * 1. Calculate mean RGB for both source and target patches
- * 2. Extract texture: texture = source_pixel - source_mean
- * 3. Recolor texture: healed_pixel = target_mean + texture
- * 4. Blend with mask weight for smooth edges
- */
-export function healPatch(
-  imageData: ImageData,
-  patch: HealingPatch,
-  feather: number = 0.3
-): void {
-  const { sourceX, sourceY, targetX, targetY, radius } = patch;
-  const width = imageData.width;
-  const height = imageData.height;
-  const data = imageData.data;
-  
-  // Create circular mask with soft edges
-  const maskSize = radius * 2 + 1;
-  const mask = createCircularMask(radius, feather);
-  
-  // Calculate average RGB color for source and target patches
-  const sourceMean = [0, 0, 0]; // R, G, B
-  const targetMean = [0, 0, 0]; // R, G, B
-  let maskSum = 0;
-  
-  for (let y = 0; y < maskSize; y++) {
-    for (let x = 0; x < maskSize; x++) {
-      const maskWeight = mask[y * maskSize + x];
-      if (maskWeight === 0) continue;
-      
-      const sx = sourceX - radius + x;
-      const sy = sourceY - radius + y;
-      const tx = targetX - radius + x;
-      const ty = targetY - radius + y;
-      
-      if (sx < 0 || sx >= width || sy < 0 || sy >= height) continue;
-      if (tx < 0 || tx >= width || ty < 0 || ty >= height) continue;
-      
-      const sIdx = (sy * width + sx) * 4;
-      const tIdx = (ty * width + tx) * 4;
-      
-      // Accumulate weighted RGB sums
-      for (let c = 0; c < 3; c++) {
-        sourceMean[c] += data[sIdx + c] * maskWeight;
-        targetMean[c] += data[tIdx + c] * maskWeight;
-      }
-      maskSum += maskWeight;
-    }
-  }
-  
-  // Calculate average colors
-  for (let c = 0; c < 3; c++) {
-    sourceMean[c] /= maskSum;
-    targetMean[c] /= maskSum;
-  }
-  
-  // Apply healing: copy texture from source but recolor to match target
-  for (let y = 0; y < maskSize; y++) {
-    for (let x = 0; x < maskSize; x++) {
-      const maskWeight = mask[y * maskSize + x];
-      if (maskWeight === 0) continue;
-      
-      const sx = sourceX - radius + x;
-      const sy = sourceY - radius + y;
-      const tx = targetX - radius + x;
-      const ty = targetY - radius + y;
-      
-      if (sx < 0 || sx >= width || sy < 0 || sy >= height) continue;
-      if (tx < 0 || tx >= width || ty < 0 || ty >= height) continue;
-      
-      const sIdx = (sy * width + sx) * 4;
-      const tIdx = (ty * width + tx) * 4;
-      
-      // For each RGB channel:
-      // 1. Extract texture (high-frequency detail) from source
-      // 2. Recolor it using target's mean color (tone/lighting)
-      // 3. Blend into target with mask weight
-      for (let c = 0; c < 3; c++) {
-        const sourceTexture = data[sIdx + c] - sourceMean[c];
-        const healedValue = targetMean[c] + sourceTexture;
-        const clampedValue = Math.max(0, Math.min(255, healedValue));
-        data[tIdx + c] = data[tIdx + c] * (1 - maskWeight) + clampedValue * maskWeight;
-      }
-    }
-  }
-}
-
-/**
- * Perform clone stamp operation (exact copy with opacity support)
- */
-export function clonePatch(
-  imageData: ImageData,
-  patch: HealingPatch,
-  feather: number = 0.3,
-  opacity: number = 1.0
-): void {
-  const { sourceX, sourceY, targetX, targetY, radius } = patch;
-  const width = imageData.width;
-  const height = imageData.height;
-  const data = imageData.data;
-  
-  const maskSize = radius * 2 + 1;
-  const mask = createCircularMask(radius, feather);
-  
-  for (let y = 0; y < maskSize; y++) {
-    for (let x = 0; x < maskSize; x++) {
-      const maskWeight = mask[y * maskSize + x] * opacity; // Apply opacity
-      if (maskWeight === 0) continue;
-      
-      const sx = sourceX - radius + x;
-      const sy = sourceY - radius + y;
-      const tx = targetX - radius + x;
-      const ty = targetY - radius + y;
-      
-      if (sx < 0 || sx >= width || sy < 0 || sy >= height) continue;
-      if (tx < 0 || tx >= width || ty < 0 || ty >= height) continue;
-      
-      const sIdx = (sy * width + sx) * 4;
-      const tIdx = (ty * width + tx) * 4;
-      
-      // Copy with mask blending
-      for (let c = 0; c < 4; c++) {
-        data[tIdx + c] = data[tIdx + c] * (1 - maskWeight) + data[sIdx + c] * maskWeight;
-      }
-    }
-  }
-}
-
-/**
- * Paint a brush stroke along a path (for interactive drawing)
- */
-export interface BrushStrokePoint {
-  x: number;
-  y: number;
-}
-
-export interface BrushStrokeOptions {
-  mode: 'clone' | 'heal';
-  sourceOffset?: { x: number; y: number }; // For clone/heal
-  radius: number;
-  feather: number;
-  opacity: number;
-  spacing?: number; // Distance between stamp applications (default: radius / 4)
-}
-
-/**
- * Apply brush stroke along a path
- * Applies multiple overlapping stamps for smooth continuous strokes
+ * Main function: Apply brush stroke as a single healed region
+ * This is the key to getting Lightroom-quality results
  */
 export function paintBrushStroke(
   imageData: ImageData,
@@ -298,109 +369,69 @@ export function paintBrushStroke(
   options: BrushStrokeOptions
 ): void {
   if (points.length === 0) return;
-
-  const { mode, radius, feather, opacity, spacing = radius / 4 } = options;
+  
+  const { mode, radius, feather, opacity } = options;
   let { sourceOffset } = options;
-
-  // Auto-find source point if not provided (for heal/clone modes)
-  if ((mode === 'clone' || mode === 'heal') && !sourceOffset) {
-    const firstPoint = points[0];
-    const autoSource = findSourcePatch(imageData, firstPoint.x, firstPoint.y, radius);
+  
+  const { width, height } = imageData;
+  
+  // Create mask from the entire brush stroke
+  const { mask, bounds } = createMaskFromStroke(width, height, points, radius, feather);
+  
+  // Check if it's a closed shape and fill interior
+  fillClosedShape(mask, width, height, points, radius, bounds);
+  
+  // Get centroid of the masked region
+  const centroid = getMaskCentroid(mask, width, bounds);
+  
+  // Auto-find source if not provided
+  if (!sourceOffset) {
+    const autoSource = findSourcePatch(imageData, Math.round(centroid.x), Math.round(centroid.y), radius);
     sourceOffset = {
-      x: autoSource.x - firstPoint.x,
-      y: autoSource.y - firstPoint.y,
+      x: autoSource.x - Math.round(centroid.x),
+      y: autoSource.y - Math.round(centroid.y),
     };
-    console.log('Auto-selected source point:', autoSource);
-  }
-
-  // For single point, just apply one stamp
-  if (points.length === 1) {
-    const point = points[0];
-    
-    if (mode === 'clone' && sourceOffset) {
-      clonePatch(
-        imageData,
-        {
-          sourceX: point.x + sourceOffset.x,
-          sourceY: point.y + sourceOffset.y,
-          targetX: point.x,
-          targetY: point.y,
-          radius,
-        },
-        feather,
-        opacity
-      );
-    } else if (mode === 'heal' && sourceOffset) {
-      healPatch(
-        imageData,
-        {
-          sourceX: point.x + sourceOffset.x,
-          sourceY: point.y + sourceOffset.y,
-          targetX: point.x,
-          targetY: point.y,
-          radius,
-        },
-        feather
-      );
-    }
-    return;
-  }
-
-  // For multiple points, interpolate and apply stamps along the path
-  const stamps: BrushStrokePoint[] = [];
-  
-  for (let i = 0; i < points.length - 1; i++) {
-    const start = points[i];
-    const end = points[i + 1];
-    
-    const dx = end.x - start.x;
-    const dy = end.y - start.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    
-    if (dist === 0) continue;
-    
-    // Calculate number of stamps needed
-    const numStamps = Math.max(1, Math.ceil(dist / spacing));
-    
-    for (let j = 0; j < numStamps; j++) {
-      const t = j / numStamps;
-      stamps.push({
-        x: Math.round(start.x + dx * t),
-        y: Math.round(start.y + dy * t),
-      });
-    }
+    console.log('Auto-selected source:', autoSource, 'offset:', sourceOffset);
   }
   
-  // Add the last point
-  stamps.push(points[points.length - 1]);
-
-  // Apply stamps along the stroke
-  for (const stamp of stamps) {
-    if (mode === 'clone' && sourceOffset) {
-      clonePatch(
-        imageData,
-        {
-          sourceX: stamp.x + sourceOffset.x,
-          sourceY: stamp.y + sourceOffset.y,
-          targetX: stamp.x,
-          targetY: stamp.y,
-          radius,
-        },
-        feather,
-        opacity
-      );
-    } else if (mode === 'heal' && sourceOffset) {
-      healPatch(
-        imageData,
-        {
-          sourceX: stamp.x + sourceOffset.x,
-          sourceY: stamp.y + sourceOffset.y,
-          targetX: stamp.x,
-          targetY: stamp.y,
-          radius,
-        },
-        feather
-      );
-    }
+  // Apply the appropriate operation to the entire region at once
+  if (mode === 'clone') {
+    applyRegionClone(imageData, mask, sourceOffset, bounds, opacity);
+  } else {
+    applyRegionHeal(imageData, mask, sourceOffset, bounds, opacity);
   }
+  
+  console.log(`Applied ${mode} to region:`, bounds, 'with offset:', sourceOffset);
+}
+
+// Legacy exports for compatibility
+export function healPatch(
+  imageData: ImageData,
+  patch: HealingPatch,
+  feather: number = 0.3
+): void {
+  const points = [{ x: patch.targetX, y: patch.targetY }];
+  paintBrushStroke(imageData, points, {
+    mode: 'heal',
+    sourceOffset: { x: patch.sourceX - patch.targetX, y: patch.sourceY - patch.targetY },
+    radius: patch.radius,
+    feather,
+    opacity: 1.0,
+  });
+}
+
+export function clonePatch(
+  imageData: ImageData,
+  patch: HealingPatch,
+  feather: number = 0.3,
+  opacity: number = 1.0
+): void {
+  const points = [{ x: patch.targetX, y: patch.targetY }];
+  paintBrushStroke(imageData, points, {
+    mode: 'clone',
+    sourceOffset: { x: patch.sourceX - patch.targetX, y: patch.sourceY - patch.targetY },
+    radius: patch.radius,
+    feather,
+    opacity,
+  });
 }
