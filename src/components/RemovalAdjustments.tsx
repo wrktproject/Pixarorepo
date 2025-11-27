@@ -9,11 +9,12 @@ import type { RootState } from '../store';
 import { setActiveTool } from '../store/uiSlice';
 import { setCurrentImage } from '../store/imageSlice';
 import { RemovalToolOverlay, type BrushStroke } from './RemovalToolOverlay';
-import { paintBrushStroke, createStrokeMask } from '../utils/healingBrush';
+import { createStrokeMask } from '../utils/healingBrush';
 import { contentAwareFillWithMaskAsync } from '../utils/contentAwareFill';
+import { getRemainingAIUses } from '../utils/serverInpainting';
 import './RemovalAdjustments.css';
 
-type BrushMode = 'clone' | 'heal' | 'content-aware';
+// Simplified to single mode - content-aware with auto-healing
 
 interface RemovalAdjustmentsProps {
   disabled?: boolean;
@@ -25,20 +26,19 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
   const activeTool = useSelector((state: RootState) => state.ui.activeTool);
   const imageState = useSelector((state: RootState) => state.image);
   
-  const [brushMode, setBrushMode] = useState<BrushMode>('heal');
   const [brushSize, setBrushSize] = useState(80);
   const [feather, setFeather] = useState(0.5);
-  const [opacity, setOpacity] = useState(1.0);
+  const [opacity] = useState(1.0);
   const [strokes, setStrokes] = useState<BrushStroke[]>([]);
-  const [sourcePoint, setSourcePoint] = useState<{ x: number; y: number } | null>(null);
   const [originalImageBeforeEdits, setOriginalImageBeforeEdits] = useState<ImageData | null>(null);
   const [workingImage, setWorkingImage] = useState<ImageData | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState('Processing...');
+  const [aiUsesRemaining, setAiUsesRemaining] = useState<number | null>(getRemainingAIUses());
   
   // Use ref to always have current working image in callbacks (avoid stale closure)
   const workingImageRef = useRef<ImageData | null>(null);
   const originalImageRef = useRef<ImageData | null>(null);
-  const sourcePointRef = useRef<{ x: number; y: number } | null>(null);
 
   // Keep refs in sync with state - only update if state has a value
   // This prevents overwriting direct ref assignments with stale state
@@ -53,11 +53,6 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
       originalImageRef.current = originalImageBeforeEdits;
     }
   }, [originalImageBeforeEdits]);
-
-  useEffect(() => {
-    // sourcePoint can be null intentionally, so always sync
-    sourcePointRef.current = sourcePoint;
-  }, [sourcePoint]);
 
   const isToolActive = activeTool === 'removal';
   const hasImage = imageState.current !== null;
@@ -96,120 +91,106 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
     originalImageRef.current = imageDataCopy;
     
     setStrokes([]);
-    setSourcePoint(null);
-    sourcePointRef.current = null;
     
     dispatch(setActiveTool('removal'));
     
-    console.log('✅ Healing tool activated');
+    console.log('✅ Removal tool activated');
   }, [dispatch, hasImage, imageState.current]);
 
   /**
-   * Handle completed brush stroke
+   * Handle completed brush stroke - just save it, don't process yet
    */
   const handleStrokeComplete = useCallback(
-    async (stroke: BrushStroke) => {
-      // Use ref to get current working image (avoids stale closure)
-      const currentWorkingImage = workingImageRef.current;
-      const currentSourcePoint = sourcePointRef.current;
-      
-      if (!currentWorkingImage) {
-        console.error('No working image available - ref is null');
-        console.log('State workingImage:', workingImage);
-        console.log('Ref workingImage:', workingImageRef.current);
-        return;
-      }
-
-      console.log('Stroke complete:', {
-        mode: stroke.mode,
+    (stroke: BrushStroke) => {
+      console.log('Stroke saved:', {
         points: stroke.points.length,
         size: stroke.size,
-        hasSourceOffset: !!stroke.sourceOffset,
-        imageSize: `${currentWorkingImage.width}x${currentWorkingImage.height}`,
+        isClosed: stroke.isClosed,
       });
 
-      // Add stroke to list (include source point for visualization)
-      const strokeWithSource = {
-        ...stroke,
-        sourcePoint: currentSourcePoint ? { ...currentSourcePoint } : undefined,
-      };
-      setStrokes((prev) => [...prev, strokeWithSource]);
-
-      // Create new image data to work with (clone of working image)
-      const modifiedImage = new ImageData(
-        new Uint8ClampedArray(currentWorkingImage.data),
-        currentWorkingImage.width,
-        currentWorkingImage.height
-      );
-
-      // Apply stroke to the new image
-      if (stroke.mode === 'clone' || stroke.mode === 'heal') {
-        console.log('Applying', stroke.mode, 'stroke...');
-        // Pass the absolute source point, not the offset
-        // The healing brush will calculate the correct offset from the mask centroid
-        paintBrushStroke(modifiedImage, stroke.points, {
-          mode: stroke.mode,
-          sourcePoint: currentSourcePoint || undefined, // Absolute source point
-          radius: stroke.size / 2,
-          feather: stroke.feather,
-          opacity: stroke.opacity,
-        });
-      } else if (stroke.mode === 'content-aware') {
-        console.log('Applying content-aware fill...');
-        setIsProcessing(true);
-        
-        // Create mask from stroke shape (same as heal/clone)
-        const { mask, bounds } = createStrokeMask(
-          modifiedImage.width,
-          modifiedImage.height,
-          stroke.points,
-          stroke.size / 2,
-          stroke.feather
-        );
-        
-        // Use PatchMatch (LaMa disabled - too slow and poor quality in WASM)
-        // Pass useLama: false to skip the neural network
-        await contentAwareFillWithMaskAsync(modifiedImage, mask, bounds, { useLama: false });
-        setIsProcessing(false);
-      }
-
-      console.log('Updating canvas with modified image...');
-
-      // Update both state and ref
-      setWorkingImage(modifiedImage);
-      workingImageRef.current = modifiedImage;
-
-      // Use setTimeout to ensure stroke state update completes before image dispatch
-      // This prevents the overlay from re-rendering with empty strokes
-      setTimeout(() => {
-        dispatch(setCurrentImage({
-          data: modifiedImage,
-          width: modifiedImage.width,
-          height: modifiedImage.height,
-          colorSpace: 'sRGB',
-        }));
-        console.log('Canvas update dispatched');
-      }, 0);
+      // Just add stroke to list - processing happens on Apply
+      setStrokes((prev) => [...prev, stroke]);
     },
-    [dispatch]
+    []
   );
 
   /**
-   * Apply changes
+   * Process all strokes and apply to image
    */
-  const handleApply = useCallback(() => {
+  const processStrokes = useCallback(async () => {
+    const originalImage = originalImageRef.current;
+    if (!originalImage || strokes.length === 0) return;
+
+    setIsProcessing(true);
+    setProcessingStatus('Preparing...');
+
+    // Start from original image
+    const resultImage = new ImageData(
+      new Uint8ClampedArray(originalImage.data),
+      originalImage.width,
+      originalImage.height
+    );
+
+    // Process each stroke
+    for (let i = 0; i < strokes.length; i++) {
+      const stroke = strokes[i];
+      setProcessingStatus(`Processing removal ${i + 1} of ${strokes.length}...`);
+
+      // Create mask from stroke shape
+      const { mask, bounds } = createStrokeMask(
+        resultImage.width,
+        resultImage.height,
+        stroke.points,
+        stroke.size / 2,
+        stroke.feather
+      );
+
+      // Apply content-aware fill
+      await contentAwareFillWithMaskAsync(resultImage, mask, bounds, {
+        onProgress: (status) => setProcessingStatus(`Removal ${i + 1}: ${status}`),
+      });
+    }
+
+    // Update remaining AI uses
+    setAiUsesRemaining(getRemainingAIUses());
+    setIsProcessing(false);
+
+    // Update the image
+    setWorkingImage(resultImage);
+    workingImageRef.current = resultImage;
+
+    dispatch(setCurrentImage({
+      data: resultImage,
+      width: resultImage.width,
+      height: resultImage.height,
+      colorSpace: 'sRGB',
+    }));
+
+    // Clear strokes after processing
+    setStrokes([]);
+
+    console.log('All strokes processed and applied');
+  }, [strokes, dispatch]);
+
+  /**
+   * Apply - process all strokes then close tool
+   */
+  const handleApply = useCallback(async () => {
+    if (strokes.length > 0) {
+      // Process all strokes first
+      await processStrokes();
+    }
+    // Then close the tool
     dispatch(setActiveTool('none'));
     setStrokes([]);
     setWorkingImage(null);
     setOriginalImageBeforeEdits(null);
-    setSourcePoint(null);
     workingImageRef.current = null;
     originalImageRef.current = null;
-    sourcePointRef.current = null;
-  }, [dispatch]);
+  }, [dispatch, strokes.length, processStrokes]);
 
   /**
-   * Cancel changes
+   * Cancel changes - restore original and close
    */
   const handleCancel = useCallback(() => {
     const originalImage = originalImageRef.current;
@@ -225,50 +206,18 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
     setStrokes([]);
     setWorkingImage(null);
     setOriginalImageBeforeEdits(null);
-    setSourcePoint(null);
     workingImageRef.current = null;
     originalImageRef.current = null;
-    sourcePointRef.current = null;
   }, [dispatch]);
 
   /**
-   * Undo last stroke
+   * Undo - remove the last stroke (no processing yet)
    */
   const handleUndo = useCallback(() => {
-    const originalImage = originalImageRef.current;
-    if (strokes.length === 0 || !originalImage) return;
-
-    const newStrokes = strokes.slice(0, -1);
-    setStrokes(newStrokes);
-
-    const freshImage = new ImageData(
-      new Uint8ClampedArray(originalImage.data),
-      originalImage.width,
-      originalImage.height
-    );
-
-    newStrokes.forEach((stroke) => {
-      if (stroke.mode === 'clone' || stroke.mode === 'heal') {
-        paintBrushStroke(freshImage, stroke.points, {
-          mode: stroke.mode,
-          sourceOffset: stroke.sourceOffset,
-          radius: stroke.size / 2,
-          feather: stroke.feather,
-          opacity: stroke.opacity,
-        });
-      }
-    });
-
-    setWorkingImage(freshImage);
-    workingImageRef.current = freshImage;
-
-    dispatch(setCurrentImage({
-      data: freshImage,
-      width: freshImage.width,
-      height: freshImage.height,
-      colorSpace: 'sRGB',
-    }));
-  }, [strokes, dispatch]);
+    if (strokes.length === 0) return;
+    // Just remove the last stroke from the list
+    setStrokes((prev) => prev.slice(0, -1));
+  }, [strokes.length]);
 
   /**
    * Keyboard shortcuts
@@ -295,43 +244,9 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
     return (
       <div className="removal-adjustments__inactive">
         <p className="removal-adjustments__description">
-          Remove unwanted objects, blemishes, or clone areas of your image.
+          Draw around objects to remove them. The tool uses content-aware fill 
+          with automatic healing for natural-looking results.
         </p>
-
-        <div className="removal-adjustments__mode-selector">
-          <label className="removal-adjustments__label">Tool Mode</label>
-          <div className="removal-adjustments__mode-grid">
-            <button
-              className={`removal-adjustments__mode-btn ${brushMode === 'heal' ? 'removal-adjustments__mode-btn--active' : ''}`}
-              onClick={() => setBrushMode('heal')}
-              title="Heal: Blends texture while matching colors"
-            >
-              <span className="removal-adjustments__mode-icon">🩹</span>
-              <span>Heal</span>
-            </button>
-            <button
-              className={`removal-adjustments__mode-btn ${brushMode === 'clone' ? 'removal-adjustments__mode-btn--active' : ''}`}
-              onClick={() => setBrushMode('clone')}
-              title="Clone: Direct pixel copy from source"
-            >
-              <span className="removal-adjustments__mode-icon">📋</span>
-              <span>Clone</span>
-            </button>
-            <button
-              className={`removal-adjustments__mode-btn ${brushMode === 'content-aware' ? 'removal-adjustments__mode-btn--active' : ''}`}
-              onClick={() => setBrushMode('content-aware')}
-              title="Content-Aware: AI fills using surrounding content"
-            >
-              <span className="removal-adjustments__mode-icon">✨</span>
-              <span>Fill</span>
-            </button>
-          </div>
-          <p className="removal-adjustments__hint">
-            {brushMode === 'heal' && 'Copies texture, matches colors automatically'}
-            {brushMode === 'clone' && 'Exact pixel copy from source point'}
-            {brushMode === 'content-aware' && 'Fills with surrounding patterns'}
-          </p>
-        </div>
 
         <div className="removal-adjustments__controls">
           <div className="removal-adjustments__control-group">
@@ -350,7 +265,7 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
 
           <div className="removal-adjustments__control-group">
             <label className="removal-adjustments__label">
-              Feather: {Math.round(feather * 100)}%
+              Edge Softness: {Math.round(feather * 100)}%
             </label>
             <input
               type="range"
@@ -361,22 +276,6 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
               className="removal-adjustments__slider"
             />
           </div>
-
-          {(brushMode === 'clone' || brushMode === 'heal') && (
-            <div className="removal-adjustments__control-group">
-              <label className="removal-adjustments__label">
-                Opacity: {Math.round(opacity * 100)}%
-              </label>
-              <input
-                type="range"
-                min="10"
-                max="100"
-                value={opacity * 100}
-                onChange={(e) => setOpacity(Number(e.target.value) / 100)}
-                className="removal-adjustments__slider"
-              />
-            </div>
-          )}
         </div>
 
         <button
@@ -384,19 +283,37 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
           onClick={handleActivate}
           disabled={disabled || !hasImage}
         >
-          Start {brushMode === 'heal' ? 'Healing' : brushMode === 'clone' ? 'Cloning' : 'Content-Aware Fill'}
+          Start Removal Tool
         </button>
 
-        {(brushMode === 'clone' || brushMode === 'heal') && (
-          <div className="removal-adjustments__tip">
-            <strong>How to use:</strong>
-            <ol className="removal-adjustments__tip-list">
-              <li>Hold <kbd>Alt</kbd> + Click to set source point</li>
-              <li>Paint over the area you want to fix</li>
-              <li>Click Apply when done</li>
-            </ol>
+        <div className="removal-adjustments__tip">
+          <strong>How to use:</strong>
+          <ol className="removal-adjustments__tip-list">
+            <li>Draw around or over the object you want to remove</li>
+            <li>Close the shape for best results</li>
+            <li>Click Apply when done</li>
+          </ol>
+        </div>
+
+        {/* AI Usage Info */}
+        <div className="removal-adjustments__ai-info">
+          <div className="removal-adjustments__ai-badge">
+            {window.location.hostname === 'localhost' || window.location.port === '5173'
+              ? '🔧 Local Processing (Dev Mode)'
+              : '🤖 AI-Powered Removal'
+            }
           </div>
-        )}
+          <p className="removal-adjustments__ai-description">
+            {window.location.hostname === 'localhost' || window.location.port === '5173'
+              ? 'Deploy to Vercel to enable AI removal'
+              : aiUsesRemaining === 0 
+                ? '⚠️ Daily AI limit reached. Using local processing.'
+                : aiUsesRemaining !== null 
+                  ? `✨ ${aiUsesRemaining} AI removals remaining today`
+                  : '✨ 5 free AI removals per day'
+            }
+          </p>
+        </div>
       </div>
     );
   }
@@ -406,18 +323,14 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
       <div className="removal-adjustments__toolbar">
         <div className="removal-adjustments__tool-info">
           <span className="removal-adjustments__mode-badge">
-            {brushMode === 'heal' && '🩹 Healing'}
-            {brushMode === 'clone' && '📋 Cloning'}
-            {brushMode === 'content-aware' && '✨ Content-Aware'}
+            ✨ Remove Tool
           </span>
           <span className="removal-adjustments__stroke-count">
-            {strokes.length} {strokes.length === 1 ? 'stroke' : 'strokes'}
+            {strokes.length === 0 
+              ? 'Draw on areas to remove' 
+              : `${strokes.length} ${strokes.length === 1 ? 'area' : 'areas'} marked`
+            }
           </span>
-          {(brushMode === 'clone' || brushMode === 'heal') && (
-            <span className={`removal-adjustments__source-status ${sourcePoint ? 'removal-adjustments__source-status--set' : ''}`}>
-              {sourcePoint ? '✓ Source set' : '⚠ Alt+Click to set source'}
-            </span>
-          )}
         </div>
 
         <div className="removal-adjustments__brush-size-control">
@@ -440,14 +353,15 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
           <button
             className="removal-adjustments__action-btn removal-adjustments__action-btn--secondary"
             onClick={handleUndo}
-            disabled={strokes.length === 0}
-            title="Undo last stroke (Ctrl+Z)"
+            disabled={strokes.length === 0 || isProcessing}
+            title="Remove last mark (Ctrl+Z)"
           >
             ↶ Undo
           </button>
           <button
             className="removal-adjustments__action-btn removal-adjustments__action-btn--danger"
             onClick={handleCancel}
+            disabled={isProcessing}
             title="Cancel and discard all changes (Esc)"
           >
             Cancel
@@ -455,9 +369,13 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
           <button
             className="removal-adjustments__action-btn removal-adjustments__action-btn--primary"
             onClick={handleApply}
-            title="Apply all changes (Enter)"
+            disabled={strokes.length === 0 || isProcessing}
+            title="Process and apply all removals (Enter)"
           >
-            ✓ Apply
+            {strokes.length > 0 
+              ? `✨ Remove ${strokes.length} ${strokes.length === 1 ? 'area' : 'areas'}`
+              : '✓ Done'
+            }
           </button>
         </div>
       </div>
@@ -466,14 +384,12 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
       <RemovalToolOverlay
         canvasRef={canvasRef}
         onStrokeComplete={handleStrokeComplete}
-        brushMode={brushMode}
+        brushMode="content-aware"
         brushSize={brushSize}
         feather={feather}
         opacity={opacity}
         onBrushSizeChange={setBrushSize}
         completedStrokes={strokes}
-        sourcePoint={sourcePoint}
-        onSourcePointChange={setSourcePoint}
       />
       
       {/* Processing overlay */}
@@ -481,7 +397,7 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
         <div className="removal-adjustments__processing-overlay">
           <div className="removal-adjustments__processing-spinner" />
           <div className="removal-adjustments__processing-text">
-            Processing content-aware fill...
+            {processingStatus}
           </div>
         </div>
       )}
