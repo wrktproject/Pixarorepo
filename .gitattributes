@@ -1,1 +1,2 @@
-*.onnx filter=lfs diff=lfs merge=lfs -text
+# Ensure .nvmrc always uses LF line endings
+.nvmrc text eol=lf
