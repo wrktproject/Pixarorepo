@@ -53,41 +53,9 @@ export default defineConfig(({ mode }) => {
       chunkSizeWarningLimit: 1000,
       rollupOptions: {
         output: {
-          // Manual chunk splitting for better caching
-          manualChunks: (id) => {
-            if (id.includes('node_modules')) {
-              // Core React libraries
-              if (id.includes('react') || id.includes('react-dom')) {
-                return 'react-vendor';
-              }
-              // Redux libraries
-              if (id.includes('redux') || id.includes('react-redux')) {
-                return 'redux-vendor';
-              }
-              // TensorFlow.js (large library)
-              if (id.includes('@tensorflow')) {
-                return 'ai';
-              }
-              // Router
-              if (id.includes('react-router')) {
-                return 'router';
-              }
-              // Other node_modules
-              return 'vendor';
-            }
-            // Image processing engine
-            if (id.includes('/src/engine/')) {
-              return 'image-processing';
-            }
-            // Workers
-            if (id.includes('/src/workers/')) {
-              return 'workers';
-            }
-            // Components (split large component groups)
-            if (id.includes('/src/components/')) {
-              return 'components';
-            }
-          },
+          // Simplified chunking - let Rollup handle it automatically
+          // Manual chunking was causing initialization order issues with React 19
+          manualChunks: undefined,
           // Optimize asset file names with content hashing
           assetFileNames: (assetInfo) => {
             const info = assetInfo.name?.split('.') || [];
@@ -144,7 +112,7 @@ export default defineConfig(({ mode }) => {
     // Define global for browser environment
     define: {
       'global': 'globalThis',
-      'process.env': '{}',
+      'process.env.NODE_ENV': JSON.stringify('production'),
     },
     resolve: {
       alias: {
