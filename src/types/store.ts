@@ -51,7 +51,7 @@ export interface UIState {
   showHistogram: boolean;
   showComparison: boolean;
   isExportDialogOpen: boolean;
-  activeTool: 'none' | 'crop' | 'removal';
+  activeTool: 'none' | 'crop' | 'removal' | 'blur' | 'presets';
   brushSize: number;
   showGrid: boolean;
   loadingState: LoadingState;

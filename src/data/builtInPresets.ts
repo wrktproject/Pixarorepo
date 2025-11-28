@@ -91,6 +91,7 @@ export const builtInPresets: Preset[] = [
       grain: {
         amount: 8,       // Reduced from 25
         size: 'fine',
+        roughness: 50,
       },
     },
   },

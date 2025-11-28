@@ -37,7 +37,7 @@ export class WebGLContextManager {
     if (!this.gl) {
       // Fallback to WebGL1 if WebGL2 is not available
       const gl1 = this.canvas.getContext('webgl', contextAttributes) || 
-                  this.canvas.getContext('experimental-webgl', contextAttributes);
+                  (this.canvas as HTMLCanvasElement).getContext('experimental-webgl' as 'webgl', contextAttributes);
       if (gl1) {
         console.warn('WebGL2 not available, falling back to WebGL1');
         this.gl = gl1 as WebGL2RenderingContext;

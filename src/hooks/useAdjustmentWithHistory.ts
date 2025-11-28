@@ -20,7 +20,7 @@ export function useAdjustmentWithHistory<T>(
   }, [setter]);
 
   // onChangeComplete: called when slider is released (save to history)
-  const handleChangeComplete = useCallback((value: T) => {
+  const handleChangeComplete = useCallback((_value: T) => {
     // Save current state to history
     dispatch(addToHistory(currentAdjustments));
   }, [dispatch, currentAdjustments]);

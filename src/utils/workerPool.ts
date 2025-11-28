@@ -10,16 +10,16 @@ interface WorkerInstance {
   busy: boolean;
 }
 
-interface QueuedTask {
+interface QueuedTask<T = unknown> {
   task: WorkerTask;
-  resolve: (value: unknown) => void;
+  resolve: (value: T) => void;
   reject: (error: Error) => void;
   timeout?: number;
 }
 
 export class WorkerPoolImpl implements WorkerPool {
   private workers: WorkerInstance[] = [];
-  private queue: QueuedTask[] = [];
+  private queue: QueuedTask<unknown>[] = [];
   private maxWorkers: number;
   private workerScript: string;
 
@@ -33,9 +33,9 @@ export class WorkerPoolImpl implements WorkerPool {
    */
   async execute<T>(task: WorkerTask, timeout: number = 30000): Promise<T> {
     return new Promise((resolve, reject) => {
-      const queuedTask: QueuedTask = {
+      const queuedTask: QueuedTask<unknown> = {
         task,
-        resolve,
+        resolve: resolve as (value: unknown) => void,
         reject,
         timeout,
       };

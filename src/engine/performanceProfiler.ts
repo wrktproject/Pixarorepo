@@ -233,7 +233,7 @@ export class PerformanceProfiler {
   /**
    * Start timing a shader pass
    */
-  public startPass(passName: string): number {
+  public startPass(_passName: string): number {
     if (!this.enabled || !this.config.enableDetailedProfiling) return 0;
     return performance.now();
   }

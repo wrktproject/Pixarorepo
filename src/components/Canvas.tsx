@@ -7,10 +7,10 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import type { RootState } from '../store';
-import { store, setZoom, setPan, resetView, setShowComparison, toggleHistogram, setRenderedImageData, setAllAdjustments, addToHistory } from '../store';
+import { store, setZoom, setPan, resetView, setShowComparison, setRenderedImageData, setAllAdjustments, addToHistory } from '../store';
 import { ShaderPipelineErrorHandler } from '../engine/shaderPipelineErrorHandler';
 import type { RenderMode } from '../engine/shaderPipelineErrorHandler';
-import { Histogram } from './Histogram';
+// Histogram imported but rendered via separate component
 import { CropTool } from './CropTool';
 import { ErrorNotification } from './ErrorNotification';
 import type { PixaroError } from '../types/errors';
@@ -46,8 +46,7 @@ export const Canvas: React.FC<CanvasProps> = ({ canvasRef: externalCanvasRef }) 
   const [isDragOver, setIsDragOver] = useState(false); // For preset drag-and-drop
   const lastHistogramUpdate = useRef<number>(0);
 
-  // Get rendered image data from Redux
-  const renderedImageData = useSelector((state: RootState) => state.ui.renderedImageData);
+  // Rendered image data is available via state.ui.renderedImageData for histogram updates
 
 
   // Error handling state (Requirement 10.5)
@@ -596,12 +595,7 @@ export const Canvas: React.FC<CanvasProps> = ({ canvasRef: externalCanvasRef }) 
     dispatch(setShowComparison(false));
   }, [dispatch]);
 
-  /**
-   * Toggle histogram display
-   */
-  const handleToggleHistogram = useCallback(() => {
-    dispatch(toggleHistogram());
-  }, [dispatch]);
+  // Histogram toggle is available via dispatch(toggleHistogram()) for keyboard shortcuts
 
 
   /**

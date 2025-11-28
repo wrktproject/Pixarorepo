@@ -23,7 +23,8 @@ self.onmessage = async (event: MessageEvent<ExportTask>) => {
     const { imageData, adjustments } = payload;
 
     // Apply all adjustments at full resolution
-    const processedImageData = applyAdjustmentsToImageData(imageData, adjustments);
+    // Cast adjustments from Record<string, unknown> to AdjustmentState (worker receives serialized data)
+    const processedImageData = applyAdjustmentsToImageData(imageData, adjustments as unknown as AdjustmentState);
 
     // Send back the processed image data
     const response: WorkerResponse<ImageData> = {

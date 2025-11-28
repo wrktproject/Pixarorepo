@@ -44,7 +44,7 @@ self.onmessage = async (event: MessageEvent<DecodeRawTask>) => {
  * For now, this returns an error indicating RAW support is not implemented
  */
 async function decodeRawFile(
-  fileBuffer: ArrayBuffer,
+  _fileBuffer: ArrayBuffer,
   fileName: string
 ): Promise<{
   imageData: ImageData;

@@ -152,8 +152,8 @@ export class WorkerPool {
         return;
       }
 
-      // Add to queue
-      this.taskQueue.push(task);
+      // Add to queue (cast to unknown to satisfy variance)
+      this.taskQueue.push(task as WorkerTask<unknown, unknown>);
 
       // Try to process immediately
       this.processNextTask();

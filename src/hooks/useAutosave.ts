@@ -46,7 +46,7 @@ export function useAutosave(config: AutosaveConfig = {}) {
   
   // Track if initial load has completed
   const hasLoadedRef = useRef(false);
-  const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSaveTimeRef = useRef<number>(0);
 
   /**

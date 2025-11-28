@@ -312,6 +312,8 @@ export function createDarktablePresets(): Preset[] {
           contrast: 0.7,
           skew: 0.2,
           middleGrey: 0.1845,
+          mode: 'per-channel',
+          huePreservation: 0.5,
         },
         saturationModule: {
           enabled: true,
@@ -463,6 +465,8 @@ export function createDarktablePresets(): Preset[] {
           contrast: 0.75,
           skew: 0.15,
           middleGrey: 0.1845,
+          mode: 'per-channel',
+          huePreservation: 0.5,
         },
         saturationModule: {
           enabled: true,
@@ -550,6 +554,8 @@ export function createDarktablePresets(): Preset[] {
           contrast: 0.8,
           skew: 0.1,
           middleGrey: 0.1845,
+          mode: 'per-channel',
+          huePreservation: 0.5,
         },
         saturationModule: {
           enabled: true,

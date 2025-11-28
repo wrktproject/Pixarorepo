@@ -75,7 +75,7 @@ export async function calculateHistogram(imageData: ImageData): Promise<Histogra
     imageData.height
   );
 
-  const result = await pool.execute<{ type: string; imageData: ImageData }, { histogram: number[] }>(
+  const result = await pool.execute<{ type: string; imageData: ImageData }, { type: string; histogram: HistogramData }>(
     'calculate',
     { type: 'calculate', imageData: clonedData },
     {
