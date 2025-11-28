@@ -31,6 +31,7 @@ export interface ExportOptions {
 
 /**
  * Export canvas to file and trigger download
+ * Handles both WebGL and 2D canvas contexts
  */
 export async function exportCanvasToFile(
   canvas: HTMLCanvasElement,
@@ -44,11 +45,52 @@ export async function exportCanvasToFile(
 
   return new Promise((resolve, reject) => {
     try {
+      // Check if canvas is using WebGL
+      const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+      
+      let exportCanvas: HTMLCanvasElement;
+      
+      if (gl) {
+        // WebGL canvas - need to read pixels and create 2D canvas
+        const width = canvas.width;
+        const height = canvas.height;
+        
+        // Create temporary 2D canvas for export
+        exportCanvas = document.createElement('canvas');
+        exportCanvas.width = width;
+        exportCanvas.height = height;
+        const ctx = exportCanvas.getContext('2d');
+        
+        if (!ctx) {
+          reject(new Error('Failed to create 2D context for export'));
+          return;
+        }
+        
+        // Read pixels from WebGL context
+        const pixels = new Uint8Array(width * height * 4);
+        gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+        
+        // Flip vertically (WebGL has origin at bottom-left, canvas has top-left)
+        const flippedPixels = new Uint8ClampedArray(width * height * 4);
+        for (let y = 0; y < height; y++) {
+          const srcRow = (height - 1 - y) * width * 4;
+          const dstRow = y * width * 4;
+          flippedPixels.set(pixels.subarray(srcRow, srcRow + width * 4), dstRow);
+        }
+        
+        // Put image data on 2D canvas
+        const imageData = new ImageData(flippedPixels, width, height);
+        ctx.putImageData(imageData, 0, 0);
+      } else {
+        // Regular 2D canvas - use directly
+        exportCanvas = canvas;
+      }
+      
       // Determine MIME type
       const mimeType = `image/${format}`;
       
       // Convert canvas to blob
-      canvas.toBlob(
+      exportCanvas.toBlob(
         (blob) => {
           if (!blob) {
             reject(new Error('Failed to create image blob'));
@@ -83,6 +125,7 @@ export async function exportCanvasToFile(
 
 /**
  * Export canvas to blob for further processing
+ * Handles both WebGL and 2D canvas contexts
  */
 export async function exportCanvasToBlob(
   canvas: HTMLCanvasElement,
@@ -94,24 +137,70 @@ export async function exportCanvasToBlob(
   } = options;
 
   return new Promise((resolve, reject) => {
-    const mimeType = `image/${format}`;
-    
-    canvas.toBlob(
-      (blob) => {
-        if (!blob) {
-          reject(new Error('Failed to create image blob'));
+    try {
+      // Check if canvas is using WebGL
+      const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+      
+      let exportCanvas: HTMLCanvasElement;
+      
+      if (gl) {
+        // WebGL canvas - need to read pixels and create 2D canvas
+        const width = canvas.width;
+        const height = canvas.height;
+        
+        // Create temporary 2D canvas for export
+        exportCanvas = document.createElement('canvas');
+        exportCanvas.width = width;
+        exportCanvas.height = height;
+        const ctx = exportCanvas.getContext('2d');
+        
+        if (!ctx) {
+          reject(new Error('Failed to create 2D context for export'));
           return;
         }
-        resolve(blob);
-      },
-      mimeType,
-      format === 'png' ? undefined : quality
-    );
+        
+        // Read pixels from WebGL context
+        const pixels = new Uint8Array(width * height * 4);
+        gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+        
+        // Flip vertically (WebGL has origin at bottom-left, canvas has top-left)
+        const flippedPixels = new Uint8ClampedArray(width * height * 4);
+        for (let y = 0; y < height; y++) {
+          const srcRow = (height - 1 - y) * width * 4;
+          const dstRow = y * width * 4;
+          flippedPixels.set(pixels.subarray(srcRow, srcRow + width * 4), dstRow);
+        }
+        
+        // Put image data on 2D canvas
+        const imageData = new ImageData(flippedPixels, width, height);
+        ctx.putImageData(imageData, 0, 0);
+      } else {
+        // Regular 2D canvas - use directly
+        exportCanvas = canvas;
+      }
+      
+      const mimeType = `image/${format}`;
+      
+      exportCanvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            reject(new Error('Failed to create image blob'));
+            return;
+          }
+          resolve(blob);
+        },
+        mimeType,
+        format === 'png' ? undefined : quality
+      );
+    } catch (error) {
+      reject(error);
+    }
   });
 }
 
 /**
  * Export canvas to data URL
+ * Handles both WebGL and 2D canvas contexts
  */
 export function exportCanvasToDataURL(
   canvas: HTMLCanvasElement,
@@ -122,8 +211,48 @@ export function exportCanvasToDataURL(
     quality = 0.95,
   } = options;
 
+  // Check if canvas is using WebGL
+  const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+  
+  let exportCanvas: HTMLCanvasElement;
+  
+  if (gl) {
+    // WebGL canvas - need to read pixels and create 2D canvas
+    const width = canvas.width;
+    const height = canvas.height;
+    
+    // Create temporary 2D canvas for export
+    exportCanvas = document.createElement('canvas');
+    exportCanvas.width = width;
+    exportCanvas.height = height;
+    const ctx = exportCanvas.getContext('2d');
+    
+    if (!ctx) {
+      throw new Error('Failed to create 2D context for export');
+    }
+    
+    // Read pixels from WebGL context
+    const pixels = new Uint8Array(width * height * 4);
+    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    
+    // Flip vertically (WebGL has origin at bottom-left, canvas has top-left)
+    const flippedPixels = new Uint8ClampedArray(width * height * 4);
+    for (let y = 0; y < height; y++) {
+      const srcRow = (height - 1 - y) * width * 4;
+      const dstRow = y * width * 4;
+      flippedPixels.set(pixels.subarray(srcRow, srcRow + width * 4), dstRow);
+    }
+    
+    // Put image data on 2D canvas
+    const imageData = new ImageData(flippedPixels, width, height);
+    ctx.putImageData(imageData, 0, 0);
+  } else {
+    // Regular 2D canvas - use directly
+    exportCanvas = canvas;
+  }
+
   const mimeType = `image/${format}`;
-  return canvas.toDataURL(mimeType, format === 'png' ? undefined : quality);
+  return exportCanvas.toDataURL(mimeType, format === 'png' ? undefined : quality);
 }
 
 /**
