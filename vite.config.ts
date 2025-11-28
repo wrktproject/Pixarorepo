@@ -145,7 +145,6 @@ export default defineConfig(({ mode }) => {
     define: {
       'global': 'globalThis',
       'process.env': '{}',
-      'module': '{}',
     },
     resolve: {
       alias: {
