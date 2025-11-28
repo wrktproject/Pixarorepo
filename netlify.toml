@@ -8,8 +8,16 @@
   # Output directory
   publish = "dist"
   
+  # Functions directory
+  functions = "netlify/functions"
+  
   # Node version (Vite 7 requires Node.js 20.19+ or 22.12+)
   environment = { NODE_VERSION = "20" }
+
+# Netlify Functions configuration
+[functions]
+  # Use esbuild for TypeScript
+  node_bundler = "esbuild"
 
 # SPA routing - redirect all requests to index.html
 [[redirects]]
