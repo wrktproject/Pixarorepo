@@ -4,6 +4,89 @@
  * Similar to Lightroom's "Export" functionality
  */
 
+/**
+ * Helper function to read pixels from WebGL canvas and create a 2D canvas
+ */
+function readWebGLCanvas(canvas: HTMLCanvasElement): HTMLCanvasElement {
+  const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+  
+  if (!gl) {
+    // Not a WebGL canvas, return original
+    return canvas;
+  }
+  
+  const width = canvas.width;
+  const height = canvas.height;
+  
+  // Validate dimensions
+  if (width === 0 || height === 0) {
+    throw new Error('Canvas has zero dimensions');
+  }
+  
+  // Check if context is lost
+  if (gl.isContextLost()) {
+    throw new Error('WebGL context is lost');
+  }
+  
+  // Create temporary 2D canvas for export
+  const exportCanvas = document.createElement('canvas');
+  exportCanvas.width = width;
+  exportCanvas.height = height;
+  const ctx = exportCanvas.getContext('2d');
+  
+  if (!ctx) {
+    throw new Error('Failed to create 2D context for export');
+  }
+  
+  try {
+    // Ensure we're reading from the default framebuffer (0)
+    // Save current framebuffer binding
+    const currentFramebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING);
+    
+    // Bind to default framebuffer (the canvas)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    
+    // Read pixels from WebGL context
+    const pixels = new Uint8Array(width * height * 4);
+    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    
+    // Restore previous framebuffer binding
+    if (currentFramebuffer) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, currentFramebuffer);
+    }
+    
+    // Check if we got valid data (not all zeros/black)
+    let hasData = false;
+    for (let i = 0; i < pixels.length; i += 4) {
+      if (pixels[i] !== 0 || pixels[i + 1] !== 0 || pixels[i + 2] !== 0) {
+        hasData = true;
+        break;
+      }
+    }
+    
+    if (!hasData) {
+      console.warn('WebGL canvas appears to be empty. Canvas dimensions:', width, 'x', height);
+      throw new Error('Canvas appears empty. Please ensure the image is fully loaded and rendered.');
+    }
+    
+    // Flip vertically (WebGL has origin at bottom-left, canvas has top-left)
+    const flippedPixels = new Uint8ClampedArray(width * height * 4);
+    for (let y = 0; y < height; y++) {
+      const srcRow = (height - 1 - y) * width * 4;
+      const dstRow = y * width * 4;
+      flippedPixels.set(pixels.subarray(srcRow, srcRow + width * 4), dstRow);
+    }
+    
+    // Put image data on 2D canvas
+    const imageData = new ImageData(flippedPixels, width, height);
+    ctx.putImageData(imageData, 0, 0);
+    
+    return exportCanvas;
+  } catch (error) {
+    throw new Error(`Failed to read WebGL pixels: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
 export interface ExportOptions {
   /** Output format */
   format: 'jpeg' | 'png' | 'webp';
@@ -44,47 +127,11 @@ export async function exportCanvasToFile(
   } = options;
 
   return new Promise((resolve, reject) => {
-    try {
-      // Check if canvas is using WebGL
-      const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
-      
-      let exportCanvas: HTMLCanvasElement;
-      
-      if (gl) {
-        // WebGL canvas - need to read pixels and create 2D canvas
-        const width = canvas.width;
-        const height = canvas.height;
-        
-        // Create temporary 2D canvas for export
-        exportCanvas = document.createElement('canvas');
-        exportCanvas.width = width;
-        exportCanvas.height = height;
-        const ctx = exportCanvas.getContext('2d');
-        
-        if (!ctx) {
-          reject(new Error('Failed to create 2D context for export'));
-          return;
-        }
-        
-        // Read pixels from WebGL context
-        const pixels = new Uint8Array(width * height * 4);
-        gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-        
-        // Flip vertically (WebGL has origin at bottom-left, canvas has top-left)
-        const flippedPixels = new Uint8ClampedArray(width * height * 4);
-        for (let y = 0; y < height; y++) {
-          const srcRow = (height - 1 - y) * width * 4;
-          const dstRow = y * width * 4;
-          flippedPixels.set(pixels.subarray(srcRow, srcRow + width * 4), dstRow);
-        }
-        
-        // Put image data on 2D canvas
-        const imageData = new ImageData(flippedPixels, width, height);
-        ctx.putImageData(imageData, 0, 0);
-      } else {
-        // Regular 2D canvas - use directly
-        exportCanvas = canvas;
-      }
+    // Wait for next frame to ensure render is complete
+    requestAnimationFrame(() => {
+      try {
+        // Get export canvas (handles WebGL if needed)
+        const exportCanvas = readWebGLCanvas(canvas);
       
       // Determine MIME type
       const mimeType = `image/${format}`;
@@ -117,9 +164,10 @@ export async function exportCanvasToFile(
         mimeType,
         format === 'png' ? undefined : quality
       );
-    } catch (error) {
-      reject(error);
-    }
+      } catch (error) {
+        reject(error);
+      }
+    });
   });
 }
 
@@ -137,64 +185,29 @@ export async function exportCanvasToBlob(
   } = options;
 
   return new Promise((resolve, reject) => {
-    try {
-      // Check if canvas is using WebGL
-      const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
-      
-      let exportCanvas: HTMLCanvasElement;
-      
-      if (gl) {
-        // WebGL canvas - need to read pixels and create 2D canvas
-        const width = canvas.width;
-        const height = canvas.height;
+    // Wait for next frame to ensure render is complete
+    requestAnimationFrame(() => {
+      try {
+        // Get export canvas (handles WebGL if needed)
+        const exportCanvas = readWebGLCanvas(canvas);
         
-        // Create temporary 2D canvas for export
-        exportCanvas = document.createElement('canvas');
-        exportCanvas.width = width;
-        exportCanvas.height = height;
-        const ctx = exportCanvas.getContext('2d');
+        const mimeType = `image/${format}`;
         
-        if (!ctx) {
-          reject(new Error('Failed to create 2D context for export'));
-          return;
-        }
-        
-        // Read pixels from WebGL context
-        const pixels = new Uint8Array(width * height * 4);
-        gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-        
-        // Flip vertically (WebGL has origin at bottom-left, canvas has top-left)
-        const flippedPixels = new Uint8ClampedArray(width * height * 4);
-        for (let y = 0; y < height; y++) {
-          const srcRow = (height - 1 - y) * width * 4;
-          const dstRow = y * width * 4;
-          flippedPixels.set(pixels.subarray(srcRow, srcRow + width * 4), dstRow);
-        }
-        
-        // Put image data on 2D canvas
-        const imageData = new ImageData(flippedPixels, width, height);
-        ctx.putImageData(imageData, 0, 0);
-      } else {
-        // Regular 2D canvas - use directly
-        exportCanvas = canvas;
+        exportCanvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error('Failed to create image blob'));
+              return;
+            }
+            resolve(blob);
+          },
+          mimeType,
+          format === 'png' ? undefined : quality
+        );
+      } catch (error) {
+        reject(error);
       }
-      
-      const mimeType = `image/${format}`;
-      
-      exportCanvas.toBlob(
-        (blob) => {
-          if (!blob) {
-            reject(new Error('Failed to create image blob'));
-            return;
-          }
-          resolve(blob);
-        },
-        mimeType,
-        format === 'png' ? undefined : quality
-      );
-    } catch (error) {
-      reject(error);
-    }
+    });
   });
 }
 
@@ -211,46 +224,10 @@ export function exportCanvasToDataURL(
     quality = 0.95,
   } = options;
 
-  // Check if canvas is using WebGL
-  const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+  // Note: This is synchronous, so we can't wait for render
+  // Caller should ensure render is complete before calling
+  const exportCanvas = readWebGLCanvas(canvas);
   
-  let exportCanvas: HTMLCanvasElement;
-  
-  if (gl) {
-    // WebGL canvas - need to read pixels and create 2D canvas
-    const width = canvas.width;
-    const height = canvas.height;
-    
-    // Create temporary 2D canvas for export
-    exportCanvas = document.createElement('canvas');
-    exportCanvas.width = width;
-    exportCanvas.height = height;
-    const ctx = exportCanvas.getContext('2d');
-    
-    if (!ctx) {
-      throw new Error('Failed to create 2D context for export');
-    }
-    
-    // Read pixels from WebGL context
-    const pixels = new Uint8Array(width * height * 4);
-    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-    
-    // Flip vertically (WebGL has origin at bottom-left, canvas has top-left)
-    const flippedPixels = new Uint8ClampedArray(width * height * 4);
-    for (let y = 0; y < height; y++) {
-      const srcRow = (height - 1 - y) * width * 4;
-      const dstRow = y * width * 4;
-      flippedPixels.set(pixels.subarray(srcRow, srcRow + width * 4), dstRow);
-    }
-    
-    // Put image data on 2D canvas
-    const imageData = new ImageData(flippedPixels, width, height);
-    ctx.putImageData(imageData, 0, 0);
-  } else {
-    // Regular 2D canvas - use directly
-    exportCanvas = canvas;
-  }
-
   const mimeType = `image/${format}`;
   return exportCanvas.toDataURL(mimeType, format === 'png' ? undefined : quality);
 }
