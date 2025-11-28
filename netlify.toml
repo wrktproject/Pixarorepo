@@ -8,8 +8,8 @@
   # Output directory
   publish = "dist"
   
-  # Node version
-  environment = { NODE_VERSION = "18" }
+  # Node version (Vite 7 requires Node.js 20.19+ or 22.12+)
+  environment = { NODE_VERSION = "20" }
 
 # SPA routing - redirect all requests to index.html
 [[redirects]]
