@@ -4,6 +4,9 @@
  * Similar to Lightroom's "Export" functionality
  */
 
+import { ExportRenderer } from '../engine/exportRenderer';
+import type { AdjustmentState } from '../types/adjustments';
+
 /**
  * Helper function to read pixels from WebGL canvas and create a 2D canvas
  */
@@ -110,6 +113,91 @@ export interface ExportOptions {
     copyright?: string;
     author?: string;
   };
+}
+
+/**
+ * Export image with adjustments applied using the full-resolution ExportRenderer
+ * This is the preferred method as it doesn't depend on the display canvas buffer
+ */
+export async function exportImageWithAdjustments(
+  imageData: ImageData,
+  adjustments: AdjustmentState,
+  options: ExportOptions
+): Promise<void> {
+  const {
+    format = 'jpeg',
+    quality = 0.95,
+    filename = `pixaro-export-${Date.now()}`,
+  } = options;
+
+  try {
+    console.log('📸 Starting export with ExportRenderer...', {
+      dimensions: `${imageData.width}x${imageData.height}`,
+      format,
+      quality
+    });
+
+    // Use ExportRenderer to render with all adjustments at full resolution
+    const exportRenderer = new ExportRenderer();
+    const renderedImageData = await exportRenderer.renderToImageData(imageData, adjustments, {
+      enableDithering: true,
+      ditherStrength: 0.5,
+      preserveColorSpace: true,
+    });
+
+    console.log('✅ Rendered image data:', {
+      width: renderedImageData.width,
+      height: renderedImageData.height
+    });
+
+    // Create a canvas to convert ImageData to blob
+    const canvas = document.createElement('canvas');
+    canvas.width = renderedImageData.width;
+    canvas.height = renderedImageData.height;
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) {
+      throw new Error('Failed to create 2D context for export');
+    }
+
+    ctx.putImageData(renderedImageData, 0, 0);
+
+    // Convert to blob and download
+    const mimeType = `image/${format}`;
+    
+    return new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            reject(new Error('Failed to create image blob'));
+            return;
+          }
+
+          // Create download link
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `${filename}.${format}`;
+          
+          // Trigger download
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          // Clean up
+          setTimeout(() => URL.revokeObjectURL(url), 100);
+          
+          console.log(`✅ Exported image: ${link.download} (${(blob.size / 1024 / 1024).toFixed(2)} MB)`);
+          resolve();
+        },
+        mimeType,
+        format === 'png' ? undefined : quality
+      );
+    });
+  } catch (error) {
+    console.error('Export with adjustments failed:', error);
+    throw error;
+  }
 }
 
 /**

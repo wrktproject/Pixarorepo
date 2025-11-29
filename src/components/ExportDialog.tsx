@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../store';
 import {
-  exportCanvasToFile,
+  exportImageWithAdjustments,
   copyCanvasToClipboard,
   getRecommendedExportSettings,
   estimateExportSize,
@@ -69,8 +69,8 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
   };
 
   const handleExport = async () => {
-    if (!canvasRef.current) {
-      alert('Canvas not available');
+    if (!image) {
+      alert('No image to export');
       return;
     }
 
@@ -83,14 +83,16 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
         filename,
       };
 
-      await exportCanvasToFile(canvasRef.current, options);
+      // Use the new export function that renders with adjustments
+      // image is ProcessedImage which contains the ImageData in .data property
+      await exportImageWithAdjustments(image.data, adjustments, options);
       
       console.log('✅ Export complete');
       onExportComplete?.();
       onClose();
     } catch (error) {
       console.error('Export failed:', error);
-      alert('Failed to export image. Please try again.');
+      alert(`Failed to export image: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsExporting(false);
     }
