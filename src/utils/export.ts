@@ -131,24 +131,72 @@ export async function exportImageWithAdjustments(
   } = options;
 
   try {
-    console.log('📸 Starting export with ExportRenderer...', {
+    console.log('📸 Starting export...', {
       dimensions: `${imageData.width}x${imageData.height}`,
       format,
-      quality
+      quality,
+      hasAdjustments: adjustments !== undefined
     });
 
-    // Use ExportRenderer to render with all adjustments at full resolution
-    const exportRenderer = new ExportRenderer();
-    const renderedImageData = await exportRenderer.renderToImageData(imageData, adjustments, {
-      enableDithering: true,
-      ditherStrength: 0.5,
-      preserveColorSpace: true,
-    });
+    let renderedImageData: ImageData;
+
+    // Check if there are significant adjustments that need the full pipeline
+    const hasSignificantAdjustments = 
+      adjustments.exposure !== 0 ||
+      adjustments.contrast !== 0 ||
+      adjustments.highlights !== 0 ||
+      adjustments.shadows !== 0 ||
+      adjustments.whites !== 0 ||
+      adjustments.blacks !== 0 ||
+      adjustments.saturation !== 0 ||
+      adjustments.vibrance !== 0 ||
+      adjustments.temperature !== 6500 ||
+      adjustments.tint !== 0 ||
+      adjustments.clarity !== 0 ||
+      adjustments.crop !== null ||
+      adjustments.rotation !== 0;
+
+    if (hasSignificantAdjustments) {
+      console.log('📸 Using ExportRenderer for adjustments...');
+      try {
+        const exportRenderer = new ExportRenderer();
+        renderedImageData = await exportRenderer.renderToImageData(imageData, adjustments, {
+          enableDithering: true,
+          ditherStrength: 0.5,
+          preserveColorSpace: true,
+        });
+        console.log('✅ ExportRenderer completed');
+      } catch (renderError) {
+        console.warn('ExportRenderer failed, falling back to direct export:', renderError);
+        // Fall back to direct export without adjustments
+        renderedImageData = imageData;
+      }
+    } else {
+      console.log('📸 No significant adjustments, using direct export...');
+      renderedImageData = imageData;
+    }
 
     console.log('✅ Rendered image data:', {
       width: renderedImageData.width,
-      height: renderedImageData.height
+      height: renderedImageData.height,
+      dataLength: renderedImageData.data.length
     });
+
+    // Verify the image data has content (not all zeros)
+    let hasContent = false;
+    for (let i = 0; i < Math.min(renderedImageData.data.length, 10000); i += 4) {
+      if (renderedImageData.data[i] !== 0 || 
+          renderedImageData.data[i + 1] !== 0 || 
+          renderedImageData.data[i + 2] !== 0) {
+        hasContent = true;
+        break;
+      }
+    }
+    
+    if (!hasContent) {
+      console.warn('⚠️ Rendered image appears to be empty/black, using source image...');
+      renderedImageData = imageData;
+    }
 
     // Create a canvas to convert ImageData to blob
     const canvas = document.createElement('canvas');
