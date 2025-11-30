@@ -7,7 +7,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import type { RootState } from '../store';
 import { setActiveTool } from '../store/uiSlice';
-import { setCurrentImageWithHistory } from '../store/imageSlice';
+import { setCurrentImage, setCurrentImageWithHistory } from '../store/imageSlice';
 import { RemovalToolOverlay, type BrushStroke } from './RemovalToolOverlay';
 import { createStrokeMask } from '../utils/healingBrush';
 import { contentAwareFillWithMaskAsync } from '../utils/contentAwareFill';
