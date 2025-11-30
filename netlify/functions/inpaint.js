@@ -3,26 +3,21 @@
  * Uses stability-ai/stable-diffusion-inpainting model via Replicate
  */
 
-// Simple in-memory rate limiting (resets on cold start)
-const usageMap = new Map<string, { count: number; resetTime: number }>();
-
 const DAILY_LIMIT = 5;
 const REPLICATE_API_URL = 'https://api.replicate.com/v1/predictions';
 const INPAINT_MODEL_VERSION = '95b7223104132402a9ae91cc677285bc5eb997834bd2349fa486f53910fd68b3';
 
-interface InpaintRequest {
-  image: string;
-  mask: string;
-}
+// Simple in-memory rate limiting
+const usageMap = new Map();
 
-function getClientIP(request: Request): string {
+function getClientIP(request) {
   return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() 
     || request.headers.get('x-real-ip') 
     || request.headers.get('client-ip')
     || 'unknown';
 }
 
-function checkRateLimit(ip: string): { allowed: boolean; remaining: number; resetIn: number } {
+function checkRateLimit(ip) {
   const now = Date.now();
   const dayMs = 24 * 60 * 60 * 1000;
   
@@ -39,18 +34,18 @@ function checkRateLimit(ip: string): { allowed: boolean; remaining: number; rese
   return { allowed: usage.count < DAILY_LIMIT, remaining, resetIn };
 }
 
-function incrementUsage(ip: string): void {
+function incrementUsage(ip) {
   const usage = usageMap.get(ip);
   if (usage) {
     usage.count++;
   }
 }
 
-async function pollForResult(predictionId: string, apiKey: string): Promise<string | null> {
-  const maxWaitSeconds = 90;
+async function pollForResult(predictionId, apiKey) {
+  const maxWaitMs = 90000;
   const startTime = Date.now();
   
-  while (Date.now() - startTime < maxWaitSeconds * 1000) {
+  while (Date.now() - startTime < maxWaitMs) {
     const response = await fetch(`${REPLICATE_API_URL}/${predictionId}`, {
       headers: { 'Authorization': `Token ${apiKey}` },
     });
@@ -80,7 +75,7 @@ async function pollForResult(predictionId: string, apiKey: string): Promise<stri
   throw new Error('Prediction timed out');
 }
 
-export default async function handler(request: Request): Promise<Response> {
+export default async (request) => {
   console.log('=== INPAINT FUNCTION CALLED ===');
   console.log('Method:', request.method);
   
@@ -106,7 +101,7 @@ export default async function handler(request: Request): Promise<Response> {
   // Rate limiting
   const clientIP = getClientIP(request);
   const rateLimit = checkRateLimit(clientIP);
-  console.log('Client IP:', clientIP, 'Rate limit:', rateLimit);
+  console.log('Client IP:', clientIP, 'Remaining:', rateLimit.remaining);
   
   if (!rateLimit.allowed) {
     return new Response(JSON.stringify({
@@ -120,7 +115,7 @@ export default async function handler(request: Request): Promise<Response> {
   }
   
   // Check API key
-  const apiKey = process.env.REPLICATE_API_KEY;
+  const apiKey = Netlify.env.get('REPLICATE_API_KEY');
   console.log('API Key configured:', !!apiKey);
   
   if (!apiKey) {
@@ -135,7 +130,7 @@ export default async function handler(request: Request): Promise<Response> {
   
   try {
     // Parse request body
-    const body: InpaintRequest = await request.json();
+    const body = await request.json();
     
     if (!body.image || !body.mask) {
       return new Response(JSON.stringify({ error: 'Missing image or mask' }), {
@@ -215,9 +210,8 @@ export default async function handler(request: Request): Promise<Response> {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-}
+};
 
 export const config = {
   path: "/api/inpaint"
 };
-
