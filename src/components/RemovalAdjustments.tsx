@@ -135,87 +135,101 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
       originalImage.height
     );
 
-    // Process each stroke with progress milestones
-    const totalStrokes = strokes.length;
-    for (let i = 0; i < totalStrokes; i++) {
-      const stroke = strokes[i];
-      const baseProgress = (i / totalStrokes) * 100;
-      const strokeWeight = 100 / totalStrokes;
-      
-      // Stage 1: Preparing (0-10% of this stroke)
-      setProcessingStage('preparing');
-      setProcessingStatus(`Preparing area ${i + 1} of ${totalStrokes}...`);
-      setProcessingProgress(baseProgress + strokeWeight * 0.1);
-      
-      // Create mask from stroke shape
-      const { mask, bounds } = createStrokeMask(
-        resultImage.width,
-        resultImage.height,
-        stroke.points,
-        stroke.size / 2,
-        stroke.feather
-      );
+    try {
+      // Process each stroke with progress milestones
+      const totalStrokes = strokes.length;
+      for (let i = 0; i < totalStrokes; i++) {
+        const stroke = strokes[i];
+        const baseProgress = (i / totalStrokes) * 100;
+        const strokeWeight = 100 / totalStrokes;
+        
+        // Stage 1: Preparing (0-10% of this stroke)
+        setProcessingStage('preparing');
+        setProcessingStatus(`Preparing area ${i + 1} of ${totalStrokes}...`);
+        setProcessingProgress(baseProgress + strokeWeight * 0.1);
+        
+        // Create mask from stroke shape
+        const { mask, bounds } = createStrokeMask(
+          resultImage.width,
+          resultImage.height,
+          stroke.points,
+          stroke.size / 2,
+          stroke.feather
+        );
 
-      // Stage 2: Analyzing (10-30% of this stroke)
-      setProcessingStage('analyzing');
-      setProcessingStatus(`Analyzing surroundings...`);
-      setProcessingProgress(baseProgress + strokeWeight * 0.3);
-      await new Promise(r => setTimeout(r, 100)); // Brief pause for UI
+        // Stage 2: Analyzing (10-30% of this stroke)
+        setProcessingStage('analyzing');
+        setProcessingStatus(`Analyzing surroundings...`);
+        setProcessingProgress(baseProgress + strokeWeight * 0.3);
+        await new Promise(r => setTimeout(r, 100)); // Brief pause for UI
 
-      // Stage 3: Generating (30-80% of this stroke)
-      setProcessingStage('generating');
+        // Stage 3: Generating (30-80% of this stroke)
+        setProcessingStage('generating');
+        
+        // Apply content-aware fill with progress callback
+        await contentAwareFillWithMaskAsync(resultImage, mask, bounds, {
+          onProgress: (status) => {
+            setProcessingStatus(status);
+            // Map internal progress to 30-80% range
+            if (status.includes('Sending')) {
+              setProcessingProgress(baseProgress + strokeWeight * 0.4);
+            } else if (status.includes('Processing')) {
+              setProcessingProgress(baseProgress + strokeWeight * 0.6);
+            } else if (status.includes('Applying')) {
+              setProcessingStage('blending');
+              setProcessingProgress(baseProgress + strokeWeight * 0.85);
+            }
+          },
+        });
+
+        // Stage 4: Complete this stroke (100% of this stroke)
+        setProcessingProgress(baseProgress + strokeWeight);
+      }
+
+      // Final stage
+      setProcessingStage('complete');
+      setProcessingStatus('Complete!');
+      setProcessingProgress(100);
       
-      // Apply content-aware fill with progress callback
-      await contentAwareFillWithMaskAsync(resultImage, mask, bounds, {
-        onProgress: (status) => {
-          setProcessingStatus(status);
-          // Map internal progress to 30-80% range
-          if (status.includes('Sending')) {
-            setProcessingProgress(baseProgress + strokeWeight * 0.4);
-          } else if (status.includes('Processing')) {
-            setProcessingProgress(baseProgress + strokeWeight * 0.6);
-          } else if (status.includes('Applying')) {
-            setProcessingStage('blending');
-            setProcessingProgress(baseProgress + strokeWeight * 0.85);
-          }
-        },
-      });
+      // Brief pause to show completion
+      await new Promise(r => setTimeout(r, 300));
 
-      // Stage 4: Complete this stroke (100% of this stroke)
-      setProcessingProgress(baseProgress + strokeWeight);
+      // Increment AI usage counter (tracks locally)
+      incrementAIUsage();
+      
+      // Update AI usage stats for UI
+      setAiUsageStats(getAIUsageStats());
+      setIsProcessing(false);
+      setProcessingProgress(0);
+
+      // Update the image WITH HISTORY for undo support
+      setWorkingImage(resultImage);
+      workingImageRef.current = resultImage;
+
+      dispatch(setCurrentImageWithHistory({
+        data: resultImage,
+        width: resultImage.width,
+        height: resultImage.height,
+        colorSpace: 'sRGB',
+      }));
+
+      // Clear strokes after processing
+      setStrokes([]);
+
+      console.log('All strokes processed and applied (added to undo history)');
+    } catch (error) {
+      console.error('AI removal failed:', error);
+      setProcessingStatus(error instanceof Error ? error.message : 'AI removal failed');
+      setProcessingStage('preparing'); // Reset stage
+      
+      // Show error briefly then reset
+      await new Promise(r => setTimeout(r, 2000));
+      setIsProcessing(false);
+      setProcessingProgress(0);
+      setProcessingStatus('Processing...');
+      
+      // Don't clear strokes so user can retry
     }
-
-    // Final stage
-    setProcessingStage('complete');
-    setProcessingStatus('Complete!');
-    setProcessingProgress(100);
-    
-    // Brief pause to show completion
-    await new Promise(r => setTimeout(r, 300));
-
-    // Increment AI usage counter (tracks locally)
-    incrementAIUsage();
-    
-    // Update AI usage stats for UI
-    setAiUsageStats(getAIUsageStats());
-    setIsProcessing(false);
-    setProcessingProgress(0);
-
-    // Update the image WITH HISTORY for undo support
-    setWorkingImage(resultImage);
-    workingImageRef.current = resultImage;
-
-    dispatch(setCurrentImageWithHistory({
-      data: resultImage,
-      width: resultImage.width,
-      height: resultImage.height,
-      colorSpace: 'sRGB',
-    }));
-
-    // Clear strokes after processing
-    setStrokes([]);
-
-    console.log('All strokes processed and applied (added to undo history)');
   }, [strokes, dispatch]);
 
   /**
