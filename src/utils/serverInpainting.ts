@@ -129,31 +129,59 @@ export function isServerInpaintingAvailable(): boolean {
 }
 
 /**
- * Convert ImageData to base64 PNG data URL
+ * Convert ImageData to base64 JPEG data URL with resizing for API limits
+ * Netlify has a 6MB request limit, so we need to compress images
  */
 async function imageDataToBase64(imageData: ImageData): Promise<string> {
   const canvas = document.createElement('canvas');
-  canvas.width = imageData.width;
-  canvas.height = imageData.height;
+  
+  // Max dimensions for API (keep aspect ratio)
+  const MAX_SIZE = 1024;
+  let width = imageData.width;
+  let height = imageData.height;
+  
+  if (width > MAX_SIZE || height > MAX_SIZE) {
+    const scale = Math.min(MAX_SIZE / width, MAX_SIZE / height);
+    width = Math.round(width * scale);
+    height = Math.round(height * scale);
+  }
+  
+  canvas.width = width;
+  canvas.height = height;
   const ctx = canvas.getContext('2d')!;
-  ctx.putImageData(imageData, 0, 0);
-  return canvas.toDataURL('image/png');
+  
+  // If resizing needed, draw scaled
+  if (width !== imageData.width || height !== imageData.height) {
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = imageData.width;
+    tempCanvas.height = imageData.height;
+    tempCanvas.getContext('2d')!.putImageData(imageData, 0, 0);
+    ctx.drawImage(tempCanvas, 0, 0, width, height);
+  } else {
+    ctx.putImageData(imageData, 0, 0);
+  }
+  
+  // Use JPEG for smaller file size (0.85 quality)
+  return canvas.toDataURL('image/jpeg', 0.85);
 }
 
 /**
- * Convert mask (Float32Array) to base64 PNG data URL
+ * Convert mask (Float32Array) to base64 PNG data URL with resizing
  * White = areas to inpaint, Black = areas to keep
  */
 async function maskToBase64(
   mask: Float32Array,
   width: number,
-  height: number
+  height: number,
+  targetWidth?: number,
+  targetHeight?: number
 ): Promise<string> {
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d')!;
-  const imgData = ctx.createImageData(width, height);
+  // Create mask at original size first
+  const origCanvas = document.createElement('canvas');
+  origCanvas.width = width;
+  origCanvas.height = height;
+  const origCtx = origCanvas.getContext('2d')!;
+  const imgData = origCtx.createImageData(width, height);
   
   for (let i = 0; i < mask.length; i++) {
     const val = mask[i] > 0.5 ? 255 : 0;
@@ -164,8 +192,22 @@ async function maskToBase64(
     imgData.data[idx + 3] = 255; // A
   }
   
-  ctx.putImageData(imgData, 0, 0);
-  return canvas.toDataURL('image/png');
+  origCtx.putImageData(imgData, 0, 0);
+  
+  // If target dimensions provided and different, resize
+  const finalWidth = targetWidth || width;
+  const finalHeight = targetHeight || height;
+  
+  if (finalWidth !== width || finalHeight !== height) {
+    const resizedCanvas = document.createElement('canvas');
+    resizedCanvas.width = finalWidth;
+    resizedCanvas.height = finalHeight;
+    const resizedCtx = resizedCanvas.getContext('2d')!;
+    resizedCtx.drawImage(origCanvas, 0, 0, finalWidth, finalHeight);
+    return resizedCanvas.toDataURL('image/png');
+  }
+  
+  return origCanvas.toDataURL('image/png');
 }
 
 /**
@@ -199,9 +241,22 @@ export async function serverInpaint(
   try {
     onProgress?.('Preparing image for AI...');
     
-    // Convert image and mask to base64
+    // Calculate target dimensions (max 1024 to stay under API limits)
+    const MAX_SIZE = 1024;
+    let targetWidth = imageData.width;
+    let targetHeight = imageData.height;
+    
+    if (targetWidth > MAX_SIZE || targetHeight > MAX_SIZE) {
+      const scale = Math.min(MAX_SIZE / targetWidth, MAX_SIZE / targetHeight);
+      targetWidth = Math.round(targetWidth * scale);
+      targetHeight = Math.round(targetHeight * scale);
+    }
+    
+    // Convert image and mask to base64 (both resized to same dimensions)
     const imageBase64 = await imageDataToBase64(imageData);
-    const maskBase64 = await maskToBase64(mask, imageData.width, imageData.height);
+    const maskBase64 = await maskToBase64(mask, imageData.width, imageData.height, targetWidth, targetHeight);
+    
+    console.log(`Sending to API: ${targetWidth}x${targetHeight}, image: ${Math.round(imageBase64.length/1024)}KB, mask: ${Math.round(maskBase64.length/1024)}KB`);
     
     onProgress?.('Sending to AI server...');
     
