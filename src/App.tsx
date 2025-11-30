@@ -111,11 +111,6 @@ function App() {
   return (
     <ErrorBoundary>
       <div className="app" role="application" aria-label="Pixaro Photo Editor">
-        {/* Skip to content link for keyboard navigation */}
-        <a href="#main-content" className="skip-to-content">
-          Skip to main content
-        </a>
-
         {/* Screen reader announcements */}
         <div
           role="status"

@@ -99,6 +99,8 @@ async function pollForResult(
 }
 
 export default async function handler(request: Request, _context: Context): Promise<Response> {
+  console.log('Inpaint function called:', request.method, request.url);
+  
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -145,9 +147,19 @@ export default async function handler(request: Request, _context: Context): Prom
   }
   
   try {
-    const body: InpaintRequest = await request.json();
+    let body: InpaintRequest;
+    try {
+      body = await request.json();
+    } catch (parseError) {
+      console.error('Failed to parse request body:', parseError);
+      return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
     
     if (!body.image || !body.mask) {
+      console.error('Missing image or mask in request');
       return new Response(JSON.stringify({ error: 'Missing image or mask' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
