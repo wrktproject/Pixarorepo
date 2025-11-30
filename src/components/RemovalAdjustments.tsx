@@ -362,75 +362,80 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
     );
   }
 
+  // When tool is active, we render:
+  // 1. A portal for the fixed toolbar at top
+  // 2. The sidebar content in normal flow (for right column)
   return (
-    <div className="removal-adjustments__active">
-      {/* Top toolbar for actions */}
-      <div className="removal-adjustments__toolbar">
-        <div className="removal-adjustments__tool-info">
-          <span className="removal-adjustments__mode-badge">
-            ✨ Remove Tool
-          </span>
-          <span className="removal-adjustments__stroke-count">
-            {strokes.length === 0 
-              ? 'Draw on areas to remove' 
-              : `${strokes.length} ${strokes.length === 1 ? 'area' : 'areas'} marked`
-            }
-          </span>
-        </div>
+    <>
+      {/* Fixed toolbar at top of screen */}
+      <div className="removal-adjustments__fixed-toolbar">
+        <div className="removal-adjustments__toolbar">
+          <div className="removal-adjustments__tool-info">
+            <span className="removal-adjustments__mode-badge">
+              ✨ Remove Tool
+            </span>
+            <span className="removal-adjustments__stroke-count">
+              {strokes.length === 0 
+                ? 'Draw on areas to remove' 
+                : `${strokes.length} ${strokes.length === 1 ? 'area' : 'areas'} marked`
+              }
+            </span>
+          </div>
 
-        <div className="removal-adjustments__brush-size-control">
-          <label className="removal-adjustments__label" style={{ fontSize: '12px', marginRight: '8px' }}>
-            Size: {brushSize}px
-          </label>
-          <input
-            type="range"
-            min="10"
-            max="200"
-            value={brushSize}
-            onChange={(e) => setBrushSize(Number(e.target.value))}
-            className="removal-adjustments__slider"
-            style={{ width: '100px' }}
-            title="Brush size (also use Ctrl+Scroll)"
-          />
-        </div>
+          <div className="removal-adjustments__brush-size-control">
+            <label className="removal-adjustments__label" style={{ fontSize: '12px', marginRight: '8px' }}>
+              Size: {brushSize}px
+            </label>
+            <input
+              type="range"
+              min="10"
+              max="200"
+              value={brushSize}
+              onChange={(e) => setBrushSize(Number(e.target.value))}
+              className="removal-adjustments__slider"
+              style={{ width: '100px' }}
+              title="Brush size (also use Ctrl+Scroll)"
+            />
+          </div>
 
-        <div className="removal-adjustments__actions">
-          <button
-            className="removal-adjustments__action-btn removal-adjustments__action-btn--secondary"
-            onClick={handleUndo}
-            disabled={strokes.length === 0 || isProcessing}
-            title="Remove last mark (Ctrl+Z)"
-          >
-            ↶ Undo
-          </button>
-          <button
-            className="removal-adjustments__action-btn removal-adjustments__action-btn--danger"
-            onClick={handleCancel}
-            disabled={isProcessing}
-            title="Cancel and discard all changes (Esc)"
-          >
-            Cancel
-          </button>
-          <button
-            className="removal-adjustments__action-btn removal-adjustments__action-btn--primary"
-            onClick={handleApply}
-            disabled={strokes.length === 0 || isProcessing}
-            title="Process and apply all removals (Enter)"
-          >
-            {isProcessing 
-              ? '⏳ Processing...'
-              : strokes.length > 0 
-                ? `✨ Remove ${strokes.length} ${strokes.length === 1 ? 'area' : 'areas'}`
-                : '✓ Done'
-            }
-          </button>
+          <div className="removal-adjustments__actions">
+            <button
+              className="removal-adjustments__action-btn removal-adjustments__action-btn--secondary"
+              onClick={handleUndo}
+              disabled={strokes.length === 0 || isProcessing}
+              title="Remove last mark (Ctrl+Z)"
+            >
+              ↶ Undo
+            </button>
+            <button
+              className="removal-adjustments__action-btn removal-adjustments__action-btn--danger"
+              onClick={handleCancel}
+              disabled={isProcessing}
+              title="Cancel and discard all changes (Esc)"
+            >
+              Cancel
+            </button>
+            <button
+              className="removal-adjustments__action-btn removal-adjustments__action-btn--primary"
+              onClick={handleApply}
+              disabled={strokes.length === 0 || isProcessing}
+              title="Process and apply all removals (Enter)"
+            >
+              {isProcessing 
+                ? '⏳ Processing...'
+                : strokes.length > 0 
+                  ? `✨ Remove ${strokes.length} ${strokes.length === 1 ? 'area' : 'areas'}`
+                  : '✓ Done'
+              }
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Right sidebar content - Progress or instructions */}
-      <div className="removal-adjustments__sidebar-content">
+      {/* Sidebar content - flows in right column */}
+      <div className="removal-adjustments__sidebar">
         {isProcessing ? (
-          /* Processing Progress Panel - shows in right sidebar */
+          /* Processing Progress Panel */
           <div className="removal-adjustments__progress-panel">
             <div className="removal-adjustments__progress-header">
               <span className="removal-adjustments__progress-icon">✨</span>
@@ -473,10 +478,10 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
             <div className="removal-adjustments__progress-status">{processingStatus}</div>
           </div>
         ) : (
-          /* Instructions when not processing */
-          <div className="removal-adjustments__instructions">
+          /* Controls when not processing */
+          <div className="removal-adjustments__controls-active">
             <p className="removal-adjustments__hint">
-              Draw on the image to mark areas for removal. The AI will analyze and remove the selected regions.
+              Draw on the image to mark areas for removal.
             </p>
             
             <div className="removal-adjustments__control-group">
@@ -508,12 +513,11 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
             </div>
 
             <div className="removal-adjustments__tip">
-              <strong>Tips:</strong>
+              <strong>Shortcuts:</strong>
               <ul className="removal-adjustments__tip-list">
-                <li>Use <kbd>Ctrl</kbd>+<kbd>Scroll</kbd> to resize brush</li>
-                <li>Draw around or over objects to remove</li>
-                <li>Press <kbd>Enter</kbd> to apply</li>
-                <li>Press <kbd>Esc</kbd> to cancel</li>
+                <li><kbd>Ctrl</kbd>+<kbd>Scroll</kbd> - resize brush</li>
+                <li><kbd>Enter</kbd> - apply changes</li>
+                <li><kbd>Esc</kbd> - cancel</li>
               </ul>
             </div>
 
@@ -544,7 +548,6 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
           completedStrokes={strokes}
         />
       )}
-      
-    </div>
+    </>
   );
 };
