@@ -14,8 +14,9 @@ const usageMap = new Map<string, { count: number; resetTime: number }>();
 const DAILY_LIMIT = 5;
 const REPLICATE_API_URL = 'https://api.replicate.com/v1/predictions';
 
-// LaMa model version on Replicate
-const LAMA_MODEL = 'stability-ai/stable-diffusion-inpainting:c11bac58203367db93a3c552bd49a25a5418458ddffb7e90dae55780765e26d6';
+// LaMa (Large Mask Inpainting) model - better for object removal
+// This model is specifically designed for removing objects without needing prompts
+const LAMA_MODEL_VERSION = 'e3de65e34f8bfcc6933bb7d9f3cbb80d1acc3e6c7a6e6cdfead35cb3da63018a';
 
 interface InpaintRequest {
   image: string;  // base64 data URL
@@ -153,7 +154,8 @@ export default async function handler(request: Request): Promise<Response> {
       });
     }
     
-    // Create prediction
+    // Create prediction using LaMa model
+    // LaMa is specifically designed for object removal/inpainting
     const createResponse = await fetch(REPLICATE_API_URL, {
       method: 'POST',
       headers: {
@@ -161,22 +163,33 @@ export default async function handler(request: Request): Promise<Response> {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        version: LAMA_MODEL.split(':')[1],
+        version: LAMA_MODEL_VERSION,
         input: {
           image: body.image,
           mask: body.mask,
-          prompt: 'empty background, natural seamless fill',
-          num_inference_steps: 25,
         },
       }),
     });
     
     if (!createResponse.ok) {
-      const error = await createResponse.text();
-      console.error('Replicate API error:', error);
+      const errorText = await createResponse.text();
+      console.error('Replicate API error:', createResponse.status, errorText);
+      
+      // Parse error for more specific message
+      let errorMessage = 'AI service temporarily unavailable';
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.detail) {
+          errorMessage = errorJson.detail;
+        }
+      } catch {
+        // Use default message
+      }
+      
       return new Response(JSON.stringify({
         error: 'api_error',
-        message: 'AI service temporarily unavailable',
+        message: errorMessage,
+        status: createResponse.status,
       }), {
         status: 502,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

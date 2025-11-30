@@ -34,6 +34,8 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
   const [workingImage, setWorkingImage] = useState<ImageData | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStatus, setProcessingStatus] = useState('Processing...');
+  const [processingProgress, setProcessingProgress] = useState(0);
+  const [processingStage, setProcessingStage] = useState<'preparing' | 'analyzing' | 'generating' | 'blending' | 'complete'>('preparing');
   const [aiUsesRemaining, setAiUsesRemaining] = useState<number | null>(getRemainingAIUses());
   
   // Use ref to always have current working image in callbacks (avoid stale closure)
@@ -122,7 +124,9 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
     if (!originalImage || strokes.length === 0) return;
 
     setIsProcessing(true);
-    setProcessingStatus('Preparing...');
+    setProcessingProgress(0);
+    setProcessingStage('preparing');
+    setProcessingStatus('Preparing image...');
 
     // Start from original image
     const resultImage = new ImageData(
@@ -131,11 +135,18 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
       originalImage.height
     );
 
-    // Process each stroke
-    for (let i = 0; i < strokes.length; i++) {
+    // Process each stroke with progress milestones
+    const totalStrokes = strokes.length;
+    for (let i = 0; i < totalStrokes; i++) {
       const stroke = strokes[i];
-      setProcessingStatus(`Processing removal ${i + 1} of ${strokes.length}...`);
-
+      const baseProgress = (i / totalStrokes) * 100;
+      const strokeWeight = 100 / totalStrokes;
+      
+      // Stage 1: Preparing (0-10% of this stroke)
+      setProcessingStage('preparing');
+      setProcessingStatus(`Preparing area ${i + 1} of ${totalStrokes}...`);
+      setProcessingProgress(baseProgress + strokeWeight * 0.1);
+      
       // Create mask from stroke shape
       const { mask, bounds } = createStrokeMask(
         resultImage.width,
@@ -145,15 +156,47 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
         stroke.feather
       );
 
-      // Apply content-aware fill
+      // Stage 2: Analyzing (10-30% of this stroke)
+      setProcessingStage('analyzing');
+      setProcessingStatus(`Analyzing surroundings...`);
+      setProcessingProgress(baseProgress + strokeWeight * 0.3);
+      await new Promise(r => setTimeout(r, 100)); // Brief pause for UI
+
+      // Stage 3: Generating (30-80% of this stroke)
+      setProcessingStage('generating');
+      
+      // Apply content-aware fill with progress callback
       await contentAwareFillWithMaskAsync(resultImage, mask, bounds, {
-        onProgress: (status) => setProcessingStatus(`Removal ${i + 1}: ${status}`),
+        onProgress: (status) => {
+          setProcessingStatus(status);
+          // Map internal progress to 30-80% range
+          if (status.includes('Sending')) {
+            setProcessingProgress(baseProgress + strokeWeight * 0.4);
+          } else if (status.includes('Processing')) {
+            setProcessingProgress(baseProgress + strokeWeight * 0.6);
+          } else if (status.includes('Applying')) {
+            setProcessingStage('blending');
+            setProcessingProgress(baseProgress + strokeWeight * 0.85);
+          }
+        },
       });
+
+      // Stage 4: Complete this stroke (100% of this stroke)
+      setProcessingProgress(baseProgress + strokeWeight);
     }
+
+    // Final stage
+    setProcessingStage('complete');
+    setProcessingStatus('Complete!');
+    setProcessingProgress(100);
+    
+    // Brief pause to show completion
+    await new Promise(r => setTimeout(r, 300));
 
     // Update remaining AI uses
     setAiUsesRemaining(getRemainingAIUses());
     setIsProcessing(false);
+    setProcessingProgress(0);
 
     // Update the image
     setWorkingImage(resultImage);
@@ -381,23 +424,63 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
       </div>
 
       {/* Overlay for drawing */}
-      <RemovalToolOverlay
-        canvasRef={canvasRef}
-        onStrokeComplete={handleStrokeComplete}
-        brushMode="content-aware"
-        brushSize={brushSize}
-        feather={feather}
-        opacity={opacity}
-        onBrushSizeChange={setBrushSize}
-        completedStrokes={strokes}
-      />
+      {!isProcessing && (
+        <RemovalToolOverlay
+          canvasRef={canvasRef}
+          onStrokeComplete={handleStrokeComplete}
+          brushMode="content-aware"
+          brushSize={brushSize}
+          feather={feather}
+          opacity={opacity}
+          onBrushSizeChange={setBrushSize}
+          completedStrokes={strokes}
+        />
+      )}
       
-      {/* Processing overlay */}
+      {/* Inline Processing Panel - appears in the sidebar area */}
       {isProcessing && (
-        <div className="removal-adjustments__processing-overlay">
-          <div className="removal-adjustments__processing-spinner" />
-          <div className="removal-adjustments__processing-text">
+        <div className="removal-adjustments__processing-panel">
+          <div className="removal-adjustments__processing-header">
+            <span className="removal-adjustments__processing-icon">✨</span>
+            <span>AI Processing</span>
+          </div>
+          
+          {/* Progress bar */}
+          <div className="removal-adjustments__progress-container">
+            <div 
+              className="removal-adjustments__progress-bar"
+              style={{ width: `${processingProgress}%` }}
+            />
+          </div>
+          
+          {/* Milestones */}
+          <div className="removal-adjustments__milestones">
+            <div className={`removal-adjustments__milestone ${processingStage === 'preparing' ? 'active' : ''} ${['analyzing', 'generating', 'blending', 'complete'].includes(processingStage) ? 'complete' : ''}`}>
+              <div className="removal-adjustments__milestone-dot" />
+              <span>Preparing</span>
+            </div>
+            <div className={`removal-adjustments__milestone ${processingStage === 'analyzing' ? 'active' : ''} ${['generating', 'blending', 'complete'].includes(processingStage) ? 'complete' : ''}`}>
+              <div className="removal-adjustments__milestone-dot" />
+              <span>Analyzing</span>
+            </div>
+            <div className={`removal-adjustments__milestone ${processingStage === 'generating' ? 'active' : ''} ${['blending', 'complete'].includes(processingStage) ? 'complete' : ''}`}>
+              <div className="removal-adjustments__milestone-dot" />
+              <span>Generating</span>
+            </div>
+            <div className={`removal-adjustments__milestone ${processingStage === 'blending' ? 'active' : ''} ${processingStage === 'complete' ? 'complete' : ''}`}>
+              <div className="removal-adjustments__milestone-dot" />
+              <span>Blending</span>
+            </div>
+          </div>
+          
+          {/* Status text */}
+          <div className="removal-adjustments__processing-status">
             {processingStatus}
+          </div>
+          
+          {/* Percentage */}
+          <div className="removal-adjustments__processing-percent">
+            {Math.round(processingProgress)}%
           </div>
         </div>
       )}
