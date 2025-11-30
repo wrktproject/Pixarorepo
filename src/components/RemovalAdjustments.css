@@ -345,6 +345,110 @@
   }
 }
 
+/* Inline Progress - integrated into toolbar */
+.removal-adjustments__progress-inline {
+  padding: 0.75rem 1.5rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.removal-adjustments__progress-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.removal-adjustments__progress-icon {
+  animation: sparkle 1.5s ease-in-out infinite;
+}
+
+.removal-adjustments__progress-percent {
+  margin-left: auto;
+  font-size: 1rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #4a9eff, #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.removal-adjustments__progress-bar-container {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.removal-adjustments__progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4a9eff, #8b5cf6, #4a9eff);
+  background-size: 200% 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease-out;
+  animation: shimmer 2s linear infinite;
+}
+
+.removal-adjustments__progress-milestones {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.removal-adjustments__milestone-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.4);
+  transition: all 0.3s ease;
+}
+
+.removal-adjustments__milestone-item.active {
+  color: #4a9eff;
+}
+
+.removal-adjustments__milestone-item.complete {
+  color: #10b981;
+}
+
+.removal-adjustments__milestone-item .removal-adjustments__milestone-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.removal-adjustments__milestone-item.active .removal-adjustments__milestone-dot {
+  background: #4a9eff;
+  box-shadow: 0 0 8px rgba(74, 158, 255, 0.5);
+  animation: pulse-dot 1s ease-in-out infinite;
+}
+
+.removal-adjustments__milestone-item.complete .removal-adjustments__milestone-dot {
+  background: #10b981;
+}
+
+.removal-adjustments__milestone-label {
+  white-space: nowrap;
+}
+
+.removal-adjustments__progress-status {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+}
+
 .removal-adjustments__processing-header {
   display: flex;
   align-items: center;

@@ -7,11 +7,11 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import type { RootState } from '../store';
 import { setActiveTool } from '../store/uiSlice';
-import { setCurrentImage } from '../store/imageSlice';
+import { setCurrentImageWithHistory } from '../store/imageSlice';
 import { RemovalToolOverlay, type BrushStroke } from './RemovalToolOverlay';
 import { createStrokeMask } from '../utils/healingBrush';
 import { contentAwareFillWithMaskAsync } from '../utils/contentAwareFill';
-import { getRemainingAIUses } from '../utils/serverInpainting';
+import { getAIUsageStats, incrementAIUsage } from '../utils/serverInpainting';
 import './RemovalAdjustments.css';
 
 // Simplified to single mode - content-aware with auto-healing
@@ -36,7 +36,7 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
   const [processingStatus, setProcessingStatus] = useState('Processing...');
   const [processingProgress, setProcessingProgress] = useState(0);
   const [processingStage, setProcessingStage] = useState<'preparing' | 'analyzing' | 'generating' | 'blending' | 'complete'>('preparing');
-  const [aiUsesRemaining, setAiUsesRemaining] = useState<number | null>(getRemainingAIUses());
+  const [aiUsageStats, setAiUsageStats] = useState(getAIUsageStats());
   
   // Use ref to always have current working image in callbacks (avoid stale closure)
   const workingImageRef = useRef<ImageData | null>(null);
@@ -193,16 +193,19 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
     // Brief pause to show completion
     await new Promise(r => setTimeout(r, 300));
 
-    // Update remaining AI uses
-    setAiUsesRemaining(getRemainingAIUses());
+    // Increment AI usage counter (tracks locally)
+    incrementAIUsage();
+    
+    // Update AI usage stats for UI
+    setAiUsageStats(getAIUsageStats());
     setIsProcessing(false);
     setProcessingProgress(0);
 
-    // Update the image
+    // Update the image WITH HISTORY for undo support
     setWorkingImage(resultImage);
     workingImageRef.current = resultImage;
 
-    dispatch(setCurrentImage({
+    dispatch(setCurrentImageWithHistory({
       data: resultImage,
       width: resultImage.width,
       height: resultImage.height,
@@ -212,7 +215,7 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
     // Clear strokes after processing
     setStrokes([]);
 
-    console.log('All strokes processed and applied');
+    console.log('All strokes processed and applied (added to undo history)');
   }, [strokes, dispatch]);
 
   /**
@@ -349,11 +352,9 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
           <p className="removal-adjustments__ai-description">
             {window.location.hostname === 'localhost' || window.location.port === '5173'
               ? 'Deploy to Vercel to enable AI removal'
-              : aiUsesRemaining === 0 
-                ? '⚠️ Daily AI limit reached. Using local processing.'
-                : aiUsesRemaining !== null 
-                  ? `✨ ${aiUsesRemaining} AI removals remaining today`
-                  : '✨ 5 free AI removals per day'
+              : aiUsageStats.remaining === 0 
+                ? '⚠️ Daily AI limit reached (5/5 used). Using local processing.'
+                : `✨ ${aiUsageStats.used}/${aiUsageStats.limit} AI removals used today`
             }
           </p>
         </div>
@@ -415,13 +416,52 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
             disabled={strokes.length === 0 || isProcessing}
             title="Process and apply all removals (Enter)"
           >
-            {strokes.length > 0 
-              ? `✨ Remove ${strokes.length} ${strokes.length === 1 ? 'area' : 'areas'}`
-              : '✓ Done'
+            {isProcessing 
+              ? '⏳ Processing...'
+              : strokes.length > 0 
+                ? `✨ Remove ${strokes.length} ${strokes.length === 1 ? 'area' : 'areas'}`
+                : '✓ Done'
             }
           </button>
         </div>
       </div>
+
+      {/* Processing Progress - shows inline in toolbar area when processing */}
+      {isProcessing && (
+        <div className="removal-adjustments__progress-inline">
+          <div className="removal-adjustments__progress-header">
+            <span className="removal-adjustments__progress-icon">✨</span>
+            <span>AI Removing...</span>
+            <span className="removal-adjustments__progress-percent">{Math.round(processingProgress)}%</span>
+          </div>
+          <div className="removal-adjustments__progress-bar-container">
+            <div 
+              className="removal-adjustments__progress-bar-fill" 
+              style={{ width: `${processingProgress}%` }}
+            />
+          </div>
+          <div className="removal-adjustments__progress-milestones">
+            {(['preparing', 'analyzing', 'generating', 'blending'] as const).map((milestone, idx) => {
+              const milestoneOrder = ['preparing', 'analyzing', 'generating', 'blending'];
+              const currentIdx = milestoneOrder.indexOf(processingStage);
+              const isComplete = idx < currentIdx || processingStage === 'complete';
+              const isActive = processingStage === milestone;
+              return (
+                <div 
+                  key={milestone}
+                  className={`removal-adjustments__milestone-item ${isActive ? 'active' : ''} ${isComplete ? 'complete' : ''}`}
+                >
+                  <span className="removal-adjustments__milestone-dot" />
+                  <span className="removal-adjustments__milestone-label">
+                    {milestone.charAt(0).toUpperCase() + milestone.slice(1)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="removal-adjustments__progress-status">{processingStatus}</div>
+        </div>
+      )}
 
       {/* Overlay for drawing */}
       {!isProcessing && (
@@ -437,53 +477,6 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
         />
       )}
       
-      {/* Inline Processing Panel - appears in the sidebar area */}
-      {isProcessing && (
-        <div className="removal-adjustments__processing-panel">
-          <div className="removal-adjustments__processing-header">
-            <span className="removal-adjustments__processing-icon">✨</span>
-            <span>AI Processing</span>
-          </div>
-          
-          {/* Progress bar */}
-          <div className="removal-adjustments__progress-container">
-            <div 
-              className="removal-adjustments__progress-bar"
-              style={{ width: `${processingProgress}%` }}
-            />
-          </div>
-          
-          {/* Milestones */}
-          <div className="removal-adjustments__milestones">
-            <div className={`removal-adjustments__milestone ${processingStage === 'preparing' ? 'active' : ''} ${['analyzing', 'generating', 'blending', 'complete'].includes(processingStage) ? 'complete' : ''}`}>
-              <div className="removal-adjustments__milestone-dot" />
-              <span>Preparing</span>
-            </div>
-            <div className={`removal-adjustments__milestone ${processingStage === 'analyzing' ? 'active' : ''} ${['generating', 'blending', 'complete'].includes(processingStage) ? 'complete' : ''}`}>
-              <div className="removal-adjustments__milestone-dot" />
-              <span>Analyzing</span>
-            </div>
-            <div className={`removal-adjustments__milestone ${processingStage === 'generating' ? 'active' : ''} ${['blending', 'complete'].includes(processingStage) ? 'complete' : ''}`}>
-              <div className="removal-adjustments__milestone-dot" />
-              <span>Generating</span>
-            </div>
-            <div className={`removal-adjustments__milestone ${processingStage === 'blending' ? 'active' : ''} ${processingStage === 'complete' ? 'complete' : ''}`}>
-              <div className="removal-adjustments__milestone-dot" />
-              <span>Blending</span>
-            </div>
-          </div>
-          
-          {/* Status text */}
-          <div className="removal-adjustments__processing-status">
-            {processingStatus}
-          </div>
-          
-          {/* Percentage */}
-          <div className="removal-adjustments__processing-percent">
-            {Math.round(processingProgress)}%
-          </div>
-        </div>
-      )}
     </div>
   );
 };

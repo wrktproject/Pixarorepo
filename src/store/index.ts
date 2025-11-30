@@ -67,6 +67,9 @@ export {
   setLoading as setImageLoading,
   setOriginalImage,
   setCurrentImage,
+  setCurrentImageWithHistory,
+  undoImageEdit,
+  selectImageHistoryCount,
   setMetadata,
   clearImage,
 } from './imageSlice';

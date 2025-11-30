@@ -7,6 +7,7 @@ import { useEffect, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState } from '../store';
 import { undo, redo } from '../store/historySlice';
+import { undoImageEdit, selectImageHistoryCount } from '../store/imageSlice';
 import { setShowComparison, toggleHistogram, resetView } from '../store/uiSlice';
 import {
   setExposure,
@@ -36,6 +37,8 @@ export const useKeyboardShortcuts = () => {
   const saturation = useSelector((state: RootState) => state.adjustments.saturation);
   const highlights = useSelector((state: RootState) => state.adjustments.highlights);
   const shadows = useSelector((state: RootState) => state.adjustments.shadows);
+  const adjustmentHistoryCount = useSelector((state: RootState) => state.history.past.length);
+  const imageHistoryCount = useSelector(selectImageHistoryCount);
 
   // Define all keyboard shortcuts
   const shortcuts: KeyboardShortcut[] = [
@@ -44,7 +47,14 @@ export const useKeyboardShortcuts = () => {
       key: 'z',
       ctrl: true,
       description: 'Undo last action',
-      action: () => dispatch(undo()),
+      action: () => {
+        // First try to undo adjustment history, then image history
+        if (adjustmentHistoryCount > 0) {
+          dispatch(undo());
+        } else if (imageHistoryCount > 0) {
+          dispatch(undoImageEdit());
+        }
+      },
       category: 'editing',
     },
     {

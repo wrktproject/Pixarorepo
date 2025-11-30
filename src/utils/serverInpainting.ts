@@ -5,7 +5,7 @@
  * Features:
  * - 5 free AI removals per day
  * - Graceful fallback to local algorithm
- * - Usage tracking
+ * - Usage tracking with localStorage persistence
  * 
  * NOTE: Only works when deployed (Vercel). In localhost, uses local processing.
  */
@@ -19,6 +19,15 @@ const isDev = typeof window !== 'undefined' &&
    window.location.hostname === '127.0.0.1' ||
    window.location.port === '5173');
 
+// Constants
+const DAILY_LIMIT = 5;
+const STORAGE_KEY = 'pixaro_ai_usage';
+
+interface UsageData {
+  count: number;
+  date: string; // YYYY-MM-DD format
+}
+
 interface InpaintingResult {
   success: boolean;
   imageData?: ImageData;
@@ -31,9 +40,75 @@ interface InpaintingResult {
 let cachedRemaining: number | null = null;
 
 /**
+ * Get today's date in YYYY-MM-DD format
+ */
+function getTodayString(): string {
+  return new Date().toISOString().split('T')[0];
+}
+
+/**
+ * Load usage data from localStorage
+ */
+function loadUsageData(): UsageData {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const data = JSON.parse(stored) as UsageData;
+      // Reset if it's a new day
+      if (data.date !== getTodayString()) {
+        return { count: 0, date: getTodayString() };
+      }
+      return data;
+    }
+  } catch (e) {
+    console.warn('Failed to load AI usage data:', e);
+  }
+  return { count: 0, date: getTodayString() };
+}
+
+/**
+ * Save usage data to localStorage
+ */
+function saveUsageData(data: UsageData): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (e) {
+    console.warn('Failed to save AI usage data:', e);
+  }
+}
+
+/**
+ * Increment usage count (called after successful AI removal)
+ */
+export function incrementAIUsage(): void {
+  const data = loadUsageData();
+  data.count++;
+  saveUsageData(data);
+  cachedRemaining = Math.max(0, DAILY_LIMIT - data.count);
+}
+
+/**
+ * Get current AI usage stats
+ */
+export function getAIUsageStats(): { used: number; remaining: number; limit: number } {
+  const data = loadUsageData();
+  const remaining = Math.max(0, DAILY_LIMIT - data.count);
+  cachedRemaining = remaining;
+  return {
+    used: data.count,
+    remaining,
+    limit: DAILY_LIMIT,
+  };
+}
+
+/**
  * Get cached remaining AI uses
  */
 export function getRemainingAIUses(): number | null {
+  if (cachedRemaining === null) {
+    const stats = getAIUsageStats();
+    return stats.remaining;
+  }
   return cachedRemaining;
 }
 

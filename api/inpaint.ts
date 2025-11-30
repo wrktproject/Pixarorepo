@@ -5,6 +5,8 @@
  * - Rate limiting (5 free uses per day per IP)
  * - API key kept secret on server
  * - Graceful error handling
+ * 
+ * Uses stability-ai/stable-diffusion-inpainting model
  */
 
 // Simple in-memory rate limiting (resets on cold start)
@@ -14,9 +16,9 @@ const usageMap = new Map<string, { count: number; resetTime: number }>();
 const DAILY_LIMIT = 5;
 const REPLICATE_API_URL = 'https://api.replicate.com/v1/predictions';
 
-// LaMa (Large Mask Inpainting) model - better for object removal
-// This model is specifically designed for removing objects without needing prompts
-const LAMA_MODEL_VERSION = 'e3de65e34f8bfcc6933bb7d9f3cbb80d1acc3e6c7a6e6cdfead35cb3da63018a';
+// stable-diffusion-inpainting: Fill in masked parts of images
+// Version: 95b72231 - Latest with SD 2.0 and AITemplate acceleration
+const INPAINT_MODEL_VERSION = '95b7223104132402a9ae91cc677285bc5eb997834bd2349fa486f53910fd68b3';
 
 interface InpaintRequest {
   image: string;  // base64 data URL
@@ -71,10 +73,14 @@ async function pollForResult(
     });
     
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Failed to check prediction status:', errorText);
       throw new Error('Failed to check prediction status');
     }
     
     const prediction = await response.json();
+    
+    console.log('Prediction status:', prediction.status, prediction.error || '');
     
     if (prediction.status === 'succeeded') {
       const output = Array.isArray(prediction.output) 
@@ -83,8 +89,13 @@ async function pollForResult(
       return output;
     }
     
-    if (prediction.status === 'failed' || prediction.status === 'canceled') {
-      throw new Error(`Prediction ${prediction.status}`);
+    if (prediction.status === 'failed') {
+      console.error('Prediction failed:', prediction.error, prediction.logs);
+      throw new Error(`Prediction failed: ${prediction.error || 'Unknown error'}`);
+    }
+    
+    if (prediction.status === 'canceled') {
+      throw new Error('Prediction was canceled');
     }
     
     // Wait 1 second before polling again
@@ -154,8 +165,11 @@ export default async function handler(request: Request): Promise<Response> {
       });
     }
     
-    // Create prediction using LaMa model
-    // LaMa is specifically designed for object removal/inpainting
+    // Create prediction using inpainting model
+    // For SD Inpainting:
+    // - image: the input image (base64 data URL)
+    // - mask: white = areas to inpaint, black = areas to keep
+    // - prompt: what to generate in the masked area
     const createResponse = await fetch(REPLICATE_API_URL, {
       method: 'POST',
       headers: {
@@ -163,17 +177,26 @@ export default async function handler(request: Request): Promise<Response> {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        version: LAMA_MODEL_VERSION,
+        version: INPAINT_MODEL_VERSION,
         input: {
           image: body.image,
           mask: body.mask,
+          prompt: 'clean natural background, seamless blend, photorealistic texture',
+          negative_prompt: 'blur, artifacts, distortion, text, watermark, unnatural, obvious editing',
+          num_inference_steps: 25,
+          guidance_scale: 7.5,
+          disable_safety_checker: true,
         },
       }),
     });
     
     if (!createResponse.ok) {
       const errorText = await createResponse.text();
-      console.error('Replicate API error:', createResponse.status, errorText);
+      console.error('Replicate API error:', {
+        status: createResponse.status,
+        statusText: createResponse.statusText,
+        body: errorText.substring(0, 500),
+      });
       
       // Parse error for more specific message
       let errorMessage = 'AI service temporarily unavailable';
@@ -181,9 +204,14 @@ export default async function handler(request: Request): Promise<Response> {
         const errorJson = JSON.parse(errorText);
         if (errorJson.detail) {
           errorMessage = errorJson.detail;
+        } else if (errorJson.error) {
+          errorMessage = errorJson.error;
         }
       } catch {
-        // Use default message
+        // Use default message if not JSON
+        if (errorText.includes('Invalid')) {
+          errorMessage = 'Invalid input format';
+        }
       }
       
       return new Response(JSON.stringify({
