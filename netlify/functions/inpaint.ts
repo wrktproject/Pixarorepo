@@ -135,6 +135,10 @@ export default async function handler(request: Request, _context: Context): Prom
   
   const apiKey = process.env.REPLICATE_API_KEY;
   
+  console.log('API Key exists:', !!apiKey);
+  console.log('API Key length:', apiKey?.length || 0);
+  console.log('API Key prefix:', apiKey?.substring(0, 5) || 'none');
+  
   if (!apiKey) {
     console.error('REPLICATE_API_KEY not configured');
     return new Response(JSON.stringify({

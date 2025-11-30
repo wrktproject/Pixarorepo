@@ -31,3 +31,6 @@ dist-ssr
 
 # Darktable Inspiration (source reference, too large for repo)
 Darktable Inspiration/
+
+# Local Netlify folder
+.netlify
