@@ -19,7 +19,13 @@
   # Use esbuild for TypeScript
   node_bundler = "esbuild"
 
-# SPA routing - redirect all requests to index.html
+# API routes - handled by Netlify Functions (do NOT redirect)
+[[redirects]]
+  from = "/api/inpaint"
+  to = "/.netlify/functions/inpaint"
+  status = 200
+
+# SPA routing - redirect all other requests to index.html
 [[redirects]]
   from = "/*"
   to = "/index.html"
