@@ -5,6 +5,8 @@
  * - Rate limiting (5 free uses per day per IP)
  * - API key kept secret on server
  * - Graceful error handling
+ * 
+ * Uses stability-ai/stable-diffusion-inpainting model
  */
 
 import type { Context } from "@netlify/functions";
@@ -15,8 +17,9 @@ const usageMap = new Map<string, { count: number; resetTime: number }>();
 const DAILY_LIMIT = 5;
 const REPLICATE_API_URL = 'https://api.replicate.com/v1/predictions';
 
-// LaMa model version on Replicate
-const LAMA_MODEL = 'stability-ai/stable-diffusion-inpainting:c11bac58203367db93a3c552bd49a25a5418458ddffb7e90dae55780765e26d6';
+// stable-diffusion-inpainting: Latest version with SD 2.0 and AITemplate acceleration
+// https://replicate.com/stability-ai/stable-diffusion-inpainting
+const INPAINT_MODEL_VERSION = '95b7223104132402a9ae91cc677285bc5eb997834bd2349fa486f53910fd68b3';
 
 interface InpaintRequest {
   image: string;
@@ -57,7 +60,7 @@ function incrementUsage(ip: string): void {
 async function pollForResult(
   predictionId: string,
   apiKey: string,
-  maxWaitSeconds: number = 60
+  maxWaitSeconds: number = 90
 ): Promise<string | null> {
   const startTime = Date.now();
   
@@ -67,23 +70,32 @@ async function pollForResult(
     });
     
     if (!response.ok) {
-      throw new Error('Failed to check prediction status');
+      const errorText = await response.text();
+      console.error('Poll error:', response.status, errorText);
+      throw new Error(`Failed to check prediction: ${response.status}`);
     }
     
     const prediction = await response.json();
+    console.log('Prediction status:', prediction.status);
     
     if (prediction.status === 'succeeded') {
       return Array.isArray(prediction.output) ? prediction.output[0] : prediction.output;
     }
     
-    if (prediction.status === 'failed' || prediction.status === 'canceled') {
-      throw new Error(`Prediction ${prediction.status}`);
+    if (prediction.status === 'failed') {
+      console.error('Prediction failed:', prediction.error, prediction.logs?.substring(0, 500));
+      throw new Error(`AI model failed: ${prediction.error || 'Unknown error'}`);
     }
     
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    if (prediction.status === 'canceled') {
+      throw new Error('Prediction was canceled');
+    }
+    
+    // Wait before polling again
+    await new Promise(resolve => setTimeout(resolve, 1500));
   }
   
-  throw new Error('Prediction timed out');
+  throw new Error('Prediction timed out after 90 seconds');
 }
 
 export default async function handler(request: Request, _context: Context): Promise<Response> {
@@ -122,6 +134,7 @@ export default async function handler(request: Request, _context: Context): Prom
   const apiKey = process.env.REPLICATE_API_KEY;
   
   if (!apiKey) {
+    console.error('REPLICATE_API_KEY not configured');
     return new Response(JSON.stringify({
       error: 'config_error',
       message: 'Server not configured. Using local processing.',
@@ -141,6 +154,10 @@ export default async function handler(request: Request, _context: Context): Prom
       });
     }
     
+    console.log('Creating prediction with model version:', INPAINT_MODEL_VERSION.substring(0, 12) + '...');
+    console.log('Image size:', body.image.length, 'Mask size:', body.mask.length);
+    
+    // Create prediction with SD Inpainting model
     const createResponse = await fetch(REPLICATE_API_URL, {
       method: 'POST',
       headers: {
@@ -148,22 +165,35 @@ export default async function handler(request: Request, _context: Context): Prom
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        version: LAMA_MODEL.split(':')[1],
+        version: INPAINT_MODEL_VERSION,
         input: {
           image: body.image,
           mask: body.mask,
-          prompt: 'empty background, natural seamless fill',
+          prompt: 'clean natural background, seamless blend, photorealistic texture, high quality',
+          negative_prompt: 'blur, artifacts, distortion, text, watermark, unnatural, obvious editing, low quality',
           num_inference_steps: 25,
+          guidance_scale: 7.5,
+          disable_safety_checker: true,
         },
       }),
     });
     
     if (!createResponse.ok) {
-      const error = await createResponse.text();
-      console.error('Replicate API error:', error);
+      const errorText = await createResponse.text();
+      console.error('Replicate create error:', createResponse.status, errorText);
+      
+      let errorMessage = 'AI service error';
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.detail || errorJson.error || errorMessage;
+      } catch {
+        // Use default
+      }
+      
       return new Response(JSON.stringify({
         error: 'api_error',
-        message: 'AI service temporarily unavailable',
+        message: errorMessage,
+        details: `Status: ${createResponse.status}`,
       }), {
         status: 502,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -171,12 +201,15 @@ export default async function handler(request: Request, _context: Context): Prom
     }
     
     const prediction = await createResponse.json();
+    console.log('Prediction created:', prediction.id);
+    
     const resultUrl = await pollForResult(prediction.id, apiKey);
     
     if (!resultUrl) {
       throw new Error('No result from model');
     }
     
+    console.log('Prediction succeeded, result URL received');
     incrementUsage(clientIP);
     
     return new Response(JSON.stringify({
@@ -189,10 +222,12 @@ export default async function handler(request: Request, _context: Context): Prom
     });
     
   } catch (error) {
-    console.error('Inpainting error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Processing failed';
+    console.error('Inpainting error:', errorMessage);
+    
     return new Response(JSON.stringify({
       error: 'processing_error',
-      message: error instanceof Error ? error.message : 'Processing failed',
+      message: errorMessage,
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

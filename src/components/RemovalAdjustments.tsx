@@ -364,6 +364,7 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
 
   return (
     <div className="removal-adjustments__active">
+      {/* Top toolbar for actions */}
       <div className="removal-adjustments__toolbar">
         <div className="removal-adjustments__tool-info">
           <span className="removal-adjustments__mode-badge">
@@ -426,42 +427,109 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
         </div>
       </div>
 
-      {/* Processing Progress - shows inline in toolbar area when processing */}
-      {isProcessing && (
-        <div className="removal-adjustments__progress-inline">
-          <div className="removal-adjustments__progress-header">
-            <span className="removal-adjustments__progress-icon">✨</span>
-            <span>AI Removing...</span>
-            <span className="removal-adjustments__progress-percent">{Math.round(processingProgress)}%</span>
+      {/* Right sidebar content - Progress or instructions */}
+      <div className="removal-adjustments__sidebar-content">
+        {isProcessing ? (
+          /* Processing Progress Panel - shows in right sidebar */
+          <div className="removal-adjustments__progress-panel">
+            <div className="removal-adjustments__progress-header">
+              <span className="removal-adjustments__progress-icon">✨</span>
+              <span>AI Removing...</span>
+            </div>
+            
+            <div className="removal-adjustments__progress-percent-large">
+              {Math.round(processingProgress)}%
+            </div>
+            
+            <div className="removal-adjustments__progress-bar-container">
+              <div 
+                className="removal-adjustments__progress-bar-fill" 
+                style={{ width: `${processingProgress}%` }}
+              />
+            </div>
+            
+            <div className="removal-adjustments__progress-milestones-vertical">
+              {(['preparing', 'analyzing', 'generating', 'blending'] as const).map((milestone, idx) => {
+                const milestoneOrder = ['preparing', 'analyzing', 'generating', 'blending'];
+                const currentIdx = milestoneOrder.indexOf(processingStage);
+                const isComplete = idx < currentIdx || processingStage === 'complete';
+                const isActive = processingStage === milestone;
+                return (
+                  <div 
+                    key={milestone}
+                    className={`removal-adjustments__milestone-row ${isActive ? 'active' : ''} ${isComplete ? 'complete' : ''}`}
+                  >
+                    <span className="removal-adjustments__milestone-dot" />
+                    <span className="removal-adjustments__milestone-label">
+                      {milestone.charAt(0).toUpperCase() + milestone.slice(1)}
+                    </span>
+                    {isActive && <span className="removal-adjustments__milestone-spinner">⏳</span>}
+                    {isComplete && <span className="removal-adjustments__milestone-check">✓</span>}
+                  </div>
+                );
+              })}
+            </div>
+            
+            <div className="removal-adjustments__progress-status">{processingStatus}</div>
           </div>
-          <div className="removal-adjustments__progress-bar-container">
-            <div 
-              className="removal-adjustments__progress-bar-fill" 
-              style={{ width: `${processingProgress}%` }}
-            />
+        ) : (
+          /* Instructions when not processing */
+          <div className="removal-adjustments__instructions">
+            <p className="removal-adjustments__hint">
+              Draw on the image to mark areas for removal. The AI will analyze and remove the selected regions.
+            </p>
+            
+            <div className="removal-adjustments__control-group">
+              <label className="removal-adjustments__label">
+                Brush Size: {brushSize}px
+              </label>
+              <input
+                type="range"
+                min="10"
+                max="200"
+                value={brushSize}
+                onChange={(e) => setBrushSize(Number(e.target.value))}
+                className="removal-adjustments__slider"
+              />
+            </div>
+
+            <div className="removal-adjustments__control-group">
+              <label className="removal-adjustments__label">
+                Edge Softness: {Math.round(feather * 100)}%
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={feather * 100}
+                onChange={(e) => setFeather(Number(e.target.value) / 100)}
+                className="removal-adjustments__slider"
+              />
+            </div>
+
+            <div className="removal-adjustments__tip">
+              <strong>Tips:</strong>
+              <ul className="removal-adjustments__tip-list">
+                <li>Use <kbd>Ctrl</kbd>+<kbd>Scroll</kbd> to resize brush</li>
+                <li>Draw around or over objects to remove</li>
+                <li>Press <kbd>Enter</kbd> to apply</li>
+                <li>Press <kbd>Esc</kbd> to cancel</li>
+              </ul>
+            </div>
+
+            {/* AI Usage Info */}
+            <div className="removal-adjustments__ai-info">
+              <div className="removal-adjustments__ai-badge">🤖 AI-Powered</div>
+              <p className="removal-adjustments__ai-description">
+                {aiUsageStats.remaining === 0 
+                  ? '⚠️ Daily limit reached (5/5 used)'
+                  : `${aiUsageStats.used}/${aiUsageStats.limit} AI removals used today`
+                }
+              </p>
+            </div>
           </div>
-          <div className="removal-adjustments__progress-milestones">
-            {(['preparing', 'analyzing', 'generating', 'blending'] as const).map((milestone, idx) => {
-              const milestoneOrder = ['preparing', 'analyzing', 'generating', 'blending'];
-              const currentIdx = milestoneOrder.indexOf(processingStage);
-              const isComplete = idx < currentIdx || processingStage === 'complete';
-              const isActive = processingStage === milestone;
-              return (
-                <div 
-                  key={milestone}
-                  className={`removal-adjustments__milestone-item ${isActive ? 'active' : ''} ${isComplete ? 'complete' : ''}`}
-                >
-                  <span className="removal-adjustments__milestone-dot" />
-                  <span className="removal-adjustments__milestone-label">
-                    {milestone.charAt(0).toUpperCase() + milestone.slice(1)}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-          <div className="removal-adjustments__progress-status">{processingStatus}</div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Overlay for drawing */}
       {!isProcessing && (

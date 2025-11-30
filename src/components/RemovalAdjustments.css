@@ -318,30 +318,114 @@
   cursor: not-allowed;
 }
 
-/* Processing Panel - Clean inline progress in corner */
+/* Processing Panel - Now in sidebar, not fixed position */
 .removal-adjustments__processing-panel {
-  position: fixed;
-  top: 70px;
-  right: 20px;
-  width: 280px;
-  padding: 1.25rem;
-  background: linear-gradient(135deg, rgba(25, 25, 35, 0.98), rgba(20, 20, 30, 0.98));
-  border: 1px solid rgba(74, 158, 255, 0.3);
-  border-radius: 16px;
-  backdrop-filter: blur(20px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
-  z-index: 1001;
-  animation: slideIn 0.3s ease-out;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, rgba(74, 158, 255, 0.1), rgba(138, 92, 246, 0.05));
+  border-radius: 12px;
+  border: 1px solid rgba(74, 158, 255, 0.2);
+}
+
+/* Sidebar content area */
+.removal-adjustments__sidebar-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.removal-adjustments__instructions {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Large percentage display */
+.removal-adjustments__progress-percent-large {
+  font-size: 3rem;
+  font-weight: 800;
+  text-align: center;
+  background: linear-gradient(135deg, #4a9eff, #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1;
+  margin: 0.5rem 0;
+}
+
+/* Vertical milestones for sidebar */
+.removal-adjustments__progress-milestones-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 0.5rem 0;
+}
+
+.removal-adjustments__milestone-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.4);
+  transition: all 0.3s ease;
+}
+
+.removal-adjustments__milestone-row.active {
+  background: rgba(74, 158, 255, 0.15);
+  color: #4a9eff;
+}
+
+.removal-adjustments__milestone-row.complete {
+  color: #10b981;
+}
+
+.removal-adjustments__milestone-row .removal-adjustments__milestone-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+}
+
+.removal-adjustments__milestone-row.active .removal-adjustments__milestone-dot {
+  background: #4a9eff;
+  box-shadow: 0 0 10px rgba(74, 158, 255, 0.5);
+  animation: pulse-dot 1s ease-in-out infinite;
+}
+
+.removal-adjustments__milestone-row.complete .removal-adjustments__milestone-dot {
+  background: #10b981;
+}
+
+.removal-adjustments__milestone-spinner {
+  margin-left: auto;
+  animation: spin 1s linear infinite;
+}
+
+.removal-adjustments__milestone-check {
+  margin-left: auto;
+  color: #10b981;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 @keyframes slideIn {
   from {
     opacity: 0;
-    transform: translateX(20px);
+    transform: translateY(-10px);
   }
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translateY(0);
   }
 }
 
