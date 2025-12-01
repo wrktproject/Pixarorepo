@@ -439,8 +439,10 @@ void main() {
   float depth = depthSample.r;
   vec2 texelSize = 1.0 / u_resolution;
   
-  // DEBUG: Show depth as grayscale (black=0, white=1)
-  fragColor = vec4(depth, depth, depth, 1.0);
+  // DEBUG: Show texture coordinates as color
+  // If this shows a gradient from black to red/green, UV coords are correct
+  // Top-left = black, bottom-right = yellow
+  fragColor = vec4(v_texCoord.x, v_texCoord.y, depth, 1.0);
   return;
   
   // DEBUG: Uncomment to visualize depth
