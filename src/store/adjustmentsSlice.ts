@@ -348,6 +348,32 @@ const adjustmentsSlice = createSlice({
       state.grain.roughness = clamp(action.payload, 0, 100);
     },
 
+    // Lens Blur
+    setLensBlurEnabled: (state, action: PayloadAction<boolean>) => {
+      state.lensBlur.enabled = action.payload;
+    },
+    setLensBlurAmount: (state, action: PayloadAction<number>) => {
+      state.lensBlur.amount = clamp(action.payload, 0, 2.5);
+    },
+    setLensBlurMaxBlur: (state, action: PayloadAction<number>) => {
+      state.lensBlur.maxBlur = clamp(action.payload, 8, 120);
+    },
+    setLensBlurFocusDepth: (state, action: PayloadAction<number>) => {
+      state.lensBlur.focusDepth = clamp(action.payload, 0, 1);
+    },
+    setLensBlurFocusRange: (state, action: PayloadAction<number>) => {
+      state.lensBlur.focusRange = clamp(action.payload, 0, 0.5);
+    },
+    setLensBlurEdgeProtect: (state, action: PayloadAction<number>) => {
+      state.lensBlur.edgeProtect = clamp(action.payload, 0, 1);
+    },
+    setLensBlurShowDepth: (state, action: PayloadAction<boolean>) => {
+      state.lensBlur.showDepth = action.payload;
+    },
+    setLensBlurShowFocus: (state, action: PayloadAction<boolean>) => {
+      state.lensBlur.showFocus = action.payload;
+    },
+
     // Removal operations
     addRemovalOperation: (state, action: PayloadAction<RemovalOperation>) => {
       state.removals.push(action.payload);
@@ -451,6 +477,14 @@ export const {
   setGrainAmount,
   setGrainSize,
   setGrainRoughness,
+  setLensBlurEnabled,
+  setLensBlurAmount,
+  setLensBlurMaxBlur,
+  setLensBlurFocusDepth,
+  setLensBlurFocusRange,
+  setLensBlurEdgeProtect,
+  setLensBlurShowDepth,
+  setLensBlurShowFocus,
   addRemovalOperation,
   removeRemovalOperation,
   clearRemovalOperations,

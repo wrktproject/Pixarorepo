@@ -12,6 +12,7 @@ import { ColorAdjustments } from './ColorAdjustments';
 import { DetailAdjustments } from './DetailAdjustments';
 import { HSLAdjustments } from './HSLAdjustments';
 import { EffectsAdjustments } from './EffectsAdjustments';
+import { LensBlurAdjustments } from './LensBlurAdjustments';
 import { SettingsAdjustments } from './SettingsAdjustments';
 import { Histogram } from './Histogram';
 import './EditingPanel.css';
@@ -119,6 +120,7 @@ export const EditingPanel: React.FC = () => {
         <DetailAdjustments disabled={disabled} expanded={sectionsExpanded} />
         <HSLAdjustments disabled={disabled} expanded={sectionsExpanded} />
         <EffectsAdjustments disabled={disabled} expanded={sectionsExpanded} />
+        <LensBlurAdjustments disabled={disabled} expanded={sectionsExpanded} />
 
         {/* Settings Section */}
         <div className="editing-panel__section-group">

@@ -27,6 +27,10 @@ const PresetAdjustments = React.lazy(() =>
   import('./PresetAdjustments').then(module => ({ default: module.PresetAdjustments }))
 );
 
+const LensBlurAdjustments = React.lazy(() => 
+  import('./LensBlurAdjustments').then(module => ({ default: module.LensBlurAdjustments }))
+);
+
 type ActiveTool = 'none' | 'adjustments' | 'crop' | 'removal' | 'blur' | 'presets';
 
 interface ToolsPanelProps {
@@ -198,23 +202,12 @@ export const ToolsPanel: React.FC<ToolsPanelProps> = ({ canvasRef }) => {
       {activeTool === 'blur' && (
         <div className="tools-panel__content">
           <div className="tools-panel__header">
-            <h3 className="tools-panel__title">Lens Blur</h3>
+            <h3 className="tools-panel__title">AI Lens Blur</h3>
           </div>
           <div className="tools-panel__body">
-            <div className="lens-blur-tool">
-              <p className="lens-blur-tool__description">
-                AI-powered depth-aware blur effect. Paint on areas to keep in focus, and the AI will blur the background naturally.
-              </p>
-              <button
-                className="lens-blur-tool__button"
-                disabled={true}
-              >
-                Coming Soon
-              </button>
-              <p className="lens-blur-tool__note">
-                This feature uses AI to detect depth and create realistic bokeh effects.
-              </p>
-            </div>
+            <Suspense fallback={<div className="tools-panel__loading">Loading...</div>}>
+              <LensBlurAdjustments disabled={disabled} expanded={true} />
+            </Suspense>
           </div>
         </div>
       )}

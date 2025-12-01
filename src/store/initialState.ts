@@ -148,6 +148,16 @@ export const createInitialAdjustmentState = (): AdjustmentState => ({
     enabled: false,
     strength: 0.0,
   },
+  lensBlur: {
+    enabled: false,
+    amount: 1.0,
+    maxBlur: 60,
+    focusDepth: 0.5,
+    focusRange: 0.1,
+    edgeProtect: 0.6,
+    showDepth: false,
+    showFocus: false,
+  },
 
   // Removal operations
   removals: [],

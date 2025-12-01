@@ -1,0 +1,415 @@
+/**
+ * Depth Estimation Client
+ * Handles communication with the MiDaS depth estimation API
+ * Provides proper depth map processing for lens blur
+ */
+
+/**
+ * Resize image for API request (max dimension for performance)
+ * Depth estimation works well at lower resolutions
+ */
+function resizeImageForAPI(imageData: ImageData, maxSize: number = 768): {
+  resized: ImageData;
+  scale: number;
+} {
+  const { width, height } = imageData;
+  
+  if (width <= maxSize && height <= maxSize) {
+    return { resized: imageData, scale: 1 };
+  }
+  
+  const scale = Math.min(maxSize / width, maxSize / height);
+  const newWidth = Math.round(width * scale);
+  const newHeight = Math.round(height * scale);
+  
+  const canvas = document.createElement('canvas');
+  canvas.width = newWidth;
+  canvas.height = newHeight;
+  
+  const ctx = canvas.getContext('2d')!;
+  
+  // Create temporary canvas to draw original ImageData
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = width;
+  tempCanvas.height = height;
+  const tempCtx = tempCanvas.getContext('2d')!;
+  tempCtx.putImageData(imageData, 0, 0);
+  
+  // Draw scaled version with high quality
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(tempCanvas, 0, 0, newWidth, newHeight);
+  
+  return {
+    resized: ctx.getImageData(0, 0, newWidth, newHeight),
+    scale,
+  };
+}
+
+/**
+ * Convert ImageData to base64 JPEG for API
+ */
+function imageDataToBase64(imageData: ImageData, quality: number = 0.9): string {
+  const canvas = document.createElement('canvas');
+  canvas.width = imageData.width;
+  canvas.height = imageData.height;
+  
+  const ctx = canvas.getContext('2d')!;
+  ctx.putImageData(imageData, 0, 0);
+  
+  return canvas.toDataURL('image/jpeg', quality);
+}
+
+/**
+ * Load an image from URL and return as HTMLImageElement
+ */
+async function loadImageFromUrl(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('Failed to load depth map image'));
+    img.src = url;
+  });
+}
+
+/**
+ * Convert HTMLImageElement to ImageData at target resolution
+ */
+function imageToImageData(
+  img: HTMLImageElement,
+  targetWidth: number,
+  targetHeight: number
+): ImageData {
+  const canvas = document.createElement('canvas');
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+  
+  const ctx = canvas.getContext('2d')!;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+  
+  return ctx.getImageData(0, 0, targetWidth, targetHeight);
+}
+
+/**
+ * Check if we're in local development mode
+ */
+function isLocalDevelopment(): boolean {
+  return window.location.hostname === 'localhost' || 
+         window.location.hostname === '127.0.0.1' ||
+         window.location.port === '5173' ||
+         window.location.port === '5174';
+}
+
+/**
+ * Generate a simple gradient-based depth map for local development
+ * This is a placeholder that creates a center-focused depth effect
+ */
+function generateLocalDepthMap(
+  imageData: ImageData,
+  onProgress?: (status: string) => void
+): { depthMap: Float32Array; width: number; height: number } {
+  const { width, height, data } = imageData;
+  const depthMap = new Float32Array(width * height);
+  
+  onProgress?.('Generating local depth estimate...');
+  
+  // Calculate center of image
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const maxDist = Math.sqrt(centerX * centerX + centerY * centerY);
+  
+  // Create depth based on:
+  // 1. Distance from center (center = near, edges = far)
+  // 2. Brightness/luminance hints (brighter often = foreground)
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = y * width + x;
+      const pixelIdx = idx * 4;
+      
+      // Distance from center (normalized 0-1)
+      const dx = x - centerX;
+      const dy = y - centerY;
+      const dist = Math.sqrt(dx * dx + dy * dy) / maxDist;
+      
+      // Luminance of pixel (rough foreground hint)
+      const r = data[pixelIdx];
+      const g = data[pixelIdx + 1];
+      const b = data[pixelIdx + 2];
+      const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+      
+      // Combine: center bias + slight luminance bias
+      // Higher value = nearer (will be in focus at high focusDepth)
+      const centerBias = 1 - dist * 0.7; // 0.3 to 1.0 from edge to center
+      const luminanceBias = luminance * 0.2; // Slight brightness boost
+      
+      depthMap[idx] = Math.min(1, Math.max(0, centerBias + luminanceBias));
+    }
+  }
+  
+  onProgress?.('Smoothing depth map...');
+  
+  // Apply smoothing
+  const smoothed = applyGuidedSmoothing(depthMap, width, height, 5);
+  
+  return {
+    depthMap: smoothed,
+    width,
+    height,
+  };
+}
+
+/**
+ * Fetch depth map from server using MiDaS model
+ * Returns normalized depth data as Float32Array
+ */
+export async function fetchDepthMap(
+  imageData: ImageData,
+  onProgress?: (status: string) => void
+): Promise<{ depthMap: Float32Array; width: number; height: number } | null> {
+  // In local development, use a simple gradient-based fallback
+  if (isLocalDevelopment()) {
+    onProgress?.('Local mode: Using gradient depth estimation');
+    
+    // Simulate some processing time
+    await new Promise(r => setTimeout(r, 500));
+    
+    const result = generateLocalDepthMap(imageData, onProgress);
+    
+    onProgress?.('Complete!');
+    return result;
+  }
+  
+  try {
+    onProgress?.('Preparing image...');
+    
+    // Resize for API efficiency
+    const { resized } = resizeImageForAPI(imageData, 768);
+    const imageBase64 = imageDataToBase64(resized);
+    
+    onProgress?.('Analyzing depth with AI...');
+    
+    const response = await fetch('/api/depth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: imageBase64 }),
+    });
+    
+    if (!response.ok) {
+      // Try to parse error, but handle empty responses
+      let errorMessage = 'Depth estimation failed';
+      try {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const error = await response.json();
+          errorMessage = error.message || errorMessage;
+        }
+      } catch {
+        // Ignore JSON parse errors
+      }
+      console.warn('Depth API error:', response.status, errorMessage);
+      throw new Error(errorMessage);
+    }
+    
+    const result = await response.json();
+    
+    if (!result.success || !result.depthMapUrl) {
+      throw new Error('No depth map returned from API');
+    }
+    
+    onProgress?.('Processing depth map...');
+    
+    // Fetch the depth map image from Replicate
+    const depthImage = await loadImageFromUrl(result.depthMapUrl);
+    
+    // Convert to ImageData at original resolution
+    const depthImageData = imageToImageData(depthImage, imageData.width, imageData.height);
+    
+    // Normalize and apply bilateral filtering
+    const processed = processDepthMap(depthImageData);
+    
+    return {
+      depthMap: processed,
+      width: imageData.width,
+      height: imageData.height,
+    };
+    
+  } catch (error) {
+    console.error('Depth estimation error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Process depth map: normalize and apply edge-preserving smoothing
+ * MiDaS outputs relative depth where higher = closer
+ */
+function processDepthMap(depthData: ImageData): Float32Array {
+  const { width, height, data } = depthData;
+  const depthValues = new Float32Array(width * height);
+  
+  // Extract depth values and find min/max
+  let min = Infinity;
+  let max = -Infinity;
+  
+  for (let i = 0; i < width * height; i++) {
+    // MiDaS depth map is grayscale, just use R channel
+    const val = data[i * 4];
+    depthValues[i] = val;
+    min = Math.min(min, val);
+    max = Math.max(max, val);
+  }
+  
+  const range = max - min || 1;
+  
+  // Normalize to 0-1 (0 = far, 1 = near)
+  // MiDaS: higher value = closer, which is what we want
+  for (let i = 0; i < width * height; i++) {
+    depthValues[i] = (depthValues[i] - min) / range;
+  }
+  
+  // Apply fast bilateral-like smoothing using guided filter approximation
+  // This helps reduce noise while preserving edges
+  const smoothed = applyGuidedSmoothing(depthValues, width, height, 3);
+  
+  return smoothed;
+}
+
+/**
+ * Fast guided filter approximation for edge-preserving smoothing
+ * Uses box filter with edge-aware weighting
+ */
+function applyGuidedSmoothing(
+  depth: Float32Array,
+  width: number,
+  height: number,
+  radius: number
+): Float32Array {
+  const result = new Float32Array(width * height);
+  const epsilon = 0.02; // Edge threshold
+  
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const centerIdx = y * width + x;
+      const centerDepth = depth[centerIdx];
+      
+      let sumDepth = 0;
+      let sumWeight = 0;
+      
+      // Sample in window
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          const nx = Math.max(0, Math.min(width - 1, x + dx));
+          const ny = Math.max(0, Math.min(height - 1, y + dy));
+          const idx = ny * width + nx;
+          
+          const sampleDepth = depth[idx];
+          
+          // Spatial weight (Gaussian-like)
+          const spatialDist = Math.sqrt(dx * dx + dy * dy) / radius;
+          const spatialWeight = Math.exp(-spatialDist * spatialDist * 2);
+          
+          // Range weight (depth similarity)
+          const depthDiff = Math.abs(sampleDepth - centerDepth);
+          const rangeWeight = Math.exp(-depthDiff * depthDiff / (2 * epsilon * epsilon));
+          
+          const weight = spatialWeight * rangeWeight;
+          sumDepth += sampleDepth * weight;
+          sumWeight += weight;
+        }
+      }
+      
+      result[centerIdx] = sumDepth / Math.max(sumWeight, 0.0001);
+    }
+  }
+  
+  return result;
+}
+
+/**
+ * Get depth value at specific pixel coordinate
+ * Useful for click-to-focus functionality
+ */
+export function getDepthAtPoint(
+  depthMap: Float32Array,
+  width: number,
+  x: number,
+  y: number
+): number {
+  const px = Math.max(0, Math.min(width - 1, Math.round(x)));
+  const height = Math.floor(depthMap.length / width);
+  const py = Math.max(0, Math.min(height - 1, Math.round(y)));
+  return depthMap[py * width + px];
+}
+
+/**
+ * Convert Float32Array depth map to ImageData for visualization
+ */
+export function depthMapToImageData(
+  depthMap: Float32Array,
+  width: number,
+  height: number,
+  colorize: boolean = true
+): ImageData {
+  const data = new Uint8ClampedArray(width * height * 4);
+  
+  for (let i = 0; i < width * height; i++) {
+    const depth = depthMap[i];
+    
+    if (colorize) {
+      // Blue (far) to Red (near) gradient
+      const r = Math.round(depth * 255);
+      const g = Math.round((1 - Math.abs(depth - 0.5) * 2) * 100);
+      const b = Math.round((1 - depth) * 255);
+      
+      data[i * 4] = r;
+      data[i * 4 + 1] = g;
+      data[i * 4 + 2] = b;
+    } else {
+      // Grayscale
+      const val = Math.round(depth * 255);
+      data[i * 4] = val;
+      data[i * 4 + 1] = val;
+      data[i * 4 + 2] = val;
+    }
+    data[i * 4 + 3] = 255;
+  }
+  
+  return new ImageData(data, width, height);
+}
+
+/**
+ * Apply depth dilation to prevent background bleeding at edges
+ * Expands foreground (high depth) values into neighboring pixels
+ */
+export function dilateDepthMap(
+  depthMap: Float32Array,
+  width: number,
+  height: number,
+  radius: number = 2
+): Float32Array {
+  const result = new Float32Array(width * height);
+  
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let maxDepth = 0;
+      
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist <= radius) {
+            const nx = Math.max(0, Math.min(width - 1, x + dx));
+            const ny = Math.max(0, Math.min(height - 1, y + dy));
+            maxDepth = Math.max(maxDepth, depthMap[ny * width + nx]);
+          }
+        }
+      }
+      
+      result[y * width + x] = maxDepth;
+    }
+  }
+  
+  return result;
+}

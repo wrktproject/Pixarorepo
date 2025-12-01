@@ -144,6 +144,17 @@ export interface ChromaticAberrationSettings {
   strength: number;    // Correction strength (-1.0 to 1.0)
 }
 
+export interface LensBlurSettings {
+  enabled: boolean;
+  amount: number;           // 0.0 to 2.5 - overall blur strength
+  maxBlur: number;          // 8 to 120 pixels - maximum blur radius
+  focusDepth: number;       // 0.0 to 1.0 - depth at which image is in focus (1=near, 0=far)
+  focusRange: number;       // 0.0 to 0.5 - range around focus that stays sharp
+  edgeProtect: number;      // 0.0 to 1.0 - edge protection strength
+  showDepth: boolean;       // Show depth map overlay for debugging
+  showFocus: boolean;       // Show focus plane indicator
+}
+
 export interface AdjustmentState {
   // Basic adjustments
   exposure: number;        // -5 to +5
@@ -194,6 +205,7 @@ export interface AdjustmentState {
   vignette: VignetteSettings;
   grain: GrainSettings;
   chromaticAberration: ChromaticAberrationSettings;
+  lensBlur: LensBlurSettings;
 
   // Removal operations (stored as history)
   removals: RemovalOperation[];

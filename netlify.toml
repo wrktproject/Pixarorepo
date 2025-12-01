@@ -25,6 +25,11 @@
   to = "/.netlify/functions/inpaint"
   status = 200
 
+[[redirects]]
+  from = "/api/depth"
+  to = "/.netlify/functions/depth"
+  status = 200
+
 # SPA routing - redirect all other requests to index.html
 [[redirects]]
   from = "/*"
