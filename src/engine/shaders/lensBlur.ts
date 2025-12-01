@@ -328,17 +328,19 @@ void main() {
   float depth = depthTexel.r;
   
   if (u_showDepth) {
-    // Debug: show raw depth texture channels
-    // Red channel should vary with depth (far=dark, near=bright)
-    vec3 depthDebug = vec3(depthTexel.r, depthTexel.g, depthTexel.b);
+    // Visualize depth as a smooth gradient from blue (far) to red (near)
+    // Using a perceptually smooth color gradient
+    vec3 depthColor;
     
-    // If R, G, B are all the same (uniform), it's probably not loaded correctly
-    // Show a gradient to visualize the actual depth values
-    vec3 depthColor = vec3(
-      depth,                    // Near = red
-      0.5,                      // Green midpoint
-      1.0 - depth               // Far = blue
-    );
+    if (depth < 0.5) {
+      // Far to mid: Blue to Cyan to Green
+      float t = depth * 2.0;  // 0 to 1 for first half
+      depthColor = mix(vec3(0.0, 0.2, 1.0), vec3(0.0, 1.0, 0.5), t);
+    } else {
+      // Mid to near: Green to Yellow to Red
+      float t = (depth - 0.5) * 2.0;  // 0 to 1 for second half
+      depthColor = mix(vec3(0.0, 1.0, 0.5), vec3(1.0, 0.2, 0.0), t);
+    }
     
     // Mix with original image
     color = mix(color, depthColor, 0.7);
