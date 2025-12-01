@@ -314,6 +314,7 @@ void main() {
 
 /**
  * Focus point visualization shader (for preview)
+ * Shows depth map with focus range overlay (like Lightroom)
  */
 export const focusVisualizationFragmentShader = `#version 300 es
 precision highp float;
@@ -325,7 +326,7 @@ uniform sampler2D u_depth;      // Depth map
 uniform float u_focusDepth;     // Focus point depth
 uniform float u_focusRange;     // Focus range
 uniform bool u_showDepth;       // Show depth map overlay
-uniform bool u_showFocus;       // Show focus indicator
+uniform bool u_showFocus;       // Show focus indicator (unused now, depth shows focus)
 
 out vec4 fragColor;
 
@@ -335,47 +336,40 @@ void main() {
   float depth = depthTexel.r;
   
   if (u_showDepth) {
-    // Visualize depth as a smooth gradient from blue (far) to red (near)
-    // Using a perceptually smooth color gradient
-    vec3 depthColor;
-    
-    if (depth < 0.5) {
-      // Far to mid: Blue to Cyan to Green
-      float t = depth * 2.0;  // 0 to 1 for first half
-      depthColor = mix(vec3(0.0, 0.2, 1.0), vec3(0.0, 1.0, 0.5), t);
-    } else {
-      // Mid to near: Green to Yellow to Red
-      float t = (depth - 0.5) * 2.0;  // 0 to 1 for second half
-      depthColor = mix(vec3(0.0, 1.0, 0.5), vec3(1.0, 0.2, 0.0), t);
-    }
-    
-    // Mix with original image
-    color = mix(color, depthColor, 0.7);
-  }
-  
-  if (u_showFocus) {
-    // Highlight areas in focus with green tint
+    // Calculate how far this pixel is from the focus point
     float distFromFocus = abs(depth - u_focusDepth);
-    float inFocus = 1.0 - smoothstep(0.0, u_focusRange * 0.5, distFromFocus);
     
-    if (inFocus > 0.5) {
-      // Green outline for focus area
-      vec2 texelSize = 1.0 / vec2(textureSize(u_depth, 0));
-      float edge = 0.0;
-      
-      for (int dy = -1; dy <= 1; dy++) {
-        for (int dx = -1; dx <= 1; dx++) {
-          vec2 offset = vec2(float(dx), float(dy)) * texelSize;
-          float neighborDepth = texture(u_depth, v_texCoord + offset).r;
-          float neighborFocus = 1.0 - smoothstep(0.0, u_focusRange * 0.5, abs(neighborDepth - u_focusDepth));
-          edge += abs(inFocus - neighborFocus);
-        }
-      }
-      
-      if (edge > 0.1) {
-        color = mix(color, vec3(0.2, 1.0, 0.2), 0.7);
-      }
+    // Calculate blur factor (same as blur shader)
+    float blurFactor = smoothstep(u_focusRange * 0.5, u_focusRange * 0.5 + 0.15, distFromFocus);
+    
+    // Color scheme:
+    // - RED = will be blurred (out of focus)
+    // - GREEN = in focus (sharp)
+    // - Gradient between shows transition
+    
+    vec3 inFocusColor = vec3(0.2, 0.9, 0.3);   // Green for in-focus
+    vec3 blurredColor = vec3(0.9, 0.2, 0.2);   // Red for blurred
+    
+    // Mix based on blur factor
+    vec3 focusIndicator = mix(inFocusColor, blurredColor, blurFactor);
+    
+    // Add depth gradient as subtle background (blue=far, yellow=near)
+    vec3 depthGradient;
+    if (depth < 0.5) {
+      depthGradient = mix(vec3(0.1, 0.1, 0.4), vec3(0.2, 0.4, 0.3), depth * 2.0);
+    } else {
+      depthGradient = mix(vec3(0.2, 0.4, 0.3), vec3(0.5, 0.4, 0.1), (depth - 0.5) * 2.0);
     }
+    
+    // Combine: focus indicator is prominent, depth gradient is subtle
+    vec3 overlay = mix(depthGradient, focusIndicator, 0.7);
+    
+    // Mix with original image (50% opacity for depth visualization)
+    color = mix(color, overlay, 0.6);
+    
+    // Add a white highlight line at exact focus depth (thin focus plane indicator)
+    float focusLine = 1.0 - smoothstep(0.0, 0.02, distFromFocus);
+    color = mix(color, vec3(1.0), focusLine * 0.5);
   }
   
   fragColor = vec4(color, 1.0);
