@@ -9,7 +9,6 @@ import { useSelector, useDispatch } from 'react-redux';
 import type { RootState } from '../store';
 import {
   setLensBlurAmount,
-  setLensBlurFocusDepth,
   setLensBlurFocusRange,
   setLensBlurShowDepth,
   setLensBlurEnabled,
@@ -127,13 +126,6 @@ export const LensBlurAdjustments: React.FC<LensBlurAdjustmentsProps> = ({
     [dispatch]
   );
 
-  const handleFocusDepthChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      dispatch(setLensBlurFocusDepth(Number(e.target.value) / 100));
-    },
-    [dispatch]
-  );
-
   const handleFocusRangeChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       dispatch(setLensBlurFocusRange(Number(e.target.value) / 100));
@@ -220,6 +212,12 @@ export const LensBlurAdjustments: React.FC<LensBlurAdjustmentsProps> = ({
           </button>
         </div>
 
+        {/* Click to focus instruction */}
+        <div className="lens-blur-adjustments__focus-instruction">
+          <span className="lens-blur-adjustments__focus-icon">🎯</span>
+          <span>Click on the image to set focus point</span>
+        </div>
+
         {/* Controls */}
         <div className="lens-blur-adjustments__controls">
           <div className="lens-blur-adjustments__control-group">
@@ -232,21 +230,6 @@ export const LensBlurAdjustments: React.FC<LensBlurAdjustmentsProps> = ({
               max="200"
               value={lensBlur.amount * 100}
               onChange={handleAmountChange}
-              className="lens-blur-adjustments__slider"
-              disabled={disabled}
-            />
-          </div>
-
-          <div className="lens-blur-adjustments__control-group">
-            <label className="lens-blur-adjustments__label">
-              Focus Point: {Math.round(lensBlur.focusDepth * 100)}% (0=far, 100=near)
-            </label>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={lensBlur.focusDepth * 100}
-              onChange={handleFocusDepthChange}
               className="lens-blur-adjustments__slider"
               disabled={disabled}
             />

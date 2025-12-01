@@ -336,17 +336,28 @@ void main() {
   float depth = depthTexel.r;
   
   if (u_showDepth) {
-    // Calculate how far this pixel is from the focus point
-    float distFromFocus = abs(depth - u_focusDepth);
+    // Focus range defines a depth band from (focusDepth - range/2) to (focusDepth + range/2)
+    float halfRange = u_focusRange * 0.5;
+    float focusStart = u_focusDepth - halfRange;  // Near edge of focus band
+    float focusEnd = u_focusDepth + halfRange;    // Far edge of focus band
     
-    // Calculate blur factor (same as blur shader)
-    float blurFactor = smoothstep(u_focusRange * 0.5, u_focusRange * 0.5 + 0.15, distFromFocus);
+    // Calculate blur factor: 0 = in focus, 1 = fully blurred
+    // Uses one-sided distance - blur increases as you go further from the focus band
+    float blurFactor;
+    if (depth < focusStart) {
+      // In front of focus (foreground) - blurs toward camera
+      blurFactor = smoothstep(focusStart, focusStart - 0.15, depth);
+    } else if (depth > focusEnd) {
+      // Behind focus (background) - blurs away from camera
+      blurFactor = smoothstep(focusEnd, focusEnd + 0.15, depth);
+    } else {
+      // Within focus band - sharp
+      blurFactor = 0.0;
+    }
     
     // Color scheme:
     // - RED = will be blurred (out of focus)
     // - GREEN = in focus (sharp)
-    // - Gradient between shows transition
-    
     vec3 inFocusColor = vec3(0.2, 0.9, 0.3);   // Green for in-focus
     vec3 blurredColor = vec3(0.9, 0.2, 0.2);   // Red for blurred
     
@@ -364,12 +375,8 @@ void main() {
     // Combine: focus indicator is prominent, depth gradient is subtle
     vec3 overlay = mix(depthGradient, focusIndicator, 0.7);
     
-    // Mix with original image (50% opacity for depth visualization)
+    // Mix with original image (60% opacity for depth visualization)
     color = mix(color, overlay, 0.6);
-    
-    // Add a white highlight line at exact focus depth (thin focus plane indicator)
-    float focusLine = 1.0 - smoothstep(0.0, 0.02, distFromFocus);
-    color = mix(color, vec3(1.0), focusLine * 0.5);
   }
   
   fragColor = vec4(color, 1.0);
@@ -433,9 +440,23 @@ void main() {
   float depth = depthSample.r;
   vec2 texelSize = 1.0 / u_resolution;
   
-  // Calculate blur radius based on depth distance from focus point
-  float distFromFocus = abs(depth - u_focusDepth);
-  float blurFactor = smoothstep(u_focusRange * 0.5, u_focusRange * 0.5 + 0.2, distFromFocus);
+  // Focus range defines a depth band from (focusDepth - range/2) to (focusDepth + range/2)
+  float halfRange = u_focusRange * 0.5;
+  float focusStart = u_focusDepth - halfRange;  // Near edge of focus band
+  float focusEnd = u_focusDepth + halfRange;    // Far edge of focus band
+  
+  // Calculate blur factor based on distance from focus band (not circular distance)
+  float blurFactor;
+  if (depth < focusStart) {
+    // In front of focus (foreground)
+    blurFactor = smoothstep(focusStart, focusStart - 0.2, depth);
+  } else if (depth > focusEnd) {
+    // Behind focus (background)
+    blurFactor = smoothstep(focusEnd, focusEnd + 0.2, depth);
+  } else {
+    // Within focus band - sharp
+    blurFactor = 0.0;
+  }
   float radius = blurFactor * u_maxBlur * u_amount;
   
   // If radius is very small, just return the original

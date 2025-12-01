@@ -364,6 +364,23 @@
   cursor: not-allowed;
 }
 
+/* Focus instruction */
+.lens-blur-adjustments__focus-instruction {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 8px;
+  font-size: 0.8rem;
+  color: #60a5fa;
+}
+
+.lens-blur-adjustments__focus-icon {
+  font-size: 1rem;
+}
+
 /* Preview options */
 .lens-blur-adjustments__preview-options {
   display: flex;

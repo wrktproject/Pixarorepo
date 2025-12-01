@@ -62,6 +62,38 @@ class DepthMapManagerClass {
   }
 
   /**
+   * Get depth value at a specific normalized coordinate (0-1)
+   * @param x Normalized x coordinate (0 = left, 1 = right)
+   * @param y Normalized y coordinate (0 = top, 1 = bottom)
+   * @returns Depth value (0-1) or null if no depth map
+   */
+  getDepthAt(x: number, y: number): number | null {
+    if (!this.currentDepthMap) return null;
+    
+    const { data, width, height } = this.currentDepthMap;
+    
+    // Clamp coordinates
+    const clampedX = Math.max(0, Math.min(1, x));
+    const clampedY = Math.max(0, Math.min(1, y));
+    
+    // Convert to pixel coordinates
+    const pixelX = Math.floor(clampedX * (width - 1));
+    const pixelY = Math.floor(clampedY * (height - 1));
+    
+    // Sample depth
+    const index = pixelY * width + pixelX;
+    return data[index] ?? null;
+  }
+
+  /**
+   * Get depth map dimensions
+   */
+  getDimensions(): { width: number; height: number } | null {
+    if (!this.currentDepthMap) return null;
+    return { width: this.currentDepthMap.width, height: this.currentDepthMap.height };
+  }
+
+  /**
    * Clear the current depth map
    * Called when image changes
    */

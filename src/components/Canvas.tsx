@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import type { RootState } from '../store';
-import { store, setZoom, setPan, resetView, setShowComparison, setRenderedImageData, setAllAdjustments, addToHistory } from '../store';
+import { store, setZoom, setPan, resetView, setShowComparison, setRenderedImageData, setAllAdjustments, addToHistory, setLensBlurFocusDepth } from '../store';
 import { ShaderPipelineErrorHandler } from '../engine/shaderPipelineErrorHandler';
 import type { RenderMode } from '../engine/shaderPipelineErrorHandler';
 import { DepthMapManager } from '../utils/depthMapManager';
@@ -532,16 +532,50 @@ export const Canvas: React.FC<CanvasProps> = ({ canvasRef: externalCanvasRef }) 
   );
 
   /**
-   * Handle mouse down for pan start
+   * Handle mouse down for pan start or click-to-focus
    */
   const handleMouseDown = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
       if (e.button !== 0) return; // Only left click
 
+      // Check if lens blur is enabled and we have a depth map - handle click-to-focus
+      if (adjustments.lensBlur.enabled && DepthMapManager.hasDepthMap()) {
+        const canvas = canvasRef.current;
+        if (!canvas || !image) return;
+
+        // Get click position relative to canvas
+        const rect = canvas.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const clickY = e.clientY - rect.top;
+        
+        // Account for zoom and pan to get image coordinates
+        // The canvas is transformed with: scale(zoom) translate(pan.x/zoom, pan.y/zoom)
+        const canvasCenterX = rect.width / 2;
+        const canvasCenterY = rect.height / 2;
+        
+        // Reverse the transform to get image-space coordinates
+        const imageX = (clickX - canvasCenterX - pan.x) / zoom + image.width / 2;
+        const imageY = (clickY - canvasCenterY - pan.y) / zoom + image.height / 2;
+        
+        // Normalize to 0-1 range
+        const normalizedX = imageX / image.width;
+        const normalizedY = imageY / image.height;
+        
+        // Only sample if within image bounds
+        if (normalizedX >= 0 && normalizedX <= 1 && normalizedY >= 0 && normalizedY <= 1) {
+          const depth = DepthMapManager.getDepthAt(normalizedX, normalizedY);
+          if (depth !== null) {
+            console.log(`🎯 Click-to-focus: (${normalizedX.toFixed(2)}, ${normalizedY.toFixed(2)}) -> depth: ${depth.toFixed(3)}`);
+            dispatch(setLensBlurFocusDepth(depth));
+            return; // Don't start panning
+          }
+        }
+      }
+
       setIsPanning(true);
       setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
     },
-    [pan]
+    [pan, adjustments.lensBlur.enabled, canvasRef, image, zoom, dispatch]
   );
 
   /**
@@ -664,7 +698,7 @@ export const Canvas: React.FC<CanvasProps> = ({ canvasRef: externalCanvasRef }) 
         role="img"
         aria-label={image ? "Photo being edited" : "No photo loaded"}
         style={{
-          cursor: isPanning ? 'grabbing' : 'grab',
+          cursor: isPanning ? 'grabbing' : (adjustments.lensBlur.enabled && DepthMapManager.hasDepthMap() ? 'crosshair' : 'grab'),
           transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
         }}
       />
