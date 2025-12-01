@@ -16,15 +16,16 @@ import type { ShaderProgram } from './shaderUtils';
 import { createQuadGeometry, setupQuadAttributes, renderQuad } from './shaders/base';
 import {
   lensBlurVertexShader,
-  // Depth preprocessing disabled
+  // Multi-layer approach disabled
   // depthBilateralFragmentShader,
   // depthDilateFragmentShader,
-  layerMaskFragmentShader,
-  variableBlurFragmentShader,
-  depthCompositeFragmentShader,
+  // layerMaskFragmentShader,
+  // variableBlurFragmentShader,
+  // depthCompositeFragmentShader,
   focusVisualizationFragmentShader,
-  calculateLayerBlurRadius,
-  getLayerDepthCenters,
+  simpleDepthBlurFragmentShader,
+  // calculateLayerBlurRadius,
+  // getLayerDepthCenters,
 } from './shaders/lensBlur';
 import type { LensBlurParams } from './shaders/lensBlur';
 
@@ -42,13 +43,14 @@ export class LensBlurPipeline {
   private shaderCompiler: ShaderCompiler;
 
   // Shader programs
-  // Depth preprocessing disabled - using raw depth
+  // Multi-layer approach disabled - using simpler direct blur
   // private depthBilateralProgram: ShaderProgram | null = null;
   // private depthDilateProgram: ShaderProgram | null = null;
-  private layerMaskProgram: ShaderProgram | null = null;
-  private blurProgram: ShaderProgram | null = null;
-  private compositeProgram: ShaderProgram | null = null;
+  // private layerMaskProgram: ShaderProgram | null = null;
+  // private blurProgram: ShaderProgram | null = null;
+  // private compositeProgram: ShaderProgram | null = null;
   private visualizationProgram: ShaderProgram | null = null;
+  private simpleBlurProgram: ShaderProgram | null = null;  // Simple depth-aware blur
 
   // Framebuffers and textures
   private depthTexture: WebGLTexture | null = null;
@@ -65,6 +67,8 @@ export class LensBlurPipeline {
   private blurredLayerFBs: WebGLFramebuffer[] = [];
   private tempBlurTexture: WebGLTexture | null = null;
   private tempBlurFB: WebGLFramebuffer | null = null;
+  private tempBlurTexture2: WebGLTexture | null = null;  // For ping-pong blur
+  private tempBlurFB2: WebGLFramebuffer | null = null;
 
   // Quad geometry
   private quadVAO: WebGLVertexArrayObject | null = null;
@@ -123,41 +127,45 @@ export class LensBlurPipeline {
     //   ['a_position', 'a_texCoord']
     // );
 
-    // Layer mask generation
-    this.layerMaskProgram = this.shaderCompiler.createProgram(
-      lensBlurVertexShader,
-      layerMaskFragmentShader,
-      ['u_depth', 'u_layerIndex', 'u_numLayers', 'u_transitionWidth'],
-      ['a_position', 'a_texCoord']
-    );
-
-    // Variable blur
-    this.blurProgram = this.shaderCompiler.createProgram(
-      lensBlurVertexShader,
-      variableBlurFragmentShader,
-      ['u_texture', 'u_mask', 'u_direction', 'u_radius', 'u_resolution'],
-      ['a_position', 'a_texCoord']
-    );
-
-    // Depth composite
-    this.compositeProgram = this.shaderCompiler.createProgram(
-      lensBlurVertexShader,
-      depthCompositeFragmentShader,
-      [
-        'u_original', 'u_depth',
-        'u_blurredLayer0', 'u_blurredLayer1', 'u_blurredLayer2', 'u_blurredLayer3',
-        'u_blurredLayer4', 'u_blurredLayer5', 'u_blurredLayer6', 'u_blurredLayer7',
-        'u_layerDepths', 'u_sigmaDepth', 'u_focusDepth', 'u_focusRange',
-        'u_amount', 'u_edgeProtect', 'u_numLayers'
-      ],
-      ['a_position', 'a_texCoord']
-    );
+    // Multi-layer approach disabled - using simpler direct blur
+    // this.layerMaskProgram = this.shaderCompiler.createProgram(
+    //   lensBlurVertexShader,
+    //   layerMaskFragmentShader,
+    //   ['u_depth', 'u_layerIndex', 'u_numLayers', 'u_transitionWidth'],
+    //   ['a_position', 'a_texCoord']
+    // );
+    // this.blurProgram = this.shaderCompiler.createProgram(
+    //   lensBlurVertexShader,
+    //   variableBlurFragmentShader,
+    //   ['u_texture', 'u_mask', 'u_direction', 'u_radius', 'u_resolution'],
+    //   ['a_position', 'a_texCoord']
+    // );
+    // this.compositeProgram = this.shaderCompiler.createProgram(
+    //   lensBlurVertexShader,
+    //   depthCompositeFragmentShader,
+    //   [
+    //     'u_original', 'u_depth',
+    //     'u_blurredLayer0', 'u_blurredLayer1', 'u_blurredLayer2', 'u_blurredLayer3',
+    //     'u_blurredLayer4', 'u_blurredLayer5', 'u_blurredLayer6', 'u_blurredLayer7',
+    //     'u_layerDepths', 'u_sigmaDepth', 'u_focusDepth', 'u_focusRange',
+    //     'u_amount', 'u_edgeProtect', 'u_numLayers'
+    //   ],
+    //   ['a_position', 'a_texCoord']
+    // );
 
     // Focus visualization
     this.visualizationProgram = this.shaderCompiler.createProgram(
       lensBlurVertexShader,
       focusVisualizationFragmentShader,
       ['u_texture', 'u_depth', 'u_focusDepth', 'u_focusRange', 'u_showDepth', 'u_showFocus'],
+      ['a_position', 'a_texCoord']
+    );
+
+    // Simple depth-aware blur (alternative to multi-layer approach)
+    this.simpleBlurProgram = this.shaderCompiler.createProgram(
+      lensBlurVertexShader,
+      simpleDepthBlurFragmentShader,
+      ['u_texture', 'u_depth', 'u_resolution', 'u_focusDepth', 'u_focusRange', 'u_maxBlur', 'u_amount', 'u_direction'],
       ['a_position', 'a_texCoord']
     );
   }
@@ -193,6 +201,12 @@ export class LensBlurPipeline {
     this.createFramebufferWithTexture(width, height, (fb, tex) => {
       this.tempBlurFB = fb;
       this.tempBlurTexture = tex;
+    });
+
+    // Create second temp blur framebuffer for ping-pong
+    this.createFramebufferWithTexture(width, height, (fb, tex) => {
+      this.tempBlurFB2 = fb;
+      this.tempBlurTexture2 = tex;
     });
 
     // Create layer mask and blurred layer framebuffers
@@ -269,6 +283,8 @@ export class LensBlurPipeline {
     // if (this.dilatedDepthTexture) gl.deleteTexture(this.dilatedDepthTexture);
     if (this.tempBlurFB) gl.deleteFramebuffer(this.tempBlurFB);
     if (this.tempBlurTexture) gl.deleteTexture(this.tempBlurTexture);
+    if (this.tempBlurFB2) gl.deleteFramebuffer(this.tempBlurFB2);
+    if (this.tempBlurTexture2) gl.deleteTexture(this.tempBlurTexture2);
 
     for (const fb of this.layerMaskFBs) gl.deleteFramebuffer(fb);
     for (const tex of this.layerMaskTextures) gl.deleteTexture(tex);
@@ -287,6 +303,8 @@ export class LensBlurPipeline {
     // this.dilatedDepthTexture = null;
     this.tempBlurFB = null;
     this.tempBlurTexture = null;
+    this.tempBlurFB2 = null;
+    this.tempBlurTexture2 = null;
   }
 
   /**
@@ -367,27 +385,93 @@ export class LensBlurPipeline {
 
     this.ensureFramebuffers(width, height);
 
-    // Skip preprocessing for now - use raw depth directly
-    // The bilateral filter can destroy depth variation with wrong parameters
-    // Step 1: (Skipped) Preprocess depth with bilateral filter
-    // this.preprocessDepth(inputTexture, width, height);
-
-    // Step 2: Generate layer masks
-    this.generateLayerMasks(params, width, height);
-
-    // Step 3: Blur each layer
-    this.blurLayers(inputTexture, params, width, height);
-
-    // Step 4: Composite all layers
-    this.compositeResult(inputTexture, outputFramebuffer, params, width, height);
+    // Use simpler direct depth-aware blur (two-pass separable)
+    this.applySimpleDepthBlur(inputTexture, outputFramebuffer, width, height, params);
   }
 
-  /* Depth preprocessing disabled - using raw depth directly gives better results
-  private preprocessDepth(guideTexture: WebGLTexture, width: number, height: number): void {
-    ... code removed for cleaner builds ...
-  }
-  */
+  /**
+   * Simple two-pass depth-aware blur
+   * Uses separable Gaussian with per-pixel radius based on depth
+   */
+  private applySimpleDepthBlur(
+    inputTexture: WebGLTexture,
+    outputFramebuffer: WebGLFramebuffer | null,
+    width: number,
+    height: number,
+    params: LensBlurParams
+  ): void {
+    const gl = this.gl;
+    
+    if (!this.simpleBlurProgram || !this.quadVAO || !this.positionBuffer || 
+        !this.texCoordBuffer || !this.tempBlurFB || !this.tempBlurTexture ||
+        !this.tempBlurFB2 || !this.tempBlurTexture2) {
+      console.warn('Simple blur resources not available');
+      this.copyTexture(inputTexture, outputFramebuffer, width, height);
+      return;
+    }
 
+    console.log('📷 Applying simple depth blur:', {
+      focusDepth: params.focusDepth.toFixed(2),
+      focusRange: params.focusRange.toFixed(2),
+      maxBlur: params.maxBlur,
+      amount: params.amount.toFixed(2)
+    });
+
+    gl.useProgram(this.simpleBlurProgram.program);
+
+    const posLoc = this.simpleBlurProgram.attributes.get('a_position') ?? 0;
+    const texCoordLoc = this.simpleBlurProgram.attributes.get('a_texCoord') ?? 0;
+    setupQuadAttributes(gl, this.quadVAO, this.positionBuffer, this.texCoordBuffer, posLoc, texCoordLoc);
+
+    // Set common uniforms
+    const resLoc = this.simpleBlurProgram.uniforms.get('u_resolution');
+    if (resLoc) gl.uniform2f(resLoc, width, height);
+
+    const focusDepthLoc = this.simpleBlurProgram.uniforms.get('u_focusDepth');
+    if (focusDepthLoc) gl.uniform1f(focusDepthLoc, params.focusDepth);
+
+    const focusRangeLoc = this.simpleBlurProgram.uniforms.get('u_focusRange');
+    if (focusRangeLoc) gl.uniform1f(focusRangeLoc, params.focusRange);
+
+    const maxBlurLoc = this.simpleBlurProgram.uniforms.get('u_maxBlur');
+    if (maxBlurLoc) gl.uniform1f(maxBlurLoc, params.maxBlur);
+
+    const amountLoc = this.simpleBlurProgram.uniforms.get('u_amount');
+    if (amountLoc) gl.uniform1f(amountLoc, params.amount);
+
+    // Bind depth texture
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, this.depthTexture);
+    const depthLoc = this.simpleBlurProgram.uniforms.get('u_depth');
+    if (depthLoc) gl.uniform1i(depthLoc, 1);
+
+    const dirLoc = this.simpleBlurProgram.uniforms.get('u_direction');
+    const texLoc = this.simpleBlurProgram.uniforms.get('u_texture');
+
+    // Pass 1: Horizontal blur (input -> temp1)
+    this.framebufferManager.bindFramebuffer(this.tempBlurFB);
+    gl.viewport(0, 0, width, height);
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, inputTexture);
+    if (texLoc) gl.uniform1i(texLoc, 0);
+    if (dirLoc) gl.uniform2f(dirLoc, 1.0, 0.0);
+
+    renderQuad(gl, this.quadVAO);
+
+    // Pass 2: Vertical blur (temp1 -> output)
+    this.framebufferManager.bindFramebuffer(outputFramebuffer);
+    gl.viewport(0, 0, width, height);
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.tempBlurTexture);
+    if (texLoc) gl.uniform1i(texLoc, 0);
+    if (dirLoc) gl.uniform2f(dirLoc, 0.0, 1.0);
+
+    renderQuad(gl, this.quadVAO);
+  }
+
+  /* Multi-layer approach disabled - using simpler direct blur
   private generateLayerMasks(params: LensBlurParams, width: number, height: number): void {
     const gl = this.gl;
     
@@ -508,6 +592,14 @@ export class LensBlurPipeline {
     
     if (!this.compositeProgram || !this.quadVAO || !this.positionBuffer || !this.texCoordBuffer) return;
 
+    // Debug: Log layer blur radii
+    console.log('📷 Composite params:', {
+      focusDepth: params.focusDepth.toFixed(2),
+      focusRange: params.focusRange.toFixed(2),
+      amount: params.amount.toFixed(2),
+      numLayers: params.numLayers
+    });
+
     this.framebufferManager.bindFramebuffer(outputFramebuffer);
     gl.viewport(0, 0, width, height);
     gl.useProgram(this.compositeProgram.program);
@@ -570,6 +662,7 @@ export class LensBlurPipeline {
 
     renderQuad(gl, this.quadVAO);
   }
+  */ // End of multi-layer approach
 
   /**
    * Render focus visualization overlay

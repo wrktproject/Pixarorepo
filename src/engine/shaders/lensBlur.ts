@@ -252,10 +252,17 @@ void main() {
   float depth = texture(u_depth, v_texCoord).r;
   vec3 original = texture(u_original, v_texCoord).rgb;
   
-  // Calculate blur factor based on distance from focus
+  // DEBUG: Output blur factor as red intensity to see variation
+  // This shows where blur should be strong (red) vs sharp (black)
   float distFromFocus = abs(depth - u_focusDepth);
   float blurFactor = smoothstep(u_focusRange * 0.5, u_focusRange * 0.5 + 0.3, distFromFocus);
   blurFactor *= u_amount;
+  
+  // Uncomment for debug visualization:
+  // fragColor = vec4(blurFactor, depth, 0.0, 1.0); // R=blur, G=depth
+  // return;
+  
+  // If blur factor is very small, return original
   
   // If blur factor is very small, return original
   if (blurFactor < 0.01) {
@@ -401,11 +408,72 @@ export const defaultLensBlurParams: LensBlurParams = {
   focusDepth: 0.5,
   focusRange: 0.1,
   edgeProtect: 0.6,
-  numLayers: 8,
+  numLayers: 4,  // Reduced from 8 for performance
   transitionWidth: 0.04,
   showDepth: false,
   showFocus: false,
 };
+
+/**
+ * Simple depth-aware blur shader
+ * Direct per-pixel blur based on depth - simpler than multi-layer approach
+ */
+export const simpleDepthBlurFragmentShader = `#version 300 es
+precision highp float;
+
+in vec2 v_texCoord;
+
+uniform sampler2D u_texture;    // Image to blur
+uniform sampler2D u_depth;      // Depth map
+uniform vec2 u_resolution;
+uniform float u_focusDepth;     // 0-1, depth that should be sharp
+uniform float u_focusRange;     // Range around focus that stays sharp
+uniform float u_maxBlur;        // Maximum blur radius in pixels
+uniform float u_amount;         // Overall blur strength
+uniform vec2 u_direction;       // Blur direction (1,0) or (0,1)
+
+out vec4 fragColor;
+
+void main() {
+  float depth = texture(u_depth, v_texCoord).r;
+  vec2 texelSize = 1.0 / u_resolution;
+  
+  // Calculate blur radius based on depth
+  float distFromFocus = abs(depth - u_focusDepth);
+  float blurFactor = smoothstep(u_focusRange * 0.5, u_focusRange * 0.5 + 0.2, distFromFocus);
+  float radius = blurFactor * u_maxBlur * u_amount;
+  
+  // If radius is very small, just return the original
+  if (radius < 0.5) {
+    fragColor = texture(u_texture, v_texCoord);
+    return;
+  }
+  
+  // Gaussian blur with dynamic radius
+  vec3 result = vec3(0.0);
+  float totalWeight = 0.0;
+  
+  int samples = int(min(radius * 2.0 + 1.0, 31.0));  // Cap at 31 samples
+  float sigma = radius / 2.0;
+  
+  for (int i = 0; i < 31; i++) {
+    if (i >= samples) break;
+    
+    float offset = float(i) - float(samples - 1) / 2.0;
+    vec2 sampleUV = v_texCoord + u_direction * texelSize * offset;
+    
+    // Gaussian weight
+    float weight = exp(-0.5 * (offset * offset) / (sigma * sigma));
+    
+    // Sample and accumulate
+    vec3 sampleColor = texture(u_texture, sampleUV).rgb;
+    result += sampleColor * weight;
+    totalWeight += weight;
+  }
+  
+  fragColor = vec4(result / totalWeight, 1.0);
+}
+`;
 
 /**
  * Calculate blur radius for each layer based on depth
