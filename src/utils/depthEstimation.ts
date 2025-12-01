@@ -323,28 +323,62 @@ export async function fetchDepthMap(
 
 /**
  * Process depth map: normalize and apply edge-preserving smoothing
- * MiDaS outputs relative depth where higher = closer
+ * MiDaS can output either grayscale or colorized depth maps
+ * For colorized (like purple-orange), we convert to luminance first
  */
 function processDepthMap(depthData: ImageData): Float32Array {
   const { width, height, data } = depthData;
   const depthValues = new Float32Array(width * height);
+  
+  // First, check if the image is grayscale or colorized
+  // by comparing R, G, B values at a few sample points
+  let isColorized = false;
+  for (let i = 0; i < Math.min(100, width * height); i++) {
+    const idx = i * 4;
+    const r = data[idx];
+    const g = data[idx + 1];
+    const b = data[idx + 2];
+    // If R, G, B differ significantly, it's colorized
+    if (Math.abs(r - g) > 10 || Math.abs(g - b) > 10 || Math.abs(r - b) > 10) {
+      isColorized = true;
+      break;
+    }
+  }
+  
+  console.log('📷 Depth map type:', isColorized ? 'colorized' : 'grayscale');
   
   // Extract depth values and find min/max
   let min = Infinity;
   let max = -Infinity;
   
   for (let i = 0; i < width * height; i++) {
-    // MiDaS depth map is grayscale, just use R channel
-    const val = data[i * 4];
+    const idx = i * 4;
+    const r = data[idx];
+    const g = data[idx + 1];
+    const b = data[idx + 2];
+    
+    let val: number;
+    if (isColorized) {
+      // For colorized depth maps (like plasma/viridis colormap):
+      // Purple/blue = far (low depth), Orange/yellow = near (high depth)
+      // Use a weighted conversion that emphasizes the red channel for "nearness"
+      // and blue for "farness"
+      val = r * 0.5 + g * 0.25 - b * 0.25 + 128; // Shift to positive range
+    } else {
+      // Grayscale - just use any channel
+      val = r;
+    }
+    
     depthValues[i] = val;
     min = Math.min(min, val);
     max = Math.max(max, val);
   }
   
+  console.log('📷 Raw depth range:', min, 'to', max);
+  
   const range = max - min || 1;
   
   // Normalize to 0-1 (0 = far, 1 = near)
-  // MiDaS: higher value = closer, which is what we want
   for (let i = 0; i < width * height; i++) {
     depthValues[i] = (depthValues[i] - min) / range;
   }
