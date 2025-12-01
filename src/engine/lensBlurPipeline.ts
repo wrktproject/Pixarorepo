@@ -54,6 +54,8 @@ export class LensBlurPipeline {
 
   // Framebuffers and textures
   private depthTexture: WebGLTexture | null = null;
+  private depthWidth = 0;
+  private depthHeight = 0;
   // Depth preprocessing disabled
   // private processedDepthTexture: WebGLTexture | null = null;
   // private processedDepthFB: WebGLFramebuffer | null = null;
@@ -329,6 +331,9 @@ export class LensBlurPipeline {
     this.depthTexture = gl.createTexture();
     if (!this.depthTexture) throw new Error('Failed to create depth texture');
 
+    this.depthWidth = width;
+    this.depthHeight = height;
+
     gl.bindTexture(gl.TEXTURE_2D, this.depthTexture);
 
     // Upload as R32F (single channel float)
@@ -416,7 +421,11 @@ export class LensBlurPipeline {
       maxBlur: params.maxBlur,
       amount: params.amount.toFixed(2),
       hasDepthTexture: !!this.depthTexture,
-      hasSimpleBlurProgram: !!this.simpleBlurProgram
+      hasSimpleBlurProgram: !!this.simpleBlurProgram,
+      renderWidth: width,
+      renderHeight: height,
+      depthWidth: this.depthWidth,
+      depthHeight: this.depthHeight
     });
 
     if (!this.simpleBlurProgram) {
@@ -452,7 +461,13 @@ export class LensBlurPipeline {
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, this.depthTexture);
     const depthLoc = this.simpleBlurProgram.uniforms.get('u_depth');
-    if (depthLoc) gl.uniform1i(depthLoc, 1);
+    console.log('📷 Depth uniform location:', depthLoc);
+    console.log('📷 Depth texture:', this.depthTexture);
+    if (depthLoc !== undefined && depthLoc !== null) {
+      gl.uniform1i(depthLoc, 1);
+    } else {
+      console.error('❌ u_depth uniform not found!');
+    }
 
     const dirLoc = this.simpleBlurProgram.uniforms.get('u_direction');
     const texLoc = this.simpleBlurProgram.uniforms.get('u_texture');
