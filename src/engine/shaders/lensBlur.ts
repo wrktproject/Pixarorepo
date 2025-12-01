@@ -435,13 +435,22 @@ uniform vec2 u_direction;       // Blur direction (1,0) or (0,1)
 out vec4 fragColor;
 
 void main() {
-  float depth = texture(u_depth, v_texCoord).r;
+  vec4 depthSample = texture(u_depth, v_texCoord);
+  float depth = depthSample.r;
   vec2 texelSize = 1.0 / u_resolution;
+  
+  // DEBUG: Uncomment to visualize depth
+  // fragColor = vec4(depth, depth, depth, 1.0);
+  // return;
   
   // Calculate blur radius based on depth
   float distFromFocus = abs(depth - u_focusDepth);
   float blurFactor = smoothstep(u_focusRange * 0.5, u_focusRange * 0.5 + 0.2, distFromFocus);
   float radius = blurFactor * u_maxBlur * u_amount;
+  
+  // DEBUG: Visualize blur factor (red = blurry, black = sharp) - ENABLED FOR TESTING
+  fragColor = vec4(blurFactor, depth, 0.0, 1.0);  // R=blur, G=depth
+  return;
   
   // If radius is very small, just return the original
   if (radius < 0.5) {
