@@ -1211,6 +1211,16 @@ void main() {
     // Dispose profiler
     this.profiler.dispose();
 
+    // Skip WebGL cleanup if context is lost - resources are already gone
+    if (this.gl.isContextLost()) {
+      console.warn('WebGL context lost, skipping shader pipeline disposal');
+      // Dispose lens blur pipeline (it has its own context check)
+      if (this.lensBlurPipeline) {
+        this.lensBlurPipeline.dispose();
+      }
+      return;
+    }
+
     // Delete textures
     if (this.sourceTexture) {
       this.textureManager.deleteTexture(this.sourceTexture);

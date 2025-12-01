@@ -251,7 +251,18 @@ export class LensBlurPipeline {
   private cleanupFramebuffers(): void {
     const gl = this.gl;
 
-    // Depth preprocessing disabled - framebuffers not used
+    // Skip if context is lost
+    if (gl.isContextLost()) {
+      this.layerMaskFBs = [];
+      this.layerMaskTextures = [];
+      this.blurredLayerFBs = [];
+      this.blurredLayerTextures = [];
+      this.tempBlurFB = null;
+      this.tempBlurTexture = null;
+      return;
+    }
+
+    // Depth preprocessing disabled
     // if (this.processedDepthFB) gl.deleteFramebuffer(this.processedDepthFB);
     // if (this.processedDepthTexture) gl.deleteTexture(this.processedDepthTexture);
     // if (this.dilatedDepthFB) gl.deleteFramebuffer(this.dilatedDepthFB);
@@ -706,6 +717,17 @@ export class LensBlurPipeline {
    */
   public dispose(): void {
     const gl = this.gl;
+
+    // Skip cleanup if context is lost - resources are already gone
+    if (gl.isContextLost()) {
+      console.warn('WebGL context lost, skipping lens blur pipeline disposal');
+      this.depthTexture = null;
+      this.quadVAO = null;
+      this.positionBuffer = null;
+      this.texCoordBuffer = null;
+      this.isInitialized = false;
+      return;
+    }
 
     this.cleanupFramebuffers();
 
