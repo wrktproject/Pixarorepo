@@ -70,6 +70,19 @@
   padding: 0 var(--spacing-lg);
 }
 
+.app-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-logo {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  border-radius: 10px;
+}
+
 .app-title {
   margin: 0;
   font-size: 20px;

@@ -5,6 +5,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useSelector } from 'react-redux';
+import logo from './assets/logog.png';
 import type { RootState } from './store';
 import { Canvas } from './components/Canvas';
 import { ToolsPanel } from './components/ToolsPanel';
@@ -167,7 +168,10 @@ function App() {
         {/* Header */}
         <header className="app-header" role="banner">
           <div className="app-header__content">
-            <h1 className="app-title">Pixaro</h1>
+            <div className="app-brand">
+              <img src={logo} alt="Pixaro logo" className="app-logo" />
+              <h1 className="app-title">Pixaro</h1>
+            </div>
             <div className="app-header__controls">
               {hasImage && (
                 <ErrorBoundary>
