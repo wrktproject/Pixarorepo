@@ -274,14 +274,40 @@ export async function fetchDepthMap(
     
     onProgress?.('Processing depth map...');
     
+    console.log('📷 Depth map URL from Replicate:', result.depthMapUrl);
+    
     // Fetch the depth map image from Replicate
     const depthImage = await loadImageFromUrl(result.depthMapUrl);
+    
+    console.log('📷 Depth image loaded:', depthImage.width, 'x', depthImage.height);
     
     // Convert to ImageData at original resolution
     const depthImageData = imageToImageData(depthImage, imageData.width, imageData.height);
     
+    console.log('📷 Depth ImageData created:', depthImageData.width, 'x', depthImageData.height);
+    
+    // Check depth values in the image
+    const samplePixels = [];
+    for (let i = 0; i < 5; i++) {
+      const idx = Math.floor(Math.random() * depthImageData.width * depthImageData.height) * 4;
+      samplePixels.push({
+        r: depthImageData.data[idx],
+        g: depthImageData.data[idx + 1],
+        b: depthImageData.data[idx + 2],
+      });
+    }
+    console.log('📷 Sample depth pixels:', samplePixels);
+    
     // Normalize and apply bilateral filtering
     const processed = processDepthMap(depthImageData);
+    
+    // Check processed depth values
+    let minDepth = Infinity, maxDepth = -Infinity;
+    for (let i = 0; i < processed.length; i++) {
+      minDepth = Math.min(minDepth, processed[i]);
+      maxDepth = Math.max(maxDepth, processed[i]);
+    }
+    console.log('📷 Processed depth range:', minDepth, 'to', maxDepth);
     
     return {
       depthMap: processed,

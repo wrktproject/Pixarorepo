@@ -487,8 +487,11 @@ export class ShaderPipelineErrorHandler {
    * @param height Height of the depth map
    */
   public uploadDepthMap(depthData: Float32Array, width: number, height: number): void {
+    console.log('📷 ShaderPipelineErrorHandler.uploadDepthMap called:', { width, height, hasPipeline: !!this.pipeline });
     if (this.pipeline) {
       this.pipeline.uploadDepthMap(depthData, width, height);
+    } else {
+      console.warn('📷 No pipeline available for depth map upload');
     }
   }
 
