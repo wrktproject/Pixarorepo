@@ -391,57 +391,6 @@ function processDepthMap(depthData: ImageData): Float32Array {
 }
 
 /**
- * Fast guided filter approximation for edge-preserving smoothing
- * Uses box filter with edge-aware weighting
- */
-function applyGuidedSmoothing(
-  depth: Float32Array,
-  width: number,
-  height: number,
-  radius: number
-): Float32Array {
-  const result = new Float32Array(width * height);
-  const epsilon = 0.02; // Edge threshold
-  
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const centerIdx = y * width + x;
-      const centerDepth = depth[centerIdx];
-      
-      let sumDepth = 0;
-      let sumWeight = 0;
-      
-      // Sample in window
-      for (let dy = -radius; dy <= radius; dy++) {
-        for (let dx = -radius; dx <= radius; dx++) {
-          const nx = Math.max(0, Math.min(width - 1, x + dx));
-          const ny = Math.max(0, Math.min(height - 1, y + dy));
-          const idx = ny * width + nx;
-          
-          const sampleDepth = depth[idx];
-          
-          // Spatial weight (Gaussian-like)
-          const spatialDist = Math.sqrt(dx * dx + dy * dy) / radius;
-          const spatialWeight = Math.exp(-spatialDist * spatialDist * 2);
-          
-          // Range weight (depth similarity)
-          const depthDiff = Math.abs(sampleDepth - centerDepth);
-          const rangeWeight = Math.exp(-depthDiff * depthDiff / (2 * epsilon * epsilon));
-          
-          const weight = spatialWeight * rangeWeight;
-          sumDepth += sampleDepth * weight;
-          sumWeight += weight;
-        }
-      }
-      
-      result[centerIdx] = sumDepth / Math.max(sumWeight, 0.0001);
-    }
-  }
-  
-  return result;
-}
-
-/**
  * Get depth value at specific pixel coordinate
  * Useful for click-to-focus functionality
  */
