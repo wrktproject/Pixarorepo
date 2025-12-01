@@ -439,8 +439,8 @@ void main() {
   float depth = depthSample.r;
   vec2 texelSize = 1.0 / u_resolution;
   
-  // DEBUG: Output BRIGHT MAGENTA to confirm this shader is running
-  fragColor = vec4(1.0, 0.0, 1.0, 1.0);  // Magenta
+  // DEBUG: Show depth as grayscale (black=0, white=1)
+  fragColor = vec4(depth, depth, depth, 1.0);
   return;
   
   // DEBUG: Uncomment to visualize depth
