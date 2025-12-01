@@ -439,24 +439,10 @@ void main() {
   float depth = depthSample.r;
   vec2 texelSize = 1.0 / u_resolution;
   
-  // DEBUG: Show texture coordinates as color
-  // If this shows a gradient from black to red/green, UV coords are correct
-  // Top-left = black, bottom-right = yellow
-  fragColor = vec4(v_texCoord.x, v_texCoord.y, depth, 1.0);
-  return;
-  
-  // DEBUG: Uncomment to visualize depth
-  // fragColor = vec4(depth, depth, depth, 1.0);
-  // return;
-  
-  // Calculate blur radius based on depth
+  // Calculate blur radius based on depth distance from focus point
   float distFromFocus = abs(depth - u_focusDepth);
   float blurFactor = smoothstep(u_focusRange * 0.5, u_focusRange * 0.5 + 0.2, distFromFocus);
   float radius = blurFactor * u_maxBlur * u_amount;
-  
-  // DEBUG: Visualize blur factor (red = blurry, black = sharp) - ENABLED FOR TESTING
-  fragColor = vec4(blurFactor, depth, 0.0, 1.0);  // R=blur, G=depth
-  return;
   
   // If radius is very small, just return the original
   if (radius < 0.5) {
@@ -469,7 +455,7 @@ void main() {
   float totalWeight = 0.0;
   
   int samples = int(min(radius * 2.0 + 1.0, 31.0));  // Cap at 31 samples
-  float sigma = radius / 2.0;
+  float sigma = max(radius / 2.0, 1.0);
   
   for (int i = 0; i < 31; i++) {
     if (i >= samples) break;
