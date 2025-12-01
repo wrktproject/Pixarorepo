@@ -244,32 +244,49 @@ export async function fetchDepthMap(
     
     onProgress?.('Analyzing depth with AI...');
     
-    const response = await fetch('/api/depth', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image: imageBase64 }),
-    });
-    
-    if (!response.ok) {
-      // Try to parse error, but handle empty responses
-      let errorMessage = 'Depth estimation failed';
-      try {
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          const error = await response.json();
-          errorMessage = error.message || errorMessage;
+    // Helper function to make the API call with retry support
+    const callDepthAPI = async (predictionId?: string): Promise<{ success: boolean; depthMapUrl?: string; predictionId?: string; message?: string }> => {
+      const response = await fetch('/api/depth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(predictionId ? { predictionId } : { image: imageBase64 }),
+      });
+      
+      if (!response.ok && response.status !== 202) {
+        let errorMessage = 'Depth estimation failed';
+        try {
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const error = await response.json();
+            errorMessage = error.message || errorMessage;
+          }
+        } catch {
+          // Ignore JSON parse errors
         }
-      } catch {
-        // Ignore JSON parse errors
+        throw new Error(errorMessage);
       }
-      console.warn('Depth API error:', response.status, errorMessage);
-      throw new Error(errorMessage);
+      
+      return response.json();
+    };
+    
+    // Initial request
+    let result = await callDepthAPI();
+    
+    // If the model is still warming up, retry a few times
+    let retryCount = 0;
+    const maxRetries = 3;
+    while (!result.success && result.predictionId && retryCount < maxRetries) {
+      retryCount++;
+      onProgress?.(`AI model warming up... (attempt ${retryCount + 1})`);
+      
+      // Wait before retrying
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      result = await callDepthAPI(result.predictionId);
     }
     
-    const result = await response.json();
-    
     if (!result.success || !result.depthMapUrl) {
-      throw new Error('No depth map returned from API');
+      throw new Error(result.message || 'No depth map returned from API');
     }
     
     onProgress?.('Processing depth map...');
