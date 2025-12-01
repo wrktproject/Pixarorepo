@@ -601,38 +601,30 @@ void main() {
         };
 
         // Check if visualization is needed (show depth map or focus plane)
-        if ((adjustments.lensBlur.showDepth || adjustments.lensBlur.showFocus) && 
-            this.lensBlurPipeline.hasDepthMap()) {
-          // Apply blur first if enabled and amount > 0
-          if (lensBlurParams.enabled && lensBlurParams.amount > 0.01) {
-            // Apply blur to temp framebuffer first
-            this.lensBlurPipeline.applyLensBlur(
-              inputTexture,
-              this.framebuffers[i] ?? null,  // Use intermediate FB
-              outputFramebuffer ? this.previewWidth : canvasWidth,
-              outputFramebuffer ? this.previewHeight : canvasHeight,
-              lensBlurParams
-            );
-            // Then apply visualization on top of blurred result
-            this.lensBlurPipeline.renderFocusVisualization(
-              this.intermediateTextures[i] ?? inputTexture,  // Use blurred result
-              outputFramebuffer,
-              outputFramebuffer ? this.previewWidth : canvasWidth,
-              outputFramebuffer ? this.previewHeight : canvasHeight,
-              lensBlurParams
-            );
-          } else {
-            // Just render visualization without blur
-            this.lensBlurPipeline.renderFocusVisualization(
-              inputTexture,
-              outputFramebuffer,
-              outputFramebuffer ? this.previewWidth : canvasWidth,
-              outputFramebuffer ? this.previewHeight : canvasHeight,
-              lensBlurParams
-            );
-          }
-        } else if (lensBlurParams.enabled && lensBlurParams.amount > 0.01 && 
-                   this.lensBlurPipeline.hasDepthMap()) {
+        const needsVisualization = (adjustments.lensBlur.showDepth || adjustments.lensBlur.showFocus) && 
+            this.lensBlurPipeline.hasDepthMap();
+        const needsBlur = lensBlurParams.enabled && lensBlurParams.amount > 0.01 && 
+            this.lensBlurPipeline.hasDepthMap();
+
+        if (needsBlur && needsVisualization) {
+          // Apply blur and visualization together
+          this.lensBlurPipeline.applyLensBlurWithVisualization(
+            inputTexture,
+            outputFramebuffer,
+            outputFramebuffer ? this.previewWidth : canvasWidth,
+            outputFramebuffer ? this.previewHeight : canvasHeight,
+            lensBlurParams
+          );
+        } else if (needsVisualization) {
+          // Just render visualization without blur
+          this.lensBlurPipeline.renderFocusVisualization(
+            inputTexture,
+            outputFramebuffer,
+            outputFramebuffer ? this.previewWidth : canvasWidth,
+            outputFramebuffer ? this.previewHeight : canvasHeight,
+            lensBlurParams
+          );
+        } else if (needsBlur) {
           // Just apply blur (no visualization)
           this.lensBlurPipeline.applyLensBlur(
             inputTexture,

@@ -9,12 +9,9 @@ import { useSelector, useDispatch } from 'react-redux';
 import type { RootState } from '../store';
 import {
   setLensBlurAmount,
-  setLensBlurMaxBlur,
   setLensBlurFocusDepth,
   setLensBlurFocusRange,
-  setLensBlurEdgeProtect,
   setLensBlurShowDepth,
-  setLensBlurShowFocus,
   setLensBlurEnabled,
 } from '../store';
 import { fetchDepthMap } from '../utils/depthEstimation';
@@ -130,13 +127,6 @@ export const LensBlurAdjustments: React.FC<LensBlurAdjustmentsProps> = ({
     [dispatch]
   );
 
-  const handleMaxBlurChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      dispatch(setLensBlurMaxBlur(Number(e.target.value)));
-    },
-    [dispatch]
-  );
-
   const handleFocusDepthChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       dispatch(setLensBlurFocusDepth(Number(e.target.value) / 100));
@@ -151,23 +141,9 @@ export const LensBlurAdjustments: React.FC<LensBlurAdjustmentsProps> = ({
     [dispatch]
   );
 
-  const handleEdgeProtectChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      dispatch(setLensBlurEdgeProtect(Number(e.target.value) / 100));
-    },
-    [dispatch]
-  );
-
   const handleShowDepthChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       dispatch(setLensBlurShowDepth(e.target.checked));
-    },
-    [dispatch]
-  );
-
-  const handleShowFocusChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      dispatch(setLensBlurShowFocus(e.target.checked));
     },
     [dispatch]
   );
@@ -253,7 +229,7 @@ export const LensBlurAdjustments: React.FC<LensBlurAdjustmentsProps> = ({
             <input
               type="range"
               min="0"
-              max="250"
+              max="200"
               value={lensBlur.amount * 100}
               onChange={handleAmountChange}
               className="lens-blur-adjustments__slider"
@@ -263,22 +239,7 @@ export const LensBlurAdjustments: React.FC<LensBlurAdjustmentsProps> = ({
 
           <div className="lens-blur-adjustments__control-group">
             <label className="lens-blur-adjustments__label">
-              Max Blur Radius: {lensBlur.maxBlur}px
-            </label>
-            <input
-              type="range"
-              min="8"
-              max="120"
-              value={lensBlur.maxBlur}
-              onChange={handleMaxBlurChange}
-              className="lens-blur-adjustments__slider"
-              disabled={disabled}
-            />
-          </div>
-
-          <div className="lens-blur-adjustments__control-group">
-            <label className="lens-blur-adjustments__label">
-              Focus Depth: {Math.round(lensBlur.focusDepth * 100)}%
+              Focus Point: {Math.round(lensBlur.focusDepth * 100)}% (0=far, 100=near)
             </label>
             <input
               type="range"
@@ -297,25 +258,10 @@ export const LensBlurAdjustments: React.FC<LensBlurAdjustmentsProps> = ({
             </label>
             <input
               type="range"
-              min="0"
+              min="5"
               max="50"
               value={lensBlur.focusRange * 100}
               onChange={handleFocusRangeChange}
-              className="lens-blur-adjustments__slider"
-              disabled={disabled}
-            />
-          </div>
-
-          <div className="lens-blur-adjustments__control-group">
-            <label className="lens-blur-adjustments__label">
-              Edge Protection: {Math.round(lensBlur.edgeProtect * 100)}%
-            </label>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={lensBlur.edgeProtect * 100}
-              onChange={handleEdgeProtectChange}
               className="lens-blur-adjustments__slider"
               disabled={disabled}
             />
@@ -334,26 +280,6 @@ export const LensBlurAdjustments: React.FC<LensBlurAdjustmentsProps> = ({
             />
             <span>Show Depth Map</span>
           </label>
-          <label className="lens-blur-adjustments__checkbox-label">
-            <input
-              type="checkbox"
-              checked={lensBlur.showFocus}
-              onChange={handleShowFocusChange}
-              disabled={disabled}
-              className="lens-blur-adjustments__checkbox"
-            />
-            <span>Show Focus Plane</span>
-          </label>
-        </div>
-
-        {/* Tips */}
-        <div className="lens-blur-adjustments__tip">
-          <strong>How it works:</strong>
-          <ul className="lens-blur-adjustments__tip-list">
-            <li>Focus Depth: 0% = far, 100% = near</li>
-            <li>Focus Range: Size of the sharp zone</li>
-            <li>Edge Protect: Prevents blur bleeding</li>
-          </ul>
         </div>
       </div>
     );

@@ -405,6 +405,40 @@ export class LensBlurPipeline {
   }
 
   /**
+   * Apply lens blur and then render visualization overlay
+   */
+  public applyLensBlurWithVisualization(
+    inputTexture: WebGLTexture,
+    outputFramebuffer: WebGLFramebuffer | null,
+    width: number,
+    height: number,
+    params: LensBlurParams
+  ): void {
+    if (this.gl.isContextLost()) return;
+
+    if (!this.isInitialized) {
+      this.initialize();
+    }
+
+    if (!this.depthTexture) {
+      console.warn('No depth map available for lens blur');
+      return;
+    }
+
+    this.ensureFramebuffers(width, height);
+
+    // Apply blur to temp framebuffer
+    if (params.enabled && params.amount > 0.01 && this.tempBlurFB2 && this.tempBlurTexture2) {
+      this.applySimpleDepthBlur(inputTexture, this.tempBlurFB2, width, height, params);
+      // Render visualization using blurred result
+      this.renderFocusVisualization(this.tempBlurTexture2, outputFramebuffer, width, height, params);
+    } else {
+      // Just render visualization on original
+      this.renderFocusVisualization(inputTexture, outputFramebuffer, width, height, params);
+    }
+  }
+
+  /**
    * Simple two-pass depth-aware blur
    * Uses separable Gaussian with per-pixel radius based on depth
    */
