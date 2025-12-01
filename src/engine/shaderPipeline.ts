@@ -500,6 +500,12 @@ void main() {
       return;
     }
 
+    // Check if WebGL context is lost
+    if (this.gl.isContextLost()) {
+      console.warn('WebGL context lost, skipping render');
+      return;
+    }
+
     // Start performance monitoring
     if (this.config.enablePerformanceMonitoring) {
       this.renderStartTime = performance.now();
@@ -588,8 +594,8 @@ void main() {
           focusDepth: adjustments.lensBlur.focusDepth,
           focusRange: adjustments.lensBlur.focusRange,
           edgeProtect: adjustments.lensBlur.edgeProtect,
-          numLayers: 8,
-          transitionWidth: 0.1,
+          numLayers: 4,  // Reduced from 8 for better GPU memory management
+          transitionWidth: 0.15,  // Slightly wider transitions for fewer layers
           showDepth: adjustments.lensBlur.showDepth,
           showFocus: adjustments.lensBlur.showFocus,
         };

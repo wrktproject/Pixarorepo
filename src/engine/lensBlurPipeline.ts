@@ -84,7 +84,7 @@ export class LensBlurPipeline {
     this.shaderCompiler = new ShaderCompiler(gl);
 
     this.config = {
-      numLayers: config.numLayers ?? 8,
+      numLayers: config.numLayers ?? 4,  // Reduced from 8 for better GPU memory management
       maxBlurRadius: config.maxBlurRadius ?? 60,
     };
   }
@@ -322,6 +322,12 @@ export class LensBlurPipeline {
     height: number,
     params: LensBlurParams
   ): void {
+    // Check if WebGL context is lost
+    if (this.gl.isContextLost()) {
+      console.warn('WebGL context lost, skipping lens blur');
+      return;
+    }
+
     if (!this.isInitialized) {
       this.initialize();
     }
@@ -611,6 +617,12 @@ export class LensBlurPipeline {
     height: number,
     params: LensBlurParams
   ): void {
+    // Check if WebGL context is lost
+    if (this.gl.isContextLost()) {
+      console.warn('WebGL context lost, skipping focus visualization');
+      return;
+    }
+
     if (!this.isInitialized) {
       this.initialize();
     }
