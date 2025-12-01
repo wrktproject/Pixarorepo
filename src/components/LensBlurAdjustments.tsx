@@ -15,6 +15,7 @@ import {
   setLensBlurEdgeProtect,
   setLensBlurShowDepth,
   setLensBlurShowFocus,
+  setLensBlurEnabled,
 } from '../store';
 import { fetchDepthMap } from '../utils/depthEstimation';
 import { DepthMapManager } from '../utils/depthMapManager';
@@ -94,6 +95,9 @@ export const LensBlurAdjustments: React.FC<LensBlurAdjustmentsProps> = ({
         
         // Upload to rendering pipeline via manager
         DepthMapManager.uploadDepthMap(result.depthMap, result.width, result.height);
+        
+        // Enable lens blur effect now that depth map is ready
+        dispatch(setLensBlurEnabled(true));
       } else {
         throw new Error('Failed to generate depth map');
       }
@@ -115,7 +119,9 @@ export const LensBlurAdjustments: React.FC<LensBlurAdjustmentsProps> = ({
     setProcessingProgress(0);
     // Clear depth map from manager when image changes
     DepthMapManager.clear();
-  }, [currentImage]);
+    // Disable lens blur when image changes (no depth map available)
+    dispatch(setLensBlurEnabled(false));
+  }, [currentImage, dispatch]);
 
   const handleAmountChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
