@@ -336,17 +336,27 @@ export class LensBlurPipeline {
 
     gl.bindTexture(gl.TEXTURE_2D, this.depthTexture);
 
-    // Upload as R32F (single channel float)
+    // Convert Float32Array to RGBA8 (pack depth into all channels for compatibility)
+    // R32F with LINEAR filtering requires OES_texture_float_linear which may not be available
+    const rgbaData = new Uint8Array(width * height * 4);
+    for (let i = 0; i < depthData.length; i++) {
+      const depthByte = Math.round(depthData[i] * 255);
+      rgbaData[i * 4] = depthByte;     // R
+      rgbaData[i * 4 + 1] = depthByte; // G
+      rgbaData[i * 4 + 2] = depthByte; // B
+      rgbaData[i * 4 + 3] = 255;       // A
+    }
+
     gl.texImage2D(
       gl.TEXTURE_2D,
       0,
-      gl.R32F,
+      gl.RGBA,
       width,
       height,
       0,
-      gl.RED,
-      gl.FLOAT,
-      depthData
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      rgbaData
     );
 
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
