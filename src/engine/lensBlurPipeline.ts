@@ -16,8 +16,9 @@ import type { ShaderProgram } from './shaderUtils';
 import { createQuadGeometry, setupQuadAttributes, renderQuad } from './shaders/base';
 import {
   lensBlurVertexShader,
-  depthBilateralFragmentShader,
-  depthDilateFragmentShader,
+  // Depth preprocessing disabled
+  // depthBilateralFragmentShader,
+  // depthDilateFragmentShader,
   layerMaskFragmentShader,
   variableBlurFragmentShader,
   depthCompositeFragmentShader,
@@ -41,8 +42,9 @@ export class LensBlurPipeline {
   private shaderCompiler: ShaderCompiler;
 
   // Shader programs
-  private depthBilateralProgram: ShaderProgram | null = null;
-  private depthDilateProgram: ShaderProgram | null = null;
+  // Depth preprocessing disabled - using raw depth
+  // private depthBilateralProgram: ShaderProgram | null = null;
+  // private depthDilateProgram: ShaderProgram | null = null;
   private layerMaskProgram: ShaderProgram | null = null;
   private blurProgram: ShaderProgram | null = null;
   private compositeProgram: ShaderProgram | null = null;
@@ -50,10 +52,11 @@ export class LensBlurPipeline {
 
   // Framebuffers and textures
   private depthTexture: WebGLTexture | null = null;
-  private processedDepthTexture: WebGLTexture | null = null;
-  private processedDepthFB: WebGLFramebuffer | null = null;
-  private dilatedDepthTexture: WebGLTexture | null = null;
-  private dilatedDepthFB: WebGLFramebuffer | null = null;
+  // Depth preprocessing disabled
+  // private processedDepthTexture: WebGLTexture | null = null;
+  // private processedDepthFB: WebGLFramebuffer | null = null;
+  // private dilatedDepthTexture: WebGLTexture | null = null;
+  // private dilatedDepthFB: WebGLFramebuffer | null = null;
 
   // Layer buffers
   private layerMaskTextures: WebGLTexture[] = [];
@@ -106,21 +109,19 @@ export class LensBlurPipeline {
   }
 
   private initializeShaders(): void {
-    // Depth bilateral filter
-    this.depthBilateralProgram = this.shaderCompiler.createProgram(
-      lensBlurVertexShader,
-      depthBilateralFragmentShader,
-      ['u_depth', 'u_guide', 'u_resolution', 'u_spatialSigma', 'u_rangeSigma'],
-      ['a_position', 'a_texCoord']
-    );
-
-    // Depth dilation
-    this.depthDilateProgram = this.shaderCompiler.createProgram(
-      lensBlurVertexShader,
-      depthDilateFragmentShader,
-      ['u_depth', 'u_resolution', 'u_dilateRadius'],
-      ['a_position', 'a_texCoord']
-    );
+    // Depth preprocessing disabled - using raw depth texture
+    // this.depthBilateralProgram = this.shaderCompiler.createProgram(
+    //   lensBlurVertexShader,
+    //   depthBilateralFragmentShader,
+    //   ['u_depth', 'u_guide', 'u_resolution', 'u_spatialSigma', 'u_rangeSigma'],
+    //   ['a_position', 'a_texCoord']
+    // );
+    // this.depthDilateProgram = this.shaderCompiler.createProgram(
+    //   lensBlurVertexShader,
+    //   depthDilateFragmentShader,
+    //   ['u_depth', 'u_resolution', 'u_dilateRadius'],
+    //   ['a_position', 'a_texCoord']
+    // );
 
     // Layer mask generation
     this.layerMaskProgram = this.shaderCompiler.createProgram(
@@ -178,16 +179,15 @@ export class LensBlurPipeline {
 
     this.cleanupFramebuffers();
 
-    // Create depth processing framebuffers
-    this.createFramebufferWithTexture(width, height, (fb, tex) => {
-      this.processedDepthFB = fb;
-      this.processedDepthTexture = tex;
-    });
-
-    this.createFramebufferWithTexture(width, height, (fb, tex) => {
-      this.dilatedDepthFB = fb;
-      this.dilatedDepthTexture = tex;
-    });
+    // Depth preprocessing disabled - using raw depth
+    // this.createFramebufferWithTexture(width, height, (fb, tex) => {
+    //   this.processedDepthFB = fb;
+    //   this.processedDepthTexture = tex;
+    // });
+    // this.createFramebufferWithTexture(width, height, (fb, tex) => {
+    //   this.dilatedDepthFB = fb;
+    //   this.dilatedDepthTexture = tex;
+    // });
 
     // Create temp blur framebuffer
     this.createFramebufferWithTexture(width, height, (fb, tex) => {
@@ -251,10 +251,11 @@ export class LensBlurPipeline {
   private cleanupFramebuffers(): void {
     const gl = this.gl;
 
-    if (this.processedDepthFB) gl.deleteFramebuffer(this.processedDepthFB);
-    if (this.processedDepthTexture) gl.deleteTexture(this.processedDepthTexture);
-    if (this.dilatedDepthFB) gl.deleteFramebuffer(this.dilatedDepthFB);
-    if (this.dilatedDepthTexture) gl.deleteTexture(this.dilatedDepthTexture);
+    // Depth preprocessing disabled - framebuffers not used
+    // if (this.processedDepthFB) gl.deleteFramebuffer(this.processedDepthFB);
+    // if (this.processedDepthTexture) gl.deleteTexture(this.processedDepthTexture);
+    // if (this.dilatedDepthFB) gl.deleteFramebuffer(this.dilatedDepthFB);
+    // if (this.dilatedDepthTexture) gl.deleteTexture(this.dilatedDepthTexture);
     if (this.tempBlurFB) gl.deleteFramebuffer(this.tempBlurFB);
     if (this.tempBlurTexture) gl.deleteTexture(this.tempBlurTexture);
 
@@ -268,10 +269,11 @@ export class LensBlurPipeline {
     this.blurredLayerFBs = [];
     this.blurredLayerTextures = [];
 
-    this.processedDepthFB = null;
-    this.processedDepthTexture = null;
-    this.dilatedDepthFB = null;
-    this.dilatedDepthTexture = null;
+    // Depth preprocessing disabled
+    // this.processedDepthFB = null;
+    // this.processedDepthTexture = null;
+    // this.dilatedDepthFB = null;
+    // this.dilatedDepthTexture = null;
     this.tempBlurFB = null;
     this.tempBlurTexture = null;
   }
@@ -281,6 +283,15 @@ export class LensBlurPipeline {
    */
   public uploadDepthMap(depthData: Float32Array, width: number, height: number): void {
     const gl = this.gl;
+
+    // Debug: check depth data range
+    let minDepth = Infinity, maxDepth = -Infinity;
+    for (let i = 0; i < depthData.length; i++) {
+      minDepth = Math.min(minDepth, depthData[i]);
+      maxDepth = Math.max(maxDepth, depthData[i]);
+    }
+    console.log('📷 GPU Upload - Depth range:', minDepth.toFixed(3), 'to', maxDepth.toFixed(3));
+    console.log('📷 GPU Upload - Depth dimensions:', width, 'x', height);
 
     if (this.depthTexture) {
       gl.deleteTexture(this.depthTexture);
@@ -345,8 +356,10 @@ export class LensBlurPipeline {
 
     this.ensureFramebuffers(width, height);
 
-    // Step 1: Preprocess depth with bilateral filter
-    this.preprocessDepth(inputTexture, width, height);
+    // Skip preprocessing for now - use raw depth directly
+    // The bilateral filter can destroy depth variation with wrong parameters
+    // Step 1: (Skipped) Preprocess depth with bilateral filter
+    // this.preprocessDepth(inputTexture, width, height);
 
     // Step 2: Generate layer masks
     this.generateLayerMasks(params, width, height);
@@ -358,68 +371,11 @@ export class LensBlurPipeline {
     this.compositeResult(inputTexture, outputFramebuffer, params, width, height);
   }
 
+  /* Depth preprocessing disabled - using raw depth directly gives better results
   private preprocessDepth(guideTexture: WebGLTexture, width: number, height: number): void {
-    const gl = this.gl;
-    
-    if (!this.depthBilateralProgram || !this.processedDepthFB || !this.quadVAO ||
-        !this.positionBuffer || !this.texCoordBuffer) return;
-
-    // Apply bilateral filter to depth
-    this.framebufferManager.bindFramebuffer(this.processedDepthFB);
-    gl.viewport(0, 0, width, height);
-    gl.useProgram(this.depthBilateralProgram.program);
-
-    const posLoc = this.depthBilateralProgram.attributes.get('a_position') ?? 0;
-    const texCoordLoc = this.depthBilateralProgram.attributes.get('a_texCoord') ?? 0;
-    setupQuadAttributes(gl, this.quadVAO, this.positionBuffer, this.texCoordBuffer, posLoc, texCoordLoc);
-
-    // Bind depth texture
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.depthTexture);
-    const depthLoc = this.depthBilateralProgram.uniforms.get('u_depth');
-    if (depthLoc) gl.uniform1i(depthLoc, 0);
-
-    // Bind guide texture
-    gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, guideTexture);
-    const guideLoc = this.depthBilateralProgram.uniforms.get('u_guide');
-    if (guideLoc) gl.uniform1i(guideLoc, 1);
-
-    // Set uniforms
-    const resLoc = this.depthBilateralProgram.uniforms.get('u_resolution');
-    if (resLoc) gl.uniform2f(resLoc, width, height);
-
-    const spatialLoc = this.depthBilateralProgram.uniforms.get('u_spatialSigma');
-    if (spatialLoc) gl.uniform1f(spatialLoc, 3.0);
-
-    const rangeLoc = this.depthBilateralProgram.uniforms.get('u_rangeSigma');
-    if (rangeLoc) gl.uniform1f(rangeLoc, 0.1);
-
-    renderQuad(gl, this.quadVAO);
-
-    // Apply depth dilation
-    if (this.depthDilateProgram && this.dilatedDepthFB && this.processedDepthTexture) {
-      this.framebufferManager.bindFramebuffer(this.dilatedDepthFB);
-      gl.useProgram(this.depthDilateProgram.program);
-
-      const dilPosLoc = this.depthDilateProgram.attributes.get('a_position') ?? 0;
-      const dilTexLoc = this.depthDilateProgram.attributes.get('a_texCoord') ?? 0;
-      setupQuadAttributes(gl, this.quadVAO, this.positionBuffer, this.texCoordBuffer, dilPosLoc, dilTexLoc);
-
-      gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, this.processedDepthTexture);
-      const dilDepthLoc = this.depthDilateProgram.uniforms.get('u_depth');
-      if (dilDepthLoc) gl.uniform1i(dilDepthLoc, 0);
-
-      const dilResLoc = this.depthDilateProgram.uniforms.get('u_resolution');
-      if (dilResLoc) gl.uniform2f(dilResLoc, width, height);
-
-      const dilRadiusLoc = this.depthDilateProgram.uniforms.get('u_dilateRadius');
-      if (dilRadiusLoc) gl.uniform1f(dilRadiusLoc, 2.0);
-
-      renderQuad(gl, this.quadVAO);
-    }
+    ... code removed for cleaner builds ...
   }
+  */
 
   private generateLayerMasks(params: LensBlurParams, width: number, height: number): void {
     const gl = this.gl;
@@ -432,11 +388,9 @@ export class LensBlurPipeline {
     const texCoordLoc = this.layerMaskProgram.attributes.get('a_texCoord') ?? 0;
     setupQuadAttributes(gl, this.quadVAO, this.positionBuffer, this.texCoordBuffer, posLoc, texCoordLoc);
 
-    // Use dilated depth if available, otherwise use processed depth
-    const depthToUse = this.dilatedDepthTexture || this.processedDepthTexture || this.depthTexture;
-
+    // Use raw depth texture
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, depthToUse);
+    gl.bindTexture(gl.TEXTURE_2D, this.depthTexture);
     const depthLoc = this.layerMaskProgram.uniforms.get('u_depth');
     if (depthLoc) gl.uniform1i(depthLoc, 0);
 
@@ -557,10 +511,9 @@ export class LensBlurPipeline {
     const origLoc = this.compositeProgram.uniforms.get('u_original');
     if (origLoc) gl.uniform1i(origLoc, 0);
 
-    // Bind depth texture
-    const depthToUse = this.dilatedDepthTexture || this.processedDepthTexture || this.depthTexture;
+    // Bind depth texture - use raw depth directly for better results
     gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, depthToUse);
+    gl.bindTexture(gl.TEXTURE_2D, this.depthTexture);
     const depthLoc = this.compositeProgram.uniforms.get('u_depth');
     if (depthLoc) gl.uniform1i(depthLoc, 1);
 
@@ -644,9 +597,9 @@ export class LensBlurPipeline {
     const texLoc = this.visualizationProgram.uniforms.get('u_texture');
     if (texLoc) gl.uniform1i(texLoc, 0);
 
-    const depthToUse = this.dilatedDepthTexture || this.processedDepthTexture || this.depthTexture;
+    // Use raw depth texture for visualization
     gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, depthToUse);
+    gl.bindTexture(gl.TEXTURE_2D, this.depthTexture);
     const depthLoc = this.visualizationProgram.uniforms.get('u_depth');
     if (depthLoc) gl.uniform1i(depthLoc, 1);
 
@@ -732,8 +685,8 @@ export class LensBlurPipeline {
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
     
-    // We need to use the processed depth if available
-    const depthToRead = this.processedDepthTexture || this.depthTexture;
+    // Use raw depth texture (preprocessing disabled)
+    const depthToRead = this.depthTexture;
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, depthToRead, 0);
 
     const pixelX = Math.floor(x * width);
