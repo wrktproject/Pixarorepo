@@ -258,8 +258,8 @@ export const LensBlurAdjustments: React.FC<LensBlurAdjustmentsProps> = ({
             </label>
             <input
               type="range"
-              min="5"
-              max="50"
+              min="0"
+              max="100"
               value={lensBlur.focusRange * 100}
               onChange={handleFocusRangeChange}
               className="lens-blur-adjustments__slider"

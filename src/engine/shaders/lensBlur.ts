@@ -336,24 +336,15 @@ void main() {
   float depth = depthTexel.r;
   
   if (u_showDepth) {
-    // Focus range defines a depth band from (focusDepth - range/2) to (focusDepth + range/2)
-    float halfRange = u_focusRange * 0.5;
-    float focusStart = u_focusDepth - halfRange;  // Near edge of focus band
-    float focusEnd = u_focusDepth + halfRange;    // Far edge of focus band
+    // Calculate distance from focus point
+    float distFromFocus = abs(depth - u_focusDepth);
     
-    // Calculate blur factor: 0 = in focus, 1 = fully blurred
-    // Uses one-sided distance - blur increases as you go further from the focus band
-    float blurFactor;
-    if (depth < focusStart) {
-      // In front of focus (foreground) - blurs toward camera
-      blurFactor = smoothstep(focusStart, focusStart - 0.15, depth);
-    } else if (depth > focusEnd) {
-      // Behind focus (background) - blurs away from camera
-      blurFactor = smoothstep(focusEnd, focusEnd + 0.15, depth);
-    } else {
-      // Within focus band - sharp
-      blurFactor = 0.0;
-    }
+    // Focus range controls how much stays sharp
+    float transitionWidth = 0.1;
+    float sharpRadius = u_focusRange * 0.5;
+    
+    // Calculate blur factor: 0 = sharp, 1 = max blur
+    float blurFactor = smoothstep(sharpRadius, sharpRadius + transitionWidth, distFromFocus);
     
     // Color scheme:
     // - RED = will be blurred (out of focus)
@@ -440,23 +431,17 @@ void main() {
   float depth = depthSample.r;
   vec2 texelSize = 1.0 / u_resolution;
   
-  // Focus range defines a depth band from (focusDepth - range/2) to (focusDepth + range/2)
-  float halfRange = u_focusRange * 0.5;
-  float focusStart = u_focusDepth - halfRange;  // Near edge of focus band
-  float focusEnd = u_focusDepth + halfRange;    // Far edge of focus band
+  // Calculate distance from focus point
+  float distFromFocus = abs(depth - u_focusDepth);
   
-  // Calculate blur factor based on distance from focus band (not circular distance)
-  float blurFactor;
-  if (depth < focusStart) {
-    // In front of focus (foreground)
-    blurFactor = smoothstep(focusStart, focusStart - 0.2, depth);
-  } else if (depth > focusEnd) {
-    // Behind focus (background)
-    blurFactor = smoothstep(focusEnd, focusEnd + 0.2, depth);
-  } else {
-    // Within focus band - sharp
-    blurFactor = 0.0;
-  }
+  // Focus range controls how much stays sharp
+  // At focusRange=1.0, everything is in focus (no blur)
+  // At focusRange=0.0, only exact focus depth is sharp
+  float transitionWidth = 0.1;  // How quickly blur ramps up
+  float sharpRadius = u_focusRange * 0.5;  // Half of range on each side
+  
+  // Calculate blur factor: 0 = sharp, 1 = max blur
+  float blurFactor = smoothstep(sharpRadius, sharpRadius + transitionWidth, distFromFocus);
   float radius = blurFactor * u_maxBlur * u_amount;
   
   // If radius is very small, just return the original
