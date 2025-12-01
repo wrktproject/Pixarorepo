@@ -103,7 +103,7 @@ export default async (request) => {
         version: MIDAS_MODEL_VERSION,
         input: {
           image: body.image,
-          model_type: 'DPT_Large', // Best quality MiDaS model
+          model_type: 'dpt_beit_large_512', // Best quality - valid options: dpt_beit_large_512, dpt_swin2_large_384, dpt_swin2_tiny_256, dpt_levit_224
         },
       }),
     });
