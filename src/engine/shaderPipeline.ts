@@ -605,16 +605,22 @@ void main() {
             this.lensBlurPipeline.hasDepthMap()) {
           // Apply blur first if enabled and amount > 0
           if (lensBlurParams.enabled && lensBlurParams.amount > 0.01) {
-            // Apply blur directly to output (skip intermediate to avoid feedback loop)
+            // Apply blur to temp framebuffer first
             this.lensBlurPipeline.applyLensBlur(
               inputTexture,
+              this.framebuffers[i] ?? null,  // Use intermediate FB
+              outputFramebuffer ? this.previewWidth : canvasWidth,
+              outputFramebuffer ? this.previewHeight : canvasHeight,
+              lensBlurParams
+            );
+            // Then apply visualization on top of blurred result
+            this.lensBlurPipeline.renderFocusVisualization(
+              this.intermediateTextures[i] ?? inputTexture,  // Use blurred result
               outputFramebuffer,
               outputFramebuffer ? this.previewWidth : canvasWidth,
               outputFramebuffer ? this.previewHeight : canvasHeight,
               lensBlurParams
             );
-            // Visualization will be applied by checking showDepth/showFocus in the composite shader
-            // We can't do a second pass without creating a feedback loop
           } else {
             // Just render visualization without blur
             this.lensBlurPipeline.renderFocusVisualization(
