@@ -481,6 +481,25 @@ export class ShaderPipelineErrorHandler {
   }
 
   /**
+   * Upload depth map for lens blur effect
+   * @param depthData Float32Array of depth values (0-1, where 0 is far and 1 is near)
+   * @param width Width of the depth map
+   * @param height Height of the depth map
+   */
+  public uploadDepthMap(depthData: Float32Array, width: number, height: number): void {
+    if (this.pipeline) {
+      this.pipeline.uploadDepthMap(depthData, width, height);
+    }
+  }
+
+  /**
+   * Check if lens blur has a depth map available
+   */
+  public hasDepthMap(): boolean {
+    return this.pipeline?.hasDepthMap() ?? false;
+  }
+
+  /**
    * Render to ImageData for export
    */
   public async renderToImageData(

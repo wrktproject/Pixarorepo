@@ -104,13 +104,21 @@ function isLocalDevelopment(): boolean {
 }
 
 /**
+ * Yield to main thread to prevent blocking
+ */
+function yieldToMain(): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, 0));
+}
+
+/**
  * Generate a simple gradient-based depth map for local development
  * This is a placeholder that creates a center-focused depth effect
+ * Uses async chunked processing to avoid blocking the UI
  */
-function generateLocalDepthMap(
+async function generateLocalDepthMapAsync(
   imageData: ImageData,
   onProgress?: (status: string) => void
-): { depthMap: Float32Array; width: number; height: number } {
+): Promise<{ depthMap: Float32Array; width: number; height: number }> {
   const { width, height, data } = imageData;
   const depthMap = new Float32Array(width * height);
   
@@ -121,12 +129,16 @@ function generateLocalDepthMap(
   const centerY = height / 2;
   const maxDist = Math.sqrt(centerX * centerX + centerY * centerY);
   
-  // Create depth based on:
-  // 1. Distance from center (center = near, edges = far)
-  // 2. Brightness/luminance hints (brighter often = foreground)
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const idx = y * width + x;
+  // Process in chunks to avoid blocking UI
+  const chunkSize = 10000; // pixels per chunk
+  const totalPixels = width * height;
+  
+  for (let start = 0; start < totalPixels; start += chunkSize) {
+    const end = Math.min(start + chunkSize, totalPixels);
+    
+    for (let idx = start; idx < end; idx++) {
+      const x = idx % width;
+      const y = Math.floor(idx / width);
       const pixelIdx = idx * 4;
       
       // Distance from center (normalized 0-1)
@@ -141,24 +153,67 @@ function generateLocalDepthMap(
       const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
       
       // Combine: center bias + slight luminance bias
-      // Higher value = nearer (will be in focus at high focusDepth)
-      const centerBias = 1 - dist * 0.7; // 0.3 to 1.0 from edge to center
-      const luminanceBias = luminance * 0.2; // Slight brightness boost
+      const centerBias = 1 - dist * 0.7;
+      const luminanceBias = luminance * 0.2;
       
       depthMap[idx] = Math.min(1, Math.max(0, centerBias + luminanceBias));
     }
+    
+    // Yield to main thread every chunk
+    await yieldToMain();
+    
+    // Update progress
+    const progress = Math.round((end / totalPixels) * 60) + 20; // 20-80%
+    onProgress?.(`Analyzing depth... ${progress}%`);
   }
   
   onProgress?.('Smoothing depth map...');
+  await yieldToMain();
   
-  // Apply smoothing
-  const smoothed = applyGuidedSmoothing(depthMap, width, height, 5);
+  // Apply fast smoothing (reduced radius for speed)
+  const smoothed = applyFastSmoothing(depthMap, width, height, 2);
   
   return {
     depthMap: smoothed,
     width,
     height,
   };
+}
+
+/**
+ * Fast box blur smoothing - much faster than bilateral for local mode
+ */
+function applyFastSmoothing(
+  depth: Float32Array,
+  width: number,
+  height: number,
+  radius: number
+): Float32Array {
+  const result = new Float32Array(width * height);
+  const kernelSize = (radius * 2 + 1);
+  // Note: We use count instead of kernelArea for edge handling
+  void kernelSize; // Used for documentation, suppresses unused warning
+  
+  // Simple box blur - much faster
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let sum = 0;
+      let count = 0;
+      
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          const nx = Math.max(0, Math.min(width - 1, x + dx));
+          const ny = Math.max(0, Math.min(height - 1, y + dy));
+          sum += depth[ny * width + nx];
+          count++;
+        }
+      }
+      
+      result[y * width + x] = sum / count;
+    }
+  }
+  
+  return result;
 }
 
 /**
@@ -171,12 +226,10 @@ export async function fetchDepthMap(
 ): Promise<{ depthMap: Float32Array; width: number; height: number } | null> {
   // In local development, use a simple gradient-based fallback
   if (isLocalDevelopment()) {
-    onProgress?.('Local mode: Using gradient depth estimation');
+    onProgress?.('Local mode: Generating depth estimate...');
     
-    // Simulate some processing time
-    await new Promise(r => setTimeout(r, 500));
-    
-    const result = generateLocalDepthMap(imageData, onProgress);
+    // Use async chunked processing to avoid blocking
+    const result = await generateLocalDepthMapAsync(imageData, onProgress);
     
     onProgress?.('Complete!');
     return result;

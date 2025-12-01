@@ -17,12 +17,12 @@ import {
   setLensBlurShowFocus,
 } from '../store';
 import { fetchDepthMap } from '../utils/depthEstimation';
+import { DepthMapManager } from '../utils/depthMapManager';
 import './LensBlurAdjustments.css';
 
 interface LensBlurAdjustmentsProps {
   disabled?: boolean;
   expanded?: boolean;
-  onDepthMapGenerated?: (depthData: Float32Array, width: number, height: number) => void;
 }
 
 type DepthStatus = 'idle' | 'generating' | 'ready' | 'error';
@@ -30,7 +30,6 @@ type ProcessingStage = 'preparing' | 'analyzing' | 'generating' | 'applying' | '
 
 export const LensBlurAdjustments: React.FC<LensBlurAdjustmentsProps> = ({
   disabled = false,
-  onDepthMapGenerated,
 }) => {
   const dispatch = useDispatch();
   const adjustments = useSelector((state: RootState) => state.adjustments);
@@ -92,7 +91,9 @@ export const LensBlurAdjustments: React.FC<LensBlurAdjustmentsProps> = ({
         
         setDepthStatus('ready');
         setStatusMessage('');
-        onDepthMapGenerated?.(result.depthMap, result.width, result.height);
+        
+        // Upload to rendering pipeline via manager
+        DepthMapManager.uploadDepthMap(result.depthMap, result.width, result.height);
       } else {
         throw new Error('Failed to generate depth map');
       }
@@ -104,7 +105,7 @@ export const LensBlurAdjustments: React.FC<LensBlurAdjustmentsProps> = ({
       setStatusMessage('');
       setProcessingProgress(0);
     }
-  }, [currentImage, onDepthMapGenerated]);
+  }, [currentImage]);
 
   // Reset depth status when image changes
   useEffect(() => {
@@ -112,6 +113,8 @@ export const LensBlurAdjustments: React.FC<LensBlurAdjustmentsProps> = ({
     depthDataRef.current = null;
     setDepthError(null);
     setProcessingProgress(0);
+    // Clear depth map from manager when image changes
+    DepthMapManager.clear();
   }, [currentImage]);
 
   const handleAmountChange = useCallback(
@@ -357,36 +360,6 @@ export const LensBlurAdjustments: React.FC<LensBlurAdjustmentsProps> = ({
         Create beautiful depth-of-field blur effects using AI-powered depth estimation.
         The tool analyzes your image to understand what's near and far.
       </p>
-
-      <div className="lens-blur-adjustments__controls">
-        <div className="lens-blur-adjustments__control-group">
-          <label className="lens-blur-adjustments__label">
-            Blur Amount: {Math.round(lensBlur.amount * 100)}%
-          </label>
-          <input
-            type="range"
-            min="0"
-            max="250"
-            value={lensBlur.amount * 100}
-            onChange={handleAmountChange}
-            className="lens-blur-adjustments__slider"
-          />
-        </div>
-
-        <div className="lens-blur-adjustments__control-group">
-          <label className="lens-blur-adjustments__label">
-            Focus Depth: {Math.round(lensBlur.focusDepth * 100)}%
-          </label>
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={lensBlur.focusDepth * 100}
-            onChange={handleFocusDepthChange}
-            className="lens-blur-adjustments__slider"
-          />
-        </div>
-      </div>
 
       <button
         className="lens-blur-adjustments__activate-button"

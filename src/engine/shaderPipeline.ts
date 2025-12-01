@@ -39,6 +39,8 @@ import {
   applyOutputUniforms,
 } from './shaders/output';
 import { ClarityPipeline } from './clarityPipeline';
+import { LensBlurPipeline } from './lensBlurPipeline';
+import type { LensBlurParams } from './shaders/lensBlur';
 import type { AdjustmentState } from '../types/adjustments';
 import { downscaleImageData } from '../utils/imageDownscaling';
 
@@ -79,6 +81,7 @@ export class ShaderPipeline {
 
   // Shader programs
   private baseProgram: ShaderProgram | null = null;
+  private passThroughProgram: ShaderProgram | null = null;  // Simple pass-through (no Y flip, no color conversion)
   private geometricProgram: ShaderProgram | null = null;
   private tonalProgram: ShaderProgram | null = null;
   private colorProgram: ShaderProgram | null = null;
@@ -89,6 +92,7 @@ export class ShaderPipeline {
 
   // Multi-pass pipelines
   private clarityPipeline: ClarityPipeline | null = null;
+  private lensBlurPipeline: LensBlurPipeline | null = null;
 
   // Shader passes
   private passes: ShaderPass[] = [];
@@ -178,6 +182,12 @@ export class ShaderPipeline {
     // Initialize clarity pipeline
     this.clarityPipeline = new ClarityPipeline(this.gl, this.framebufferManager);
 
+    // Initialize lens blur pipeline
+    this.lensBlurPipeline = new LensBlurPipeline(this.gl, this.framebufferManager, {
+      numLayers: 8,
+      maxBlurRadius: 60,
+    });
+
     // Set up render scheduler callback (Requirement 13.1)
     this.renderScheduler.setRenderCallback(() => {
       this.executeRender();
@@ -192,10 +202,35 @@ export class ShaderPipeline {
     // ShaderCompiler already implements caching, but we ensure all shaders
     // are compiled upfront during initialization to avoid runtime compilation delays
 
-    // Base shader
+    // Base shader (flips Y for initial texture load)
     this.baseProgram = this.shaderCompiler.createProgram(
       baseVertexShader,
       baseFragmentShader,
+      ['u_texture'],
+      ['a_position', 'a_texCoord']
+    );
+
+    // Pass-through shader (no Y flip, no color conversion - for intermediate passes)
+    const passThroughVertexShader = `#version 300 es
+precision highp float;
+in vec2 a_position;
+in vec2 a_texCoord;
+out vec2 v_texCoord;
+void main() {
+  v_texCoord = a_texCoord;
+  gl_Position = vec4(a_position, 0.0, 1.0);
+}`;
+    const passThroughFragmentShader = `#version 300 es
+precision highp float;
+in vec2 v_texCoord;
+uniform sampler2D u_texture;
+out vec4 fragColor;
+void main() {
+  fragColor = texture(u_texture, v_texCoord);
+}`;
+    this.passThroughProgram = this.shaderCompiler.createProgram(
+      passThroughVertexShader,
+      passThroughFragmentShader,
       ['u_texture'],
       ['a_position', 'a_texCoord']
     );
@@ -292,7 +327,7 @@ export class ShaderPipeline {
     );
 
     // Initialize passes (geometric first to apply crop/rotation before other adjustments)
-    // Clarity is handled separately as a multi-pass effect
+    // Clarity and lens blur are handled separately as multi-pass effects
     // Output is the final pass that applies tone mapping and converts to sRGB
     this.passes = [
       { name: 'base', program: this.baseProgram, isDirty: true },
@@ -303,6 +338,7 @@ export class ShaderPipeline {
       { name: 'clarity', program: null, isDirty: true }, // Multi-pass effect
       { name: 'detail', program: this.detailProgram, isDirty: true },
       { name: 'effects', program: this.effectsProgram, isDirty: true },
+      { name: 'lensBlur', program: null, isDirty: true }, // Multi-pass depth-based blur
       { name: 'output', program: this.outputProgram, isDirty: true },
     ];
   }
@@ -515,6 +551,114 @@ export class ShaderPipeline {
           this.quadGeometry.positionBuffer,
           this.quadGeometry.texCoordBuffer
         );
+
+        // Update input texture for next pass
+        if (i < this.passes.length - 1) {
+          inputTexture = this.intermediateTextures[i];
+        }
+
+        // Record pass timing
+        if (this.config.enablePerformanceMonitoring) {
+          const passEndTime = performance.now();
+          this.performanceMetrics.passTimings.set(pass.name, passEndTime - passStartTime);
+        }
+
+        // End pass profiling
+        this.profiler.endPass(pass.name, passProfileStartTime, false);
+
+        // Mark pass as clean
+        pass.isDirty = false;
+        continue;
+      }
+
+      // Handle lens blur as a special multi-pass effect
+      if (pass.name === 'lensBlur') {
+        if (!this.lensBlurPipeline) {
+          throw new Error('Lens blur pipeline not initialized');
+        }
+
+        // Bind output framebuffer (null for last pass to render to canvas)
+        const outputFramebuffer = i < this.passes.length - 1 ? this.framebuffers[i] : null;
+
+        // Build lens blur params from adjustments
+        const lensBlurParams: LensBlurParams = {
+          enabled: adjustments.lensBlur.enabled,
+          amount: adjustments.lensBlur.amount,
+          maxBlur: adjustments.lensBlur.maxBlur,
+          focusDepth: adjustments.lensBlur.focusDepth,
+          focusRange: adjustments.lensBlur.focusRange,
+          edgeProtect: adjustments.lensBlur.edgeProtect,
+          numLayers: 8,
+          transitionWidth: 0.1,
+          showDepth: adjustments.lensBlur.showDepth,
+          showFocus: adjustments.lensBlur.showFocus,
+        };
+
+        // Check if visualization is needed (show depth map or focus plane)
+        if ((adjustments.lensBlur.showDepth || adjustments.lensBlur.showFocus) && 
+            this.lensBlurPipeline.hasDepthMap()) {
+          // Apply blur first if enabled and amount > 0
+          if (lensBlurParams.enabled && lensBlurParams.amount > 0.01) {
+            // Apply blur to intermediate texture
+            const tempFB = i < this.passes.length - 1 ? this.framebuffers[i] : null;
+            this.lensBlurPipeline.applyLensBlur(
+              inputTexture,
+              tempFB,
+              this.previewWidth,
+              this.previewHeight,
+              lensBlurParams
+            );
+            // Then render visualization on top
+            this.lensBlurPipeline.renderFocusVisualization(
+              this.intermediateTextures[i] || inputTexture,
+              outputFramebuffer,
+              outputFramebuffer ? this.previewWidth : canvasWidth,
+              outputFramebuffer ? this.previewHeight : canvasHeight,
+              lensBlurParams
+            );
+          } else {
+            // Just render visualization without blur
+            this.lensBlurPipeline.renderFocusVisualization(
+              inputTexture,
+              outputFramebuffer,
+              outputFramebuffer ? this.previewWidth : canvasWidth,
+              outputFramebuffer ? this.previewHeight : canvasHeight,
+              lensBlurParams
+            );
+          }
+        } else if (lensBlurParams.enabled && lensBlurParams.amount > 0.01 && 
+                   this.lensBlurPipeline.hasDepthMap()) {
+          // Just apply blur (no visualization)
+          this.lensBlurPipeline.applyLensBlur(
+            inputTexture,
+            outputFramebuffer,
+            outputFramebuffer ? this.previewWidth : canvasWidth,
+            outputFramebuffer ? this.previewHeight : canvasHeight,
+            lensBlurParams
+          );
+        } else {
+          // No depth map or blur disabled - just copy input to output
+          // Bind framebuffer
+          this.framebufferManager.bindFramebuffer(outputFramebuffer);
+          if (outputFramebuffer) {
+            this.gl.viewport(0, 0, this.previewWidth, this.previewHeight);
+          } else {
+            this.gl.viewport(0, 0, canvasWidth, canvasHeight);
+          }
+          // Use pass-through program (no Y flip, no color conversion)
+          if (this.passThroughProgram) {
+            this.gl.useProgram(this.passThroughProgram.program);
+            const posLoc = this.passThroughProgram.attributes.get('a_position') ?? 0;
+            const texLoc = this.passThroughProgram.attributes.get('a_texCoord') ?? 0;
+            setupQuadAttributes(this.gl, this.quadGeometry.vao, this.quadGeometry.positionBuffer, 
+                              this.quadGeometry.texCoordBuffer, posLoc, texLoc);
+            this.gl.activeTexture(this.gl.TEXTURE0);
+            this.gl.bindTexture(this.gl.TEXTURE_2D, inputTexture);
+            const texUniform = this.passThroughProgram.uniforms.get('u_texture');
+            if (texUniform) this.gl.uniform1i(texUniform, 0);
+            renderQuad(this.gl, this.quadGeometry.vao);
+          }
+        }
 
         // Update input texture for next pass
         if (i < this.passes.length - 1) {
@@ -1086,14 +1230,54 @@ export class ShaderPipeline {
     if (this.detailProgram) this.shaderCompiler.deleteProgram(this.detailProgram.program);
     if (this.effectsProgram) this.shaderCompiler.deleteProgram(this.effectsProgram.program);
     if (this.outputProgram) this.shaderCompiler.deleteProgram(this.outputProgram.program);
+    if (this.passThroughProgram) this.shaderCompiler.deleteProgram(this.passThroughProgram.program);
 
     // Dispose clarity pipeline
     if (this.clarityPipeline) {
       this.clarityPipeline.dispose();
     }
 
+    // Dispose lens blur pipeline
+    if (this.lensBlurPipeline) {
+      this.lensBlurPipeline.dispose();
+    }
+
     // Dispose managers
     this.textureManager.dispose();
     this.framebufferManager.dispose();
+  }
+
+  /**
+   * Upload depth map for lens blur effect
+   * @param depthData Float32Array of depth values (0-1, where 0 is far and 1 is near)
+   * @param width Width of the depth map
+   * @param height Height of the depth map
+   */
+  public uploadDepthMap(depthData: Float32Array, width: number, height: number): void {
+    if (!this.lensBlurPipeline) {
+      console.warn('Lens blur pipeline not initialized');
+      return;
+    }
+
+    // Initialize the lens blur pipeline if not done yet
+    this.lensBlurPipeline.initialize();
+    
+    // Upload the depth map
+    this.lensBlurPipeline.uploadDepthMap(depthData, width, height);
+    
+    // Mark lens blur pass as dirty to trigger re-render
+    const lensBlurPass = this.passes.find(p => p.name === 'lensBlur');
+    if (lensBlurPass) {
+      lensBlurPass.isDirty = true;
+    }
+    
+    console.log('📷 Depth map uploaded to lens blur pipeline:', { width, height });
+  }
+
+  /**
+   * Check if lens blur has a depth map available
+   */
+  public hasDepthMap(): boolean {
+    return this.lensBlurPipeline?.hasDepthMap() ?? false;
   }
 }

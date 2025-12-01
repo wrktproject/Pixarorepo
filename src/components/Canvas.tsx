@@ -10,6 +10,7 @@ import type { RootState } from '../store';
 import { store, setZoom, setPan, resetView, setShowComparison, setRenderedImageData, setAllAdjustments, addToHistory } from '../store';
 import { ShaderPipelineErrorHandler } from '../engine/shaderPipelineErrorHandler';
 import type { RenderMode } from '../engine/shaderPipelineErrorHandler';
+import { DepthMapManager } from '../utils/depthMapManager';
 // Histogram imported but rendered via separate component
 import { CropTool } from './CropTool';
 import { ErrorNotification } from './ErrorNotification';
@@ -82,6 +83,13 @@ export const Canvas: React.FC<CanvasProps> = ({ canvasRef: externalCanvasRef }) 
       // Set initial render mode
       setRenderMode(errorHandlerRef.current.getCurrentMode());
 
+      // Connect depth map manager to the rendering pipeline
+      DepthMapManager.setCallback((depthData, width, height) => {
+        if (errorHandlerRef.current) {
+          errorHandlerRef.current.uploadDepthMap(depthData, width, height);
+        }
+      });
+
       console.log('Rendering pipeline initialized with error handling');
 
     } catch (error) {
@@ -97,7 +105,8 @@ export const Canvas: React.FC<CanvasProps> = ({ canvasRef: externalCanvasRef }) 
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
-      
+      // Disconnect depth map manager
+      DepthMapManager.setCallback(null);
     };
   }, []);
 
