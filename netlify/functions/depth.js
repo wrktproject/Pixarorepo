@@ -8,9 +8,9 @@ const REPLICATE_API_URL = 'https://api.replicate.com/v1/predictions';
 // MiDaS model - robust monocular depth estimation (cjwbw/midas)
 const MIDAS_MODEL_VERSION = 'a6ba5798f04f80d3b314de0f0a62277f21ab3503c60c84d4817de83c5edfdae0';
 
-async function pollForResult(predictionId, apiKey, maxWaitMs = 50000) {
+async function pollForResult(predictionId, apiKey, maxWaitMs = 45000, earlyExitOnColdStart = false) {
   const startTime = Date.now();
-  let coldStartWarned = false;
+  let consecutiveStartingCount = 0;
   
   while (Date.now() - startTime < maxWaitMs) {
     const response = await fetch(`${REPLICATE_API_URL}/${predictionId}`, {
@@ -36,10 +36,17 @@ async function pollForResult(predictionId, apiKey, maxWaitMs = 50000) {
       throw new Error('Prediction was canceled');
     }
     
-    // If still starting after 15 seconds, it's a cold start - warn the client
-    if (prediction.status === 'starting' && Date.now() - startTime > 15000 && !coldStartWarned) {
-      coldStartWarned = true;
-      console.log('Model is cold starting, may take longer...');
+    // Track consecutive "starting" states for cold start detection
+    if (prediction.status === 'starting') {
+      consecutiveStartingCount++;
+      // If still in "starting" after 5 checks (5 seconds) and earlyExitOnColdStart is true,
+      // return early so client can handle the retry with progress UI
+      if (earlyExitOnColdStart && consecutiveStartingCount >= 5) {
+        console.log('Cold start detected, returning early for client-side retry');
+        return { success: false, predictionId, message: 'Model is cold starting', coldStart: true };
+      }
+    } else {
+      consecutiveStartingCount = 0;  // Reset if we see "processing" status
     }
     
     await new Promise(resolve => setTimeout(resolve, 1000));
@@ -163,8 +170,9 @@ export default async (request) => {
     const prediction = await createResponse.json();
     console.log('Prediction created:', prediction.id);
     
-    // Poll for result with reduced timeout to avoid gateway timeout
-    const result = await pollForResult(prediction.id, apiKey, 50000);
+    // Poll for result - enable early exit on cold start for initial request
+    // This avoids gateway timeouts by returning 202 quickly during cold starts
+    const result = await pollForResult(prediction.id, apiKey, 45000, true);
     
     if (result.success) {
       console.log('Success! Depth map URL received');

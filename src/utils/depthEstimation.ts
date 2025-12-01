@@ -272,15 +272,16 @@ export async function fetchDepthMap(
     // Initial request
     let result = await callDepthAPI();
     
-    // If the model is still warming up, retry a few times
+    // If the model is still warming up, retry with exponential backoff
     let retryCount = 0;
-    const maxRetries = 3;
+    const maxRetries = 6;  // More retries for cold starts
     while (!result.success && result.predictionId && retryCount < maxRetries) {
       retryCount++;
-      onProgress?.(`AI model warming up... (attempt ${retryCount + 1})`);
+      const waitTime = Math.min(5000 * retryCount, 15000);  // 5s, 10s, 15s, 15s, 15s, 15s
+      onProgress?.(`AI model warming up... (attempt ${retryCount + 1}, waiting ${waitTime/1000}s)`);
       
-      // Wait before retrying
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // Wait before retrying with exponential backoff
+      await new Promise(resolve => setTimeout(resolve, waitTime));
       
       result = await callDepthAPI(result.predictionId);
     }
