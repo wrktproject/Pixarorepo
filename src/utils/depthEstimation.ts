@@ -383,11 +383,11 @@ function processDepthMap(depthData: ImageData): Float32Array {
     depthValues[i] = (depthValues[i] - min) / range;
   }
   
-  // Apply fast bilateral-like smoothing using guided filter approximation
-  // This helps reduce noise while preserving edges
-  const smoothed = applyGuidedSmoothing(depthValues, width, height, 3);
+  // TODO: Apply smoothing only for high-res images (currently disabled for performance)
+  // For now, return the raw normalized depth map
+  // The guided filter was too slow (O(n²) per pixel)
   
-  return smoothed;
+  return depthValues;
 }
 
 /**

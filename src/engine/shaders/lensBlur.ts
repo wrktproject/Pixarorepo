@@ -324,17 +324,24 @@ out vec4 fragColor;
 
 void main() {
   vec3 color = texture(u_texture, v_texCoord).rgb;
-  float depth = texture(u_depth, v_texCoord).r;
+  vec4 depthTexel = texture(u_depth, v_texCoord);
+  float depth = depthTexel.r;
   
   if (u_showDepth) {
-    // Overlay depth map with color coding
-    // Blue = far, Red = near
+    // Debug: show raw depth texture channels
+    // Red channel should vary with depth (far=dark, near=bright)
+    vec3 depthDebug = vec3(depthTexel.r, depthTexel.g, depthTexel.b);
+    
+    // If R, G, B are all the same (uniform), it's probably not loaded correctly
+    // Show a gradient to visualize the actual depth values
     vec3 depthColor = vec3(
       depth,                    // Near = red
-      0.0,
-      1.0 - depth              // Far = blue
+      0.5,                      // Green midpoint
+      1.0 - depth               // Far = blue
     );
-    color = mix(color, depthColor, 0.5);
+    
+    // Mix with original image
+    color = mix(color, depthColor, 0.7);
   }
   
   if (u_showFocus) {
