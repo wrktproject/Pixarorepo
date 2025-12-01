@@ -414,10 +414,19 @@ export class LensBlurPipeline {
       focusDepth: params.focusDepth.toFixed(2),
       focusRange: params.focusRange.toFixed(2),
       maxBlur: params.maxBlur,
-      amount: params.amount.toFixed(2)
+      amount: params.amount.toFixed(2),
+      hasDepthTexture: !!this.depthTexture,
+      hasSimpleBlurProgram: !!this.simpleBlurProgram
     });
 
+    if (!this.simpleBlurProgram) {
+      console.error('❌ simpleBlurProgram is null!');
+      this.copyTexture(inputTexture, outputFramebuffer, width, height);
+      return;
+    }
+
     gl.useProgram(this.simpleBlurProgram.program);
+    console.log('📷 Using program:', this.simpleBlurProgram.program);
 
     const posLoc = this.simpleBlurProgram.attributes.get('a_position') ?? 0;
     const texCoordLoc = this.simpleBlurProgram.attributes.get('a_texCoord') ?? 0;
