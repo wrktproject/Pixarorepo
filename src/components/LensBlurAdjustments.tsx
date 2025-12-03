@@ -32,6 +32,7 @@ export const LensBlurAdjustments: React.FC<LensBlurAdjustmentsProps> = ({
   const dispatch = useDispatch();
   const adjustments = useSelector((state: RootState) => state.adjustments);
   const currentImage = useSelector((state: RootState) => state.image.current);
+  const currentPhotoId = useSelector((state: RootState) => state.library.currentPhotoId);
   
   const [depthStatus, setDepthStatus] = useState<DepthStatus>('idle');
   const [depthError, setDepthError] = useState<string | null>(null);
@@ -44,7 +45,7 @@ export const LensBlurAdjustments: React.FC<LensBlurAdjustmentsProps> = ({
   const hasImage = currentImage !== null;
 
   // Generate depth map
-  const handleGenerateDepth = useCallback(async () => {
+  const handleGenerateDepth = useCallback(async (highQuality: boolean = false) => {
     if (!currentImage?.data) {
       setDepthError('No image loaded');
       return;
@@ -54,7 +55,7 @@ export const LensBlurAdjustments: React.FC<LensBlurAdjustmentsProps> = ({
     setDepthError(null);
     setProcessingProgress(0);
     setProcessingStage('preparing');
-    setStatusMessage('Preparing image...');
+    setStatusMessage(highQuality ? 'Preparing image (high quality)...' : 'Preparing image...');
 
     try {
       // Simulate progress stages
@@ -72,7 +73,7 @@ export const LensBlurAdjustments: React.FC<LensBlurAdjustmentsProps> = ({
           setProcessingStage('generating');
           setProcessingProgress(70);
         }
-      });
+      }, highQuality);
       
       setProcessingStage('applying');
       setProcessingProgress(90);
@@ -106,19 +107,25 @@ export const LensBlurAdjustments: React.FC<LensBlurAdjustmentsProps> = ({
       setStatusMessage('');
       setProcessingProgress(0);
     }
-  }, [currentImage]);
-
-  // Reset depth status when image changes
-  useEffect(() => {
-    setDepthStatus('idle');
-    depthDataRef.current = null;
-    setDepthError(null);
-    setProcessingProgress(0);
-    // Clear depth map from manager when image changes
-    DepthMapManager.clear();
-    // Disable lens blur when image changes (no depth map available)
-    dispatch(setLensBlurEnabled(false));
   }, [currentImage, dispatch]);
+
+  // Check for cached depth map when photo changes
+  useEffect(() => {
+    if (currentPhotoId) {
+      // Check if we have a cached depth map for this photo
+      if (DepthMapManager.hasDepthMapForPhoto(currentPhotoId)) {
+        console.log('📷 LensBlur: Restoring cached depth map for photo:', currentPhotoId);
+        setDepthStatus('ready');
+        setDepthError(null);
+      } else {
+        // No cached depth map - reset to idle
+        setDepthStatus('idle');
+        depthDataRef.current = null;
+        setDepthError(null);
+        setProcessingProgress(0);
+      }
+    }
+  }, [currentPhotoId]);
 
   const handleAmountChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -148,9 +155,9 @@ export const LensBlurAdjustments: React.FC<LensBlurAdjustmentsProps> = ({
     [dispatch]
   );
 
-  const handleRegenerateDepth = useCallback(() => {
+  const handleRegenerateDepth = useCallback((highQuality: boolean = false) => {
     setDepthStatus('idle');
-    handleGenerateDepth();
+    handleGenerateDepth(highQuality);
   }, [handleGenerateDepth]);
 
   // Processing view - when generating depth map
@@ -210,14 +217,24 @@ export const LensBlurAdjustments: React.FC<LensBlurAdjustmentsProps> = ({
         <div className="lens-blur-adjustments__status-ready">
           <span className="lens-blur-adjustments__status-check">✓</span>
           <span>AI depth map ready</span>
-          <button
-            className="lens-blur-adjustments__regenerate-btn"
-            onClick={handleRegenerateDepth}
-            disabled={disabled}
-            title="Regenerate depth map"
-          >
-            ↻
-          </button>
+          <div className="lens-blur-adjustments__regenerate-buttons">
+            <button
+              className="lens-blur-adjustments__regenerate-btn"
+              onClick={() => handleRegenerateDepth(false)}
+              disabled={disabled}
+              title="Regenerate depth map (fast)"
+            >
+              ↻
+            </button>
+            <button
+              className="lens-blur-adjustments__regenerate-btn lens-blur-adjustments__regenerate-btn--hq"
+              onClick={() => handleRegenerateDepth(true)}
+              disabled={disabled}
+              title="Regenerate with high quality (slower, more accurate)"
+            >
+              HQ
+            </button>
+          </div>
         </div>
 
         {/* Controls */}
@@ -295,7 +312,7 @@ export const LensBlurAdjustments: React.FC<LensBlurAdjustmentsProps> = ({
 
       <button
         className="lens-blur-adjustments__activate-button"
-        onClick={handleGenerateDepth}
+        onClick={() => handleGenerateDepth(false)}
         disabled={disabled || !hasImage}
       >
         Generate AI Depth Map
@@ -306,7 +323,7 @@ export const LensBlurAdjustments: React.FC<LensBlurAdjustmentsProps> = ({
           <span>⚠ {depthError}</span>
           <button
             className="lens-blur-adjustments__retry-btn"
-            onClick={handleRegenerateDepth}
+            onClick={() => handleRegenerateDepth()}
             disabled={disabled}
           >
             Retry

@@ -343,8 +343,13 @@
   font-weight: bold;
 }
 
-.lens-blur-adjustments__regenerate-btn {
+.lens-blur-adjustments__regenerate-buttons {
+  display: flex;
+  gap: 0.25rem;
   margin-left: auto;
+}
+
+.lens-blur-adjustments__regenerate-btn {
   padding: 0.25rem 0.5rem;
   background: transparent;
   border: 1px solid rgba(16, 185, 129, 0.4);
@@ -355,8 +360,21 @@
   transition: all 0.15s ease;
 }
 
+.lens-blur-adjustments__regenerate-btn--hq {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 0.25rem 0.4rem;
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #60a5fa;
+}
+
 .lens-blur-adjustments__regenerate-btn:hover:not(:disabled) {
   background: rgba(16, 185, 129, 0.15);
+}
+
+.lens-blur-adjustments__regenerate-btn--hq:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.2);
 }
 
 .lens-blur-adjustments__regenerate-btn:disabled {

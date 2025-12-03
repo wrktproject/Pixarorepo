@@ -16,6 +16,7 @@ import {
   resetHistory,
 } from '../store';
 import { setPreviewImage, clearImage } from '../store/imageSlice';
+import { DepthMapManager } from '../utils/depthMapManager';
 
 /**
  * Hook to sync adjustments with the library and handle photo switching
@@ -46,6 +47,7 @@ export function usePhotoSync() {
         // We had a photo before but now we don't - clear everything
         console.log('🗑️ No current photo, clearing image state');
         dispatch(clearImage());
+        DepthMapManager.setCurrentPhotoId(null);
       }
       previousPhotoIdRef.current = null;
       return;
@@ -69,7 +71,11 @@ export function usePhotoSync() {
           dimensions: `${photo.original.width}x${photo.original.height}`,
           hasCrop: !!photo.adjustments.crop,
           rotation: photo.adjustments.rotation,
+          lensBlurEnabled: photo.adjustments.lensBlur.enabled,
         });
+
+        // Notify DepthMapManager about photo switch (will restore cached depth map if available)
+        DepthMapManager.setCurrentPhotoId(photo.id);
 
         // IMPORTANT: Update adjustments FIRST before loading image
         // This prevents the canvas from rendering the new image with old adjustments

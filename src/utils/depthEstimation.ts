@@ -219,10 +219,14 @@ function applyFastSmoothing(
 /**
  * Fetch depth map from server using MiDaS model
  * Returns normalized depth data as Float32Array
+ * @param imageData The image to process
+ * @param onProgress Progress callback
+ * @param highQuality Use larger, more accurate model (slower)
  */
 export async function fetchDepthMap(
   imageData: ImageData,
-  onProgress?: (status: string) => void
+  onProgress?: (status: string) => void,
+  highQuality: boolean = false
 ): Promise<{ depthMap: Float32Array; width: number; height: number } | null> {
   // In local development, use a simple gradient-based fallback
   if (isLocalDevelopment()) {
@@ -238,18 +242,19 @@ export async function fetchDepthMap(
   try {
     onProgress?.('Preparing image...');
     
-    // Resize for API efficiency
-    const { resized } = resizeImageForAPI(imageData, 768);
+    // Resize for API efficiency - use larger size for high quality
+    const maxSize = highQuality ? 1024 : 768;
+    const { resized } = resizeImageForAPI(imageData, maxSize);
     const imageBase64 = imageDataToBase64(resized);
     
-    onProgress?.('Analyzing depth with AI...');
+    onProgress?.(highQuality ? 'Analyzing depth with AI (high quality)...' : 'Analyzing depth with AI...');
     
     // Helper function to make the API call with retry support
     const callDepthAPI = async (predictionId?: string): Promise<{ success: boolean; depthMapUrl?: string; predictionId?: string; message?: string }> => {
       const response = await fetch('/api/depth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(predictionId ? { predictionId } : { image: imageBase64 }),
+        body: JSON.stringify(predictionId ? { predictionId } : { image: imageBase64, quality: highQuality ? 'high' : 'normal' }),
       });
       
       if (!response.ok && response.status !== 202) {

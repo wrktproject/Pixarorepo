@@ -1,14 +1,25 @@
 /**
  * Depth Map Manager
  * Singleton to manage depth map data and notify the rendering pipeline
- * This allows LensBlurAdjustments to communicate depth maps to Canvas
+ * Stores depth maps per photo ID so they persist when switching photos
  */
 
 type DepthMapCallback = (depthData: Float32Array, width: number, height: number) => void;
 
+interface DepthMapEntry {
+  data: Float32Array;
+  width: number;
+  height: number;
+}
+
 class DepthMapManagerClass {
   private callback: DepthMapCallback | null = null;
-  private currentDepthMap: { data: Float32Array; width: number; height: number } | null = null;
+  private currentDepthMap: DepthMapEntry | null = null;
+  private currentPhotoId: string | null = null;
+  
+  // Store depth maps per photo ID for persistence when switching photos
+  private depthMapCache: Map<string, DepthMapEntry> = new Map();
+  private maxCacheSize = 5; // Limit memory usage - keep last 5 depth maps
 
   /**
    * Register a callback to receive depth map updates
@@ -28,11 +39,41 @@ class DepthMapManagerClass {
   }
 
   /**
-   * Upload a depth map
+   * Set current photo ID - used to associate depth maps with photos
+   */
+  setCurrentPhotoId(photoId: string | null): void {
+    if (photoId === this.currentPhotoId) return;
+    
+    console.log('📷 DepthMapManager: switching photo from', this.currentPhotoId, 'to', photoId);
+    this.currentPhotoId = photoId;
+    
+    // Try to restore cached depth map for this photo
+    if (photoId && this.depthMapCache.has(photoId)) {
+      const cached = this.depthMapCache.get(photoId)!;
+      console.log('📷 DepthMapManager: restoring cached depth map for', photoId);
+      this.currentDepthMap = cached;
+      
+      // Notify the rendering pipeline
+      if (this.callback) {
+        this.callback(cached.data, cached.width, cached.height);
+      }
+    } else {
+      // No cached depth map for this photo
+      this.currentDepthMap = null;
+    }
+  }
+
+  /**
+   * Upload a depth map for the current photo
    * Called by LensBlurAdjustments when depth estimation completes
    */
   uploadDepthMap(depthData: Float32Array, width: number, height: number): void {
-    console.log('📷 DepthMapManager.uploadDepthMap called:', { width, height, dataLength: depthData.length });
+    console.log('📷 DepthMapManager.uploadDepthMap called:', { 
+      photoId: this.currentPhotoId,
+      width, 
+      height, 
+      dataLength: depthData.length 
+    });
     
     // Check depth range
     let min = Infinity, max = -Infinity;
@@ -42,8 +83,25 @@ class DepthMapManagerClass {
     }
     console.log('📷 Depth data range (first 1000):', min, 'to', max);
     
-    // Store for later if callback not ready yet
-    this.currentDepthMap = { data: depthData, width, height };
+    const entry: DepthMapEntry = { data: depthData, width, height };
+    
+    // Store for current use
+    this.currentDepthMap = entry;
+    
+    // Cache for this photo ID
+    if (this.currentPhotoId) {
+      this.depthMapCache.set(this.currentPhotoId, entry);
+      
+      // Limit cache size to prevent memory issues
+      if (this.depthMapCache.size > this.maxCacheSize) {
+        // Remove oldest entry (first key)
+        const firstKey = this.depthMapCache.keys().next().value;
+        if (firstKey && firstKey !== this.currentPhotoId) {
+          console.log('📷 DepthMapManager: evicting cached depth map for', firstKey);
+          this.depthMapCache.delete(firstKey);
+        }
+      }
+    }
     
     // Notify the rendering pipeline
     if (this.callback) {
@@ -55,10 +113,17 @@ class DepthMapManagerClass {
   }
 
   /**
-   * Check if a depth map is available
+   * Check if a depth map is available for current photo
    */
   hasDepthMap(): boolean {
     return this.currentDepthMap !== null;
+  }
+
+  /**
+   * Check if a depth map is cached for a specific photo
+   */
+  hasDepthMapForPhoto(photoId: string): boolean {
+    return this.depthMapCache.has(photoId);
   }
 
   /**
@@ -94,10 +159,25 @@ class DepthMapManagerClass {
   }
 
   /**
-   * Clear the current depth map
-   * Called when image changes
+   * Clear the current depth map (but keep cache)
    */
   clear(): void {
+    this.currentDepthMap = null;
+  }
+
+  /**
+   * Remove cached depth map for a specific photo
+   * Called when a photo is deleted from the library
+   */
+  removeFromCache(photoId: string): void {
+    this.depthMapCache.delete(photoId);
+  }
+
+  /**
+   * Clear all cached depth maps
+   */
+  clearCache(): void {
+    this.depthMapCache.clear();
     this.currentDepthMap = null;
   }
 }
