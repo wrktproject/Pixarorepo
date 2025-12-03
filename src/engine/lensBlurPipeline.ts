@@ -338,13 +338,21 @@ export class LensBlurPipeline {
 
     // Convert Float32Array to RGBA8 (pack depth into all channels for compatibility)
     // R32F with LINEAR filtering requires OES_texture_float_linear which may not be available
+    // Also flip Y-axis: WebGL has origin at bottom-left, but our depth data has origin at top-left
     const rgbaData = new Uint8Array(width * height * 4);
-    for (let i = 0; i < depthData.length; i++) {
-      const depthByte = Math.round(depthData[i] * 255);
-      rgbaData[i * 4] = depthByte;     // R
-      rgbaData[i * 4 + 1] = depthByte; // G
-      rgbaData[i * 4 + 2] = depthByte; // B
-      rgbaData[i * 4 + 3] = 255;       // A
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        // Flip Y: read from top, write to bottom
+        const srcIndex = y * width + x;
+        const dstY = height - 1 - y;
+        const dstIndex = dstY * width + x;
+        
+        const depthByte = Math.round(depthData[srcIndex] * 255);
+        rgbaData[dstIndex * 4] = depthByte;     // R
+        rgbaData[dstIndex * 4 + 1] = depthByte; // G
+        rgbaData[dstIndex * 4 + 2] = depthByte; // B
+        rgbaData[dstIndex * 4 + 3] = 255;       // A
+      }
     }
 
     gl.texImage2D(
