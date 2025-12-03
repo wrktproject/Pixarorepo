@@ -340,9 +340,14 @@ export async function fetchDepthMap(
 }
 
 /**
- * Process depth map: normalize and apply edge-preserving smoothing
- * MiDaS can output either grayscale or colorized depth maps
- * For colorized (like purple-orange), we convert to luminance first
+ * Process depth map: normalize and extract depth values
+ * MiDaS outputs a grayscale or colorized depth map
+ * For colorized (plasma colormap: purple→blue→cyan→green→yellow→orange→red):
+ *   - Dark purple/blue = far (low depth value)
+ *   - Bright yellow/orange = near (high depth value)
+ * 
+ * The key insight is that the colormap has increasing luminance/brightness
+ * as depth increases, so we use perceived luminance as the depth value.
  */
 function processDepthMap(depthData: ImageData): Float32Array {
   const { width, height, data } = depthData;
@@ -351,17 +356,16 @@ function processDepthMap(depthData: ImageData): Float32Array {
   // First, check if the image is grayscale or colorized
   // by comparing R, G, B values at a few sample points
   let isColorized = false;
-  for (let i = 0; i < Math.min(100, width * height); i++) {
+  let totalDiff = 0;
+  const sampleCount = Math.min(100, width * height);
+  for (let i = 0; i < sampleCount; i++) {
     const idx = i * 4;
     const r = data[idx];
     const g = data[idx + 1];
     const b = data[idx + 2];
-    // If R, G, B differ significantly, it's colorized
-    if (Math.abs(r - g) > 10 || Math.abs(g - b) > 10 || Math.abs(r - b) > 10) {
-      isColorized = true;
-      break;
-    }
+    totalDiff += Math.abs(r - g) + Math.abs(g - b) + Math.abs(r - b);
   }
+  isColorized = (totalDiff / sampleCount) > 30;
   
   console.log('📷 Depth map type:', isColorized ? 'colorized' : 'grayscale');
   
@@ -377,13 +381,13 @@ function processDepthMap(depthData: ImageData): Float32Array {
     
     let val: number;
     if (isColorized) {
-      // For colorized depth maps (like plasma/viridis colormap):
-      // Purple/blue = far (low depth), Orange/yellow = near (high depth)
-      // Use a weighted conversion that emphasizes the red channel for "nearness"
-      // and blue for "farness"
-      val = r * 0.5 + g * 0.25 - b * 0.25 + 128; // Shift to positive range
+      // For plasma/inferno colormap:
+      // Use perceived luminance - brighter colors = closer to camera
+      // This works because the colormap goes from dark (far) to bright (near)
+      val = 0.299 * r + 0.587 * g + 0.114 * b;
     } else {
       // Grayscale - just use any channel
+      // MiDaS grayscale: brighter = closer (higher depth)
       val = r;
     }
     
@@ -400,10 +404,6 @@ function processDepthMap(depthData: ImageData): Float32Array {
   for (let i = 0; i < width * height; i++) {
     depthValues[i] = (depthValues[i] - min) / range;
   }
-  
-  // TODO: Apply smoothing only for high-res images (currently disabled for performance)
-  // For now, return the raw normalized depth map
-  // The guided filter was too slow (O(n²) per pixel)
   
   return depthValues;
 }
