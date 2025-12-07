@@ -14,7 +14,7 @@ import {
   setLensBlurShowDepth,
   setLensBlurEnabled,
 } from '../store';
-import { fetchDepthMap } from '../utils/depthEstimation';
+import { fetchDepthMap, getDepthUsageStats, hasDepthUsesRemaining } from '../utils/depthEstimation';
 import { DepthMapManager } from '../utils/depthMapManager';
 import './LensBlurAdjustments.css';
 
@@ -303,6 +303,9 @@ export const LensBlurAdjustments: React.FC<LensBlurAdjustmentsProps> = ({
   }
 
   // Inactive/idle view
+  const usageStats = getDepthUsageStats();
+  const canUseAI = hasDepthUsesRemaining();
+  
   return (
     <div className="lens-blur-adjustments">
       <p className="lens-blur-adjustments__description">
@@ -313,10 +316,17 @@ export const LensBlurAdjustments: React.FC<LensBlurAdjustmentsProps> = ({
       <button
         className="lens-blur-adjustments__activate-button"
         onClick={() => handleGenerateDepth(false)}
-        disabled={disabled || !hasImage}
+        disabled={disabled || !hasImage || !canUseAI}
+        title={!canUseAI ? 'Daily limit reached. Try again tomorrow!' : undefined}
       >
         Generate AI Depth Map
       </button>
+      
+      <div className="lens-blur-adjustments__usage">
+        <span className={`lens-blur-adjustments__usage-count ${usageStats.remaining <= 1 ? 'lens-blur-adjustments__usage-count--low' : ''}`}>
+          {usageStats.remaining}/{usageStats.limit} uses remaining today
+        </span>
+      </div>
 
       {depthError && (
         <div className="lens-blur-adjustments__error">

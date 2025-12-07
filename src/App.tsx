@@ -85,14 +85,12 @@ function App() {
 
   // Initialize ad network on mount (only in production)
   useEffect(() => {
-    // Only initialize ads if publisher ID is configured
-    const publisherId = import.meta.env.VITE_ADSENSE_PUBLISHER_ID;
-    if (publisherId && publisherId !== 'ca-pub-0000000000000000') {
-      adNetworkManager.initialize({
-        publisherId,
-        testMode: import.meta.env.DEV, // Test mode in development
-      });
-    }
+    // Initialize ads with your publisher ID
+    const publisherId = import.meta.env.VITE_ADSENSE_PUBLISHER_ID || 'ca-pub-5191398812438911';
+    adNetworkManager.initialize({
+      publisherId,
+      testMode: import.meta.env.DEV, // Test mode in development
+    });
   }, []);
 
   // Get loading message based on operation
@@ -191,16 +189,14 @@ function App() {
                 <PhotoLibrary />
               </ErrorBoundary>
             )}
-            {/* Ad in sidebar bottom - 300x250 (only if configured) */}
-            {import.meta.env.VITE_ADSENSE_PUBLISHER_ID && (
-              <ErrorBoundary>
-                <AdContainer
-                  adSlot="sidebar-bottom"
-                  position="sidebar-bottom"
-                  maxRefreshInterval={60000} // 1 minute
-                />
-              </ErrorBoundary>
-            )}
+            {/* Ad in sidebar bottom - 300x250 */}
+            <ErrorBoundary>
+              <AdContainer
+                adSlot="sidebar-bottom"
+                position="sidebar-bottom"
+                maxRefreshInterval={60000} // 1 minute
+              />
+            </ErrorBoundary>
           </aside>
 
           {/* Center Canvas Area */}
@@ -220,18 +216,16 @@ function App() {
           )}
         </main>
 
-        {/* Bottom Bar Ad - 728x90 (only if configured) */}
-        {import.meta.env.VITE_ADSENSE_PUBLISHER_ID && (
-          <div className="app-bottom-bar">
-            <ErrorBoundary>
-              <AdContainer
-                adSlot="bottom-bar"
-                position="bottom-bar"
-                maxRefreshInterval={90000} // 1.5 minutes
-              />
-            </ErrorBoundary>
-          </div>
-        )}
+        {/* Bottom Bar Ad - 728x90 */}
+        <div className="app-bottom-bar">
+          <ErrorBoundary>
+            <AdContainer
+              adSlot="bottom-bar"
+              position="bottom-bar"
+              maxRefreshInterval={90000} // 1.5 minutes
+            />
+          </ErrorBoundary>
+        </div>
       </div>
     </ErrorBoundary>
   );

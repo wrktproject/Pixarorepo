@@ -3,7 +3,7 @@
  * 
  * Calls our backend API which proxies to Replicate.
  * Features:
- * - 5 free AI removals per day
+ * - 2 free AI removals per day (more expensive)
  * - Graceful fallback to local algorithm
  * - Usage tracking with localStorage persistence
  * 
@@ -19,9 +19,9 @@ const isDev = typeof window !== 'undefined' &&
    window.location.hostname === '127.0.0.1' ||
    window.location.port === '5173');
 
-// Constants
-const DAILY_LIMIT = 5;
-const STORAGE_KEY = 'pixaro_ai_usage';
+// Constants - AI Removal is expensive, limit to 2 per day
+const DAILY_LIMIT = 2;
+const STORAGE_KEY = 'pixaro_ai_removal_usage';
 
 interface UsageData {
   count: number;

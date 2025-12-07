@@ -2,7 +2,88 @@
  * Depth Estimation Client
  * Handles communication with the MiDaS depth estimation API
  * Provides proper depth map processing for lens blur
+ * 
+ * Features:
+ * - 5 free AI depth estimations per day (cheaper than removal)
+ * - Falls back to local gradient-based depth in development
  */
+
+// Constants for usage tracking
+const DAILY_LIMIT = 5;
+const STORAGE_KEY = 'pixaro_ai_depth_usage';
+
+interface UsageData {
+  count: number;
+  date: string; // YYYY-MM-DD format
+}
+
+/**
+ * Get today's date in YYYY-MM-DD format
+ */
+function getTodayString(): string {
+  return new Date().toISOString().split('T')[0];
+}
+
+/**
+ * Load usage data from localStorage
+ */
+function loadDepthUsageData(): UsageData {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const data = JSON.parse(stored) as UsageData;
+      // Reset if it's a new day
+      if (data.date !== getTodayString()) {
+        return { count: 0, date: getTodayString() };
+      }
+      return data;
+    }
+  } catch (e) {
+    console.warn('Failed to load AI depth usage data:', e);
+  }
+  return { count: 0, date: getTodayString() };
+}
+
+/**
+ * Save usage data to localStorage
+ */
+function saveDepthUsageData(data: UsageData): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (e) {
+    console.warn('Failed to save AI depth usage data:', e);
+  }
+}
+
+/**
+ * Increment usage count (called after successful AI depth estimation)
+ */
+export function incrementDepthUsage(): void {
+  const data = loadDepthUsageData();
+  data.count++;
+  saveDepthUsageData(data);
+}
+
+/**
+ * Get current AI depth usage stats
+ */
+export function getDepthUsageStats(): { used: number; remaining: number; limit: number } {
+  const data = loadDepthUsageData();
+  const remaining = Math.max(0, DAILY_LIMIT - data.count);
+  return {
+    used: data.count,
+    remaining,
+    limit: DAILY_LIMIT,
+  };
+}
+
+/**
+ * Check if AI depth estimation is available (has remaining uses)
+ */
+export function hasDepthUsesRemaining(): boolean {
+  const { remaining } = getDepthUsageStats();
+  return remaining > 0;
+}
 
 /**
  * Resize image for API request (max dimension for performance)
@@ -239,8 +320,14 @@ export async function fetchDepthMap(
     return result;
   }
   
+  // Check usage limits before making API call
+  const usageStats = getDepthUsageStats();
+  if (usageStats.remaining <= 0) {
+    throw new Error(`Daily AI depth limit reached (${usageStats.limit}/day). Try again tomorrow!`);
+  }
+  
   try {
-    onProgress?.('Preparing image...');
+    onProgress?.(`Preparing image... (${usageStats.remaining} uses remaining today)`);
     
     // Resize for API efficiency - use larger size for high quality
     const maxSize = highQuality ? 1024 : 768;
@@ -331,6 +418,10 @@ export async function fetchDepthMap(
       maxDepth = Math.max(maxDepth, processed[i]);
     }
     console.log('📷 Processed depth range:', minDepth, 'to', maxDepth);
+    
+    // Increment usage count on successful API call
+    incrementDepthUsage();
+    console.log('📷 AI depth usage incremented');
     
     return {
       depthMap: processed,

@@ -100,6 +100,21 @@
   box-shadow: none;
 }
 
+/* Usage Display */
+.lens-blur-adjustments__usage {
+  text-align: center;
+  margin-top: var(--spacing-sm);
+}
+
+.lens-blur-adjustments__usage-count {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+.lens-blur-adjustments__usage-count--low {
+  color: var(--color-warning, #f59e0b);
+}
+
 /* Tips */
 .lens-blur-adjustments__tip {
   padding: 0.75rem;

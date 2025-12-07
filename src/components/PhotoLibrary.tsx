@@ -14,6 +14,7 @@ import { downscaleImageData } from '../utils/imageDownscaling';
 import { saveImageToIndexedDB, deleteImageFromIndexedDB } from '../utils/persistence';
 import type { ProcessedImage } from '../types/image';
 import { PixaroError } from '../types/errors';
+import { BatchProcessing } from './BatchProcessing';
 import './PhotoLibrary.css';
 
 export const PhotoLibrary: React.FC = () => {
@@ -21,6 +22,7 @@ export const PhotoLibrary: React.FC = () => {
   const { photos, currentPhotoId } = useSelector((state: RootState) => state.library);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [showBatchProcessing, setShowBatchProcessing] = useState(false);
 
   const handlePhotoSelect = (photoId: string) => {
     dispatch(setCurrentPhoto(photoId));
@@ -135,25 +137,49 @@ export const PhotoLibrary: React.FC = () => {
       />
       <div className="photo-library__header">
         <h2 className="photo-library__title">Photos ({photos.length})</h2>
-        <button
-          className="photo-library__import-btn"
-          onClick={handleImportClick}
-          disabled={isImporting}
-          title="Import more photos"
-          aria-label="Import more photos"
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
+        <div className="photo-library__header-actions">
+          {photos.length >= 2 && (
+            <button
+              className="photo-library__batch-btn"
+              onClick={() => setShowBatchProcessing(true)}
+              title="Batch processing"
+              aria-label="Open batch processing"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <rect x="3" y="3" width="7" height="7" />
+                <rect x="14" y="3" width="7" height="7" />
+                <rect x="3" y="14" width="7" height="7" />
+                <rect x="14" y="14" width="7" height="7" />
+              </svg>
+            </button>
+          )}
+          <button
+            className="photo-library__import-btn"
+            onClick={handleImportClick}
+            disabled={isImporting}
+            title="Import more photos"
+            aria-label="Import more photos"
           >
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-          {isImporting ? 'Importing...' : 'Import'}
-        </button>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            {isImporting ? 'Importing...' : 'Import'}
+          </button>
+        </div>
       </div>
       
       {photos.length === 0 ? (
@@ -230,6 +256,12 @@ export const PhotoLibrary: React.FC = () => {
         })}
         </div>
       )}
+      
+      {/* Batch Processing Dialog */}
+      <BatchProcessing
+        isOpen={showBatchProcessing}
+        onClose={() => setShowBatchProcessing(false)}
+      />
     </div>
   );
 };

@@ -53,8 +53,34 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
   const [filename, setFilename] = useState(`pixaro-export-${Date.now()}`);
   const [isExporting, setIsExporting] = useState(false);
   const [preset, setPreset] = useState<'custom' | 'web' | 'print' | 'social'>('custom');
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [resizeEnabled, setResizeEnabled] = useState(false);
+  const [resizeWidth, setResizeWidth] = useState(finalWidth);
+  const [resizeHeight, setResizeHeight] = useState(finalHeight);
+  const [maintainAspect, setMaintainAspect] = useState(true);
 
-  const estimatedSize = estimateExportSize(finalWidth, finalHeight, format, quality / 100);
+  const aspectRatio = finalWidth / finalHeight;
+
+  const handleResizeWidthChange = (newWidth: number) => {
+    setResizeWidth(newWidth);
+    if (maintainAspect) {
+      setResizeHeight(Math.round(newWidth / aspectRatio));
+    }
+  };
+
+  const handleResizeHeightChange = (newHeight: number) => {
+    setResizeHeight(newHeight);
+    if (maintainAspect) {
+      setResizeWidth(Math.round(newHeight * aspectRatio));
+    }
+  };
+
+  const estimatedSize = estimateExportSize(
+    resizeEnabled ? resizeWidth : finalWidth,
+    resizeEnabled ? resizeHeight : finalHeight,
+    format,
+    quality / 100
+  );
 
   const handlePresetChange = (newPreset: typeof preset) => {
     setPreset(newPreset);
@@ -81,6 +107,11 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
         format,
         quality: quality / 100,
         filename,
+        resize: resizeEnabled ? {
+          width: resizeWidth,
+          height: resizeHeight,
+          fit: 'contain',
+        } : undefined,
       };
 
       // Use the new export function that renders with adjustments
@@ -238,6 +269,101 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
             />
             <span className="export-dialog__filename-ext">.{format}</span>
           </div>
+
+          {/* Advanced Options Toggle */}
+          <button
+            className="export-dialog__advanced-toggle"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              style={{ transform: showAdvanced ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}
+            >
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+            Advanced Options
+          </button>
+
+          {showAdvanced && (
+            <div className="export-dialog__advanced">
+              {/* Resize Options */}
+              <div className="export-dialog__field">
+                <label className="export-dialog__checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={resizeEnabled}
+                    onChange={(e) => setResizeEnabled(e.target.checked)}
+                  />
+                  Resize image
+                </label>
+              </div>
+
+              {resizeEnabled && (
+                <div className="export-dialog__resize-options">
+                  <div className="export-dialog__resize-inputs">
+                    <div className="export-dialog__resize-input">
+                      <label htmlFor="resize-width">Width</label>
+                      <input
+                        id="resize-width"
+                        type="number"
+                        value={resizeWidth}
+                        onChange={(e) => handleResizeWidthChange(Number(e.target.value))}
+                        min="1"
+                        max="10000"
+                      />
+                      <span>px</span>
+                    </div>
+                    <div className="export-dialog__resize-link">
+                      <button
+                        className={`export-dialog__aspect-btn ${maintainAspect ? 'export-dialog__aspect-btn--active' : ''}`}
+                        onClick={() => setMaintainAspect(!maintainAspect)}
+                        title={maintainAspect ? 'Linked (maintain aspect ratio)' : 'Unlinked (free resize)'}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          {maintainAspect ? (
+                            <>
+                              <rect x="3" y="11" width="4" height="6" rx="1" />
+                              <rect x="17" y="7" width="4" height="6" rx="1" />
+                              <path d="M7 14h10M7 10h10" />
+                            </>
+                          ) : (
+                            <>
+                              <rect x="3" y="11" width="4" height="6" rx="1" />
+                              <rect x="17" y="7" width="4" height="6" rx="1" />
+                              <path d="M7 14h3M14 10h3" strokeDasharray="2 2" />
+                            </>
+                          )}
+                        </svg>
+                      </button>
+                    </div>
+                    <div className="export-dialog__resize-input">
+                      <label htmlFor="resize-height">Height</label>
+                      <input
+                        id="resize-height"
+                        type="number"
+                        value={resizeHeight}
+                        onChange={(e) => handleResizeHeightChange(Number(e.target.value))}
+                        min="1"
+                        max="10000"
+                      />
+                      <span>px</span>
+                    </div>
+                  </div>
+                  <div className="export-dialog__resize-presets">
+                    <button onClick={() => { handleResizeWidthChange(1920); setPreset('custom'); }}>1920px</button>
+                    <button onClick={() => { handleResizeWidthChange(1080); setPreset('custom'); }}>1080px</button>
+                    <button onClick={() => { handleResizeWidthChange(800); setPreset('custom'); }}>800px</button>
+                    <button onClick={() => { handleResizeWidthChange(finalWidth); handleResizeHeightChange(finalHeight); }}>Original</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="export-dialog__footer">

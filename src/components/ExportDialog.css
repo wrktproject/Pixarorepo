@@ -297,6 +297,133 @@
 }
 
 /* Responsive */
+/* Advanced Options */
+.export-dialog__advanced-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 8px 0;
+  margin-top: var(--spacing-sm);
+  transition: color 0.15s ease;
+}
+
+.export-dialog__advanced-toggle:hover {
+  color: var(--color-text-primary);
+}
+
+.export-dialog__advanced {
+  padding: var(--spacing-md);
+  background: var(--color-bg-tertiary);
+  border-radius: var(--size-border-radius-md);
+  margin-top: var(--spacing-sm);
+}
+
+.export-dialog__checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.export-dialog__checkbox-label input[type="checkbox"] {
+  accent-color: var(--color-accent);
+}
+
+.export-dialog__resize-options {
+  margin-top: var(--spacing-md);
+}
+
+.export-dialog__resize-inputs {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.export-dialog__resize-input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.export-dialog__resize-input label {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  min-width: 40px;
+}
+
+.export-dialog__resize-input input {
+  width: 80px;
+  padding: 6px 8px;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--size-border-radius-sm);
+  color: var(--color-text-primary);
+  font-size: 13px;
+}
+
+.export-dialog__resize-input span {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+.export-dialog__resize-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+}
+
+.export-dialog__aspect-btn {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--size-border-radius-sm);
+  padding: 4px;
+  cursor: pointer;
+  color: var(--color-text-tertiary);
+  transition: all 0.15s ease;
+}
+
+.export-dialog__aspect-btn:hover {
+  border-color: var(--color-border-hover);
+  color: var(--color-text-secondary);
+}
+
+.export-dialog__aspect-btn--active {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.export-dialog__resize-presets {
+  display: flex;
+  gap: 6px;
+  margin-top: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+.export-dialog__resize-presets button {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  padding: 4px 10px;
+  border-radius: var(--size-border-radius-sm);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.export-dialog__resize-presets button:hover {
+  background: var(--color-bg-secondary);
+  border-color: var(--color-border-hover);
+  color: var(--color-text-primary);
+}
+
 @media (max-width: 500px) {
   .export-dialog {
     width: 95%;

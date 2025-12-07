@@ -21,7 +21,7 @@ export function AdContainer({
   adSlot,
   position,
   maxRefreshInterval,
-  adClient = 'ca-pub-0000000000000000', // Default test client ID
+  adClient = 'ca-pub-5191398812438911', // Your AdSense publisher ID
   onAdLoad,
   onAdError,
 }: AdContainerProps) {

@@ -367,8 +367,8 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
             {window.location.hostname === 'localhost' || window.location.port === '5173'
               ? 'Deploy to Vercel to enable AI removal'
               : aiUsageStats.remaining === 0 
-                ? '⚠️ Daily AI limit reached (5/5 used). Using local processing.'
-                : `✨ ${aiUsageStats.used}/${aiUsageStats.limit} AI removals used today`
+                ? `⚠️ Daily AI limit reached (${aiUsageStats.limit}/${aiUsageStats.limit} used). Using local processing.`
+                : `✨ ${aiUsageStats.remaining}/${aiUsageStats.limit} AI removals remaining today`
             }
           </p>
         </div>
@@ -540,8 +540,8 @@ export const RemovalAdjustments: React.FC<RemovalAdjustmentsProps> = ({ disabled
               <div className="removal-adjustments__ai-badge">🤖 AI-Powered</div>
               <p className="removal-adjustments__ai-description">
                 {aiUsageStats.remaining === 0 
-                  ? '⚠️ Daily limit reached (5/5 used)'
-                  : `${aiUsageStats.used}/${aiUsageStats.limit} AI removals used today`
+                  ? `⚠️ Daily limit reached (${aiUsageStats.limit}/${aiUsageStats.limit} used)`
+                  : `${aiUsageStats.remaining}/${aiUsageStats.limit} AI removals remaining today`
                 }
               </p>
             </div>
