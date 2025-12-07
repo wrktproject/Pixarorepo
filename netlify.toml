@@ -72,8 +72,8 @@
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
     # Content Security Policy (adjusted for Google AdSense and APIs)
-    # Added blob: for img-src (image uploads), worker-src (web workers), and connect-src (fetch/XHR)
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://pagead2.googlesyndication.com https://www.googletagmanager.com https://*.google.com https://*.googlesyndication.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' blob: https: wss:; worker-src 'self' blob:; frame-src https://googleads.g.doubleclick.net https://*.google.com https://*.googlesyndication.com;"
+    # Permissive policy for Google AdSense which uses many domains
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' blob: https: wss:; worker-src 'self' blob:; frame-src https:;"
 
 # Enable compression
 [build.processing]
