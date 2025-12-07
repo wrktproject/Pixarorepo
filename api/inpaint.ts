@@ -6,7 +6,7 @@
  * - API key kept secret on server
  * - Graceful error handling
  * 
- * Uses stability-ai/stable-diffusion-inpainting model
+ * Uses LaMa (Large Mask Inpainting) model for seamless object removal
  */
 
 // Simple in-memory rate limiting (resets on cold start)
@@ -15,10 +15,13 @@ const usageMap = new Map<string, { count: number; resetTime: number }>();
 
 const DAILY_LIMIT = 5;
 const REPLICATE_API_URL = 'https://api.replicate.com/v1/predictions';
+const REPLICATE_MODELS_URL = 'https://api.replicate.com/v1/models';
 
-// stable-diffusion-inpainting: Fill in masked parts of images
-// Version: 95b72231 - Latest with SD 2.0 and AITemplate acceleration
-const INPAINT_MODEL_VERSION = '95b7223104132402a9ae91cc677285bc5eb997834bd2349fa486f53910fd68b3';
+// Using LaMa (Large Mask Inpainting) for clean object removal
+// LaMa fills masked areas using surrounding context without AI generation
+// https://replicate.com/sczhou/codeformer (for faces) or simple inpainting
+// We'll use the predictions API with the model directly
+const INPAINT_MODEL = 'cjwbw/big-lama';
 
 interface InpaintRequest {
   image: string;  // base64 data URL
@@ -165,27 +168,30 @@ export default async function handler(request: Request): Promise<Response> {
       });
     }
     
-    // Create prediction using inpainting model
-    // For SD Inpainting:
-    // - image: the input image (base64 data URL)
-    // - mask: white = areas to inpaint, black = areas to keep
-    // - prompt: what to generate in the masked area
-    const createResponse = await fetch(REPLICATE_API_URL, {
+    // Create prediction using LaMa inpainting via models API
+    // LaMa (Large Mask Inpainting) fills masked areas using surrounding context
+    // Input format:
+    // - image: base64 data URL of the image
+    // - mask: base64 data URL where WHITE = area to fill, BLACK = area to keep
+    const modelEndpoint = `${REPLICATE_MODELS_URL}/${INPAINT_MODEL}/predictions`;
+    
+    console.log('=== INPAINT API CALL ===');
+    console.log('Model:', INPAINT_MODEL);
+    console.log('Endpoint:', modelEndpoint);
+    console.log('Client IP:', clientIP);
+    console.log('Image data length:', body.image.length);
+    console.log('Mask data length:', body.mask.length);
+    
+    const createResponse = await fetch(modelEndpoint, {
       method: 'POST',
       headers: {
         'Authorization': `Token ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        version: INPAINT_MODEL_VERSION,
         input: {
           image: body.image,
           mask: body.mask,
-          prompt: 'clean natural background, seamless blend, photorealistic texture',
-          negative_prompt: 'blur, artifacts, distortion, text, watermark, unnatural, obvious editing',
-          num_inference_steps: 25,
-          guidance_scale: 7.5,
-          disable_safety_checker: true,
         },
       }),
     });
@@ -225,6 +231,8 @@ export default async function handler(request: Request): Promise<Response> {
     }
     
     const prediction = await createResponse.json();
+    console.log('Prediction created:', prediction.id);
+    console.log('Prediction status:', prediction.status);
     
     // Poll for result
     const resultUrl = await pollForResult(prediction.id, apiKey);
@@ -232,6 +240,8 @@ export default async function handler(request: Request): Promise<Response> {
     if (!resultUrl) {
       throw new Error('No result from model');
     }
+    
+    console.log('Result URL received:', resultUrl.substring(0, 100) + '...');
     
     // Increment usage count on success
     incrementUsage(clientIP);
