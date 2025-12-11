@@ -154,33 +154,39 @@ float blackMask(float lum) {
   }
 }
 
-// Apply exposure (Lightroom algorithm with perceptual distribution)
-// Applies photographic stops but with even distribution across tonal range
-// Works in log space for perceptual uniformity
+// Apply exposure (Lightroom algorithm with even distribution)
+// Applies exposure with highlight protection to prevent bright spots from blooming
+// Uses luminance-based weighting for even adjustment across the tonal range
 vec3 applyExposure(vec3 color, float exposure) {
   if (abs(exposure) < 0.01) {
     return color;
   }
   
-  // Convert to log space for even perceptual distribution
-  // This makes exposure affect shadows and highlights more evenly
-  const float logMidpoint = 0.18; // 18% grey
+  // Calculate exposure multiplier
+  float scale = pow(2.0, exposure);
   
-  vec3 result;
-  for (int i = 0; i < 3; i++) {
-    if (color[i] < 0.00001) {
-      result[i] = 0.0;
-    } else {
-      // Log space calculation for even distribution
-      // log2(output) = log2(input) + EV
-      // This maintains photographic stops but applies more evenly
-      float logValue = log2(color[i] / logMidpoint);
-      float adjustedLog = logValue + exposure;
-      result[i] = pow(2.0, adjustedLog) * logMidpoint;
-    }
+  // Get luminance to determine how to apply exposure
+  float lum = getLuminance(color);
+  
+  // Lightroom's highlight protection: reduce exposure effect on already-bright areas
+  // This prevents bright spots from blooming disproportionately
+  float protectionCurve;
+  if (lum < 0.5) {
+    // Below midtones: full exposure effect
+    protectionCurve = 1.0;
+  } else {
+    // Above midtones: gradually reduce exposure effect to prevent blooming
+    // Bright areas (lum > 0.5) get progressively less exposure
+    float t = (lum - 0.5) / 0.5; // 0 to 1 for lum 0.5 to 1.0
+    // Smooth reduction: bright areas get 40-100% of the exposure adjustment
+    protectionCurve = mix(1.0, 0.4, smoothStep3(t));
   }
   
-  return result;
+  // Blend between original and exposed based on protection curve
+  // This makes bright areas respond less dramatically
+  float effectiveScale = 1.0 + (scale - 1.0) * protectionCurve;
+  
+  return color * effectiveScale;
 }
 
 // Apply contrast (Lightroom algorithm)
