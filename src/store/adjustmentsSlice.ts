@@ -362,7 +362,7 @@ const adjustmentsSlice = createSlice({
       state.lensBlur.focusDepth = clamp(action.payload, 0, 1);
     },
     setLensBlurFocusRange: (state, action: PayloadAction<number>) => {
-      state.lensBlur.focusRange = clamp(action.payload, 0, 0.5);
+      state.lensBlur.focusRange = clamp(action.payload, 0, 1);
     },
     setLensBlurEdgeProtect: (state, action: PayloadAction<number>) => {
       state.lensBlur.edgeProtect = clamp(action.payload, 0, 1);

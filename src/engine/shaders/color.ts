@@ -300,20 +300,139 @@ vec3 applyTemperatureAndTint(vec3 linearColor, float temperature, float tint) {
   return result;
 }
 
-// Apply vibrance (smart saturation: boosts muted colors more)
+// ============================================================================
+// LAB Colorspace Conversions (for perceptually-accurate vibrance)
+// ============================================================================
+
+// D65 reference white point
+const vec3 D65_REF = vec3(0.95047, 1.0, 1.08883);
+
+// sRGB to XYZ
+vec3 rgbToXYZColor(vec3 rgb) {
+  // Apply inverse sRGB gamma first
+  vec3 linear = rgb;
+  
+  // sRGB to XYZ matrix (D65 illuminant)
+  mat3 m = mat3(
+    0.4124564, 0.3575761, 0.1804375,
+    0.2126729, 0.7151522, 0.0721750,
+    0.0193339, 0.1191920, 0.9503041
+  );
+  
+  return m * linear;
+}
+
+// XYZ to sRGB
+vec3 xyzToRGBColor(vec3 xyz) {
+  // XYZ to sRGB matrix (D65 illuminant)
+  mat3 m = mat3(
+     3.2404542, -1.5371385, -0.4985314,
+    -0.9692660,  1.8760108,  0.0415560,
+     0.0556434, -0.2040259,  1.0572252
+  );
+  
+  vec3 rgb = m * xyz;
+  return rgb;
+}
+
+// XYZ to LAB helper function
+float labF(float t) {
+  const float delta = 6.0 / 29.0;
+  const float delta3 = delta * delta * delta;
+  
+  if (t > delta3) {
+    return pow(t, 1.0 / 3.0);
+  } else {
+    return t / (3.0 * delta * delta) + 4.0 / 29.0;
+  }
+}
+
+// LAB inverse helper function
+float labFInv(float t) {
+  const float delta = 6.0 / 29.0;
+  
+  if (t > delta) {
+    return t * t * t;
+  } else {
+    return 3.0 * delta * delta * (t - 4.0 / 29.0);
+  }
+}
+
+// XYZ to LAB (CIE L*a*b*)
+vec3 xyzToLab(vec3 xyz) {
+  vec3 n = xyz / D65_REF;
+  
+  float fx = labF(n.x);
+  float fy = labF(n.y);
+  float fz = labF(n.z);
+  
+  float L = 116.0 * fy - 16.0;
+  float a = 500.0 * (fx - fy);
+  float b = 200.0 * (fy - fz);
+  
+  return vec3(L, a, b);
+}
+
+// LAB to XYZ
+vec3 labToXyz(vec3 lab) {
+  float fy = (lab.x + 16.0) / 116.0;
+  float fx = lab.y / 500.0 + fy;
+  float fz = fy - lab.z / 200.0;
+  
+  float x = D65_REF.x * labFInv(fx);
+  float y = D65_REF.y * labFInv(fy);
+  float z = D65_REF.z * labFInv(fz);
+  
+  return vec3(x, y, z);
+}
+
+// RGB to LAB
+vec3 rgbToLab(vec3 rgb) {
+  return xyzToLab(rgbToXYZColor(rgb));
+}
+
+// LAB to RGB
+vec3 labToRgb(vec3 lab) {
+  return xyzToRGBColor(labToXyz(lab));
+}
+
+// Apply vibrance using LAB colorspace (professional-grade, perceptually uniform)
+// Darktable-inspired: works in LAB where chroma changes don't affect luminance
 vec3 applyVibrance(vec3 color, float vibrance) {
-  vec3 hsl = rgbToHSL(color);
+  // Convert to LAB colorspace for perceptually accurate saturation adjustment
+  vec3 lab = rgbToLab(color);
+  
+  // Calculate chroma (saturation in LAB) = sqrt(a² + b²)
+  float chroma = sqrt(lab.y * lab.y + lab.z * lab.z);
   
   // Vibrance affects muted colors more than saturated colors
-  // At -100: fully desaturate, at +100: add up to +1.0 saturation to muted colors
+  // At -100: fully desaturate, at +100: boost muted colors significantly
   float adjustment = vibrance / 100.0;
   
-  // Vibrance boosts low-saturation colors more than high-saturation
-  // The (1.0 - hsl.y) factor means already-saturated colors are protected
-  float satBoost = adjustment * (1.0 - hsl.y);
-  hsl.y = clamp(hsl.y + satBoost, 0.0, 1.0);
+  // Protection factor: high chroma colors are protected
+  // This is the key difference from saturation - muted colors get boosted more
+  float maxChroma = 128.0; // Approximate max chroma for sRGB gamut
+  float chromaNorm = clamp(chroma / maxChroma, 0.0, 1.0);
   
-  return hslToRGB(hsl);
+  // Vibrance boost factor: more boost for low-chroma colors
+  // Uses smoothstep for natural falloff
+  float protection = smoothstep(0.0, 0.8, chromaNorm);
+  float boostFactor = 1.0 + adjustment * (1.0 - protection);
+  
+  // For negative vibrance, reduce chroma uniformly
+  if (adjustment < 0.0) {
+    boostFactor = 1.0 + adjustment; // Simple reduction for desaturation
+  }
+  
+  // Apply chroma boost to a* and b* channels
+  lab.y *= boostFactor;
+  lab.z *= boostFactor;
+  
+  // Convert back to RGB
+  vec3 result = labToRgb(lab);
+  
+  // Clamp to valid range
+  return clamp(result, vec3(0.0), vec3(1.0));
 }
 
 // Apply saturation (Lightroom-style uniform boost/reduction)

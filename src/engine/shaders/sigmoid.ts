@@ -59,6 +59,9 @@ vec3 linearToSrgb(vec3 linear) {
   return srgb;
 }
 
+// Small epsilon for preventing division by zero
+const float EPSILON = 1e-8;
+
 /**
  * Generalized logistic function (sigmoid curve)
  * 

@@ -29,6 +29,11 @@ import {
   applyEffectsUniforms,
 } from './shaders/effects';
 import {
+  sigmoidVertexShader,
+  sigmoidFragmentShader,
+  applySigmoidUniforms,
+} from './shaders/sigmoid';
+import {
   geometricVertexShader,
   geometricFragmentShader,
   applyGeometricUniforms,
@@ -83,6 +88,7 @@ export class ShaderPipeline {
   private baseProgram: ShaderProgram | null = null;
   private passThroughProgram: ShaderProgram | null = null;  // Simple pass-through (no Y flip, no color conversion)
   private geometricProgram: ShaderProgram | null = null;
+  private sigmoidProgram: ShaderProgram | null = null;  // Sigmoid tone curve (before tonal)
   private tonalProgram: ShaderProgram | null = null;
   private colorProgram: ShaderProgram | null = null;
   private hslProgram: ShaderProgram | null = null;
@@ -243,6 +249,22 @@ void main() {
       ['a_position', 'a_texCoord']
     );
 
+    // Sigmoid tone curve shader (applied before tonal adjustments)
+    this.sigmoidProgram = this.shaderCompiler.createProgram(
+      sigmoidVertexShader,
+      sigmoidFragmentShader,
+      [
+        'u_texture',
+        'u_contrast',
+        'u_skew',
+        'u_middleGrey',
+        'u_mode',
+        'u_huePreservation',
+        'u_enabled',
+      ],
+      ['a_position', 'a_texCoord']
+    );
+
     // Tonal shader
     this.tonalProgram = this.shaderCompiler.createProgram(
       tonalVertexShader,
@@ -332,6 +354,7 @@ void main() {
     this.passes = [
       { name: 'base', program: this.baseProgram, isDirty: true },
       { name: 'geometric', program: this.geometricProgram, isDirty: true },
+      { name: 'sigmoid', program: this.sigmoidProgram, isDirty: true },  // Tone curve before adjustments
       { name: 'tonal', program: this.tonalProgram, isDirty: true },
       { name: 'color', program: this.colorProgram, isDirty: true },
       { name: 'hsl', program: this.hslProgram, isDirty: true },
@@ -780,6 +803,17 @@ void main() {
         });
         break;
 
+      case 'sigmoid':
+        applySigmoidUniforms(this.gl, pass.program.uniforms, {
+          contrast: adjustments.sigmoid.contrast,
+          skew: adjustments.sigmoid.skew,
+          middleGrey: adjustments.sigmoid.middleGrey,
+          mode: adjustments.sigmoid.mode,
+          huePreservation: adjustments.sigmoid.huePreservation,
+          enabled: adjustments.sigmoid.enabled,
+        });
+        break;
+
       case 'tonal':
         applyTonalUniforms(this.gl, pass.program.uniforms, {
           exposure: adjustments.exposureModule.enabled ? adjustments.exposureModule.exposure : adjustments.exposure,
@@ -856,6 +890,13 @@ void main() {
       prev.flipVertical !== adjustments.flipVertical
     ) {
       this.markPassDirty('geometric');
+    }
+
+    // Check sigmoid tone curve adjustments
+    if (
+      JSON.stringify(prev.sigmoid) !== JSON.stringify(adjustments.sigmoid)
+    ) {
+      this.markPassDirty('sigmoid');
     }
 
     // Check tonal adjustments
