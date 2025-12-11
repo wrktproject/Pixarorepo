@@ -197,47 +197,41 @@ vec3 applyExposure(vec3 color, float exposure) {
 }
 
 // Apply contrast (Lightroom algorithm)
-// Subtle S-curve with continuous soft-clipping throughout the range
-// Much gentler than typical editors to match Lightroom's smooth response
+// Power curve (gamma) around middle gray - maintains brightness/saturation
+// Unlike S-curves, this doesn't compress the tonal range or cause graying
 vec3 applyContrast(vec3 color, float contrast) {
   if (abs(contrast) < 0.01) {
     return color;
   }
   
-  // Lightroom uses MUCH more subtle contrast than other apps
-  // Scale to roughly 20% of what seems "normal" for smooth response
-  float c = 1.0 + (contrast / 100.0) * 0.2;
+  // Lightroom uses power function (gamma) for contrast
+  // This maintains overall brightness while increasing tonal separation
+  // Normalize contrast to gamma: positive = steeper, negative = flatter
+  float normalizedContrast = contrast / 100.0 * 0.5; // Subtle for smooth response
+  float gamma = pow(2.0, -normalizedContrast); // gamma range: ~0.7 to ~1.4
   
-  // Apply parametric S-curve around midpoint with continuous soft-clipping
+  // Apply power curve around 18% gray (photographic middle gray)
+  const float pivot = 0.18;
+  
   vec3 result;
   for (int i = 0; i < 3; i++) {
     float x = color[i];
     
-    // Basic S-curve: (x - 0.5) * c + 0.5
-    float y = (x - 0.5) * c + 0.5;
-    
-    // Lightroom's continuous soft-clipping to prevent posterization
-    // Smooth compression throughout the entire range
-    if (y > 0.7) {
-      // Gradual shoulder rolloff for highlights
-      float excess = y - 0.7;
-      y = 0.7 + excess / (1.0 + excess * 1.5);
-    } else if (y < 0.3) {
-      // Gradual toe rolloff for shadows  
-      float deficit = 0.3 - y;
-      y = 0.3 - deficit / (1.0 + deficit * 1.5);
+    if (x < 0.00001) {
+      result[i] = 0.0;
+    } else {
+      // Power function pivoted around middle gray
+      // This increases separation without compressing range
+      float adjusted = pow(x / pivot, gamma) * pivot;
+      
+      // Gentle soft-clipping only at extremes to prevent hard edges
+      if (adjusted > 0.95) {
+        float excess = adjusted - 0.95;
+        adjusted = 0.95 + excess / (1.0 + excess * 2.0);
+      }
+      
+      result[i] = adjusted;
     }
-    
-    // Additional protection at extremes
-    if (y > 0.95) {
-      float t = (y - 0.95) / 0.05;
-      y = 0.95 + 0.05 * smoothStep3(t);
-    } else if (y < 0.05) {
-      float t = y / 0.05;
-      y = 0.05 * smoothStep3(t);
-    }
-    
-    result[i] = y;
   }
   
   return result;
