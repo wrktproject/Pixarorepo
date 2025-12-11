@@ -197,35 +197,44 @@ vec3 applyExposure(vec3 color, float exposure) {
 }
 
 // Apply contrast (Lightroom algorithm)
-// Parametric S-curve: y = (x - 0.5) * c + 0.5
-// With sigmoid rolloffs to preserve clipping points
+// Subtle S-curve with continuous soft-clipping throughout the range
+// Much gentler than typical editors to match Lightroom's smooth response
 vec3 applyContrast(vec3 color, float contrast) {
   if (abs(contrast) < 0.01) {
     return color;
   }
   
-  // Normalize contrast [-100, 100] to multiplier
-  // Lightroom uses roughly 2x range for ±100
-  float c = 1.0 + (contrast / 100.0) * 1.0;
+  // Lightroom uses MUCH more subtle contrast than other apps
+  // Scale to roughly 30% of what seems "normal" for smooth response
+  float c = 1.0 + (contrast / 100.0) * 0.3;
   
-  // Apply parametric S-curve around midpoint (0.5 in linear space)
+  // Apply parametric S-curve around midpoint with continuous soft-clipping
   vec3 result;
   for (int i = 0; i < 3; i++) {
     float x = color[i];
     
-    // Basic S-curve
+    // Basic S-curve: (x - 0.5) * c + 0.5
     float y = (x - 0.5) * c + 0.5;
     
-    // Sigmoid rolloff to prevent clipping
-    // Softens extreme highlights and shadows
-    if (y > 0.9) {
-      // Soft shoulder for highlights
-      float t = (y - 0.9) / 0.1;
-      y = 0.9 + 0.1 * smoothStep3(t);
-    } else if (y < 0.1) {
-      // Soft toe for shadows
-      float t = y / 0.1;
-      y = 0.1 * smoothStep3(t);
+    // Lightroom's continuous soft-clipping to prevent posterization
+    // Smooth compression throughout the entire range
+    if (y > 0.7) {
+      // Gradual shoulder rolloff for highlights
+      float excess = y - 0.7;
+      y = 0.7 + excess / (1.0 + excess * 1.5);
+    } else if (y < 0.3) {
+      // Gradual toe rolloff for shadows  
+      float deficit = 0.3 - y;
+      y = 0.3 - deficit / (1.0 + deficit * 1.5);
+    }
+    
+    // Additional protection at extremes
+    if (y > 0.95) {
+      float t = (y - 0.95) / 0.05;
+      y = 0.95 + 0.05 * smoothStep3(t);
+    } else if (y < 0.05) {
+      float t = y / 0.05;
+      y = 0.05 * smoothStep3(t);
     }
     
     result[i] = y;
