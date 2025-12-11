@@ -205,8 +205,8 @@ vec3 applyContrast(vec3 color, float contrast) {
   }
   
   // Lightroom uses MUCH more subtle contrast than other apps
-  // Scale to roughly 30% of what seems "normal" for smooth response
-  float c = 1.0 + (contrast / 100.0) * 0.3;
+  // Scale to roughly 20% of what seems "normal" for smooth response
+  float c = 1.0 + (contrast / 100.0) * 0.2;
   
   // Apply parametric S-curve around midpoint with continuous soft-clipping
   vec3 result;
