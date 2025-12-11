@@ -154,146 +154,180 @@ float blackMask(float lum) {
   }
 }
 
-// Apply exposure (photographic stops: +1 = double brightness)
+// Apply exposure (Lightroom algorithm)
+// Pure photographic stops: +1 EV = double brightness
+// RGB_out = RGB_in * 2^(EV)
 vec3 applyExposure(vec3 color, float exposure) {
+  if (abs(exposure) < 0.01) {
+    return color;
+  }
+  
+  // Lightroom's exposure is pure linear gain - nothing fancy
   return color * pow(2.0, exposure);
 }
 
-// Apply contrast (Lightroom-style power curve)
-// Uses power function around 18% grey fulcrum for perceptually accurate contrast
-// Matches Lightroom's behavior: +contrast = increases separation
+// Apply contrast (Lightroom algorithm)
+// Parametric S-curve: y = (x - 0.5) * c + 0.5
+// With sigmoid rolloffs to preserve clipping points
 vec3 applyContrast(vec3 color, float contrast) {
-  // Grey fulcrum at 18% (photographic middle grey in linear space)
-  // This matches both Darktable and Lightroom for perceptually correct contrast
-  const float grey_fulcrum = 0.1845;
-  
-  // If no contrast adjustment, return original
   if (abs(contrast) < 0.01) {
     return color;
   }
   
-  // Normalize contrast from [-100, 100] to a gamma range
-  // Contrast +100 = gamma 0.5 (maximum separation)
-  // Contrast -100 = gamma 2.0 (minimum separation)
-  // Contrast 0 = gamma 1.0 (no change)
-  float normalizedContrast = contrast / 100.0; // Range: -1.0 to 1.0
+  // Normalize contrast [-100, 100] to multiplier
+  // Lightroom uses roughly 2x range for ±100
+  float c = 1.0 + (contrast / 100.0) * 1.0;
   
-  // Power curve for gamma calculation
-  // Using: gamma = 2^(-normalizedContrast) for natural film-like response
-  // This gives us:
-  // normalizedContrast = +1.0 → gamma = 0.5 (maximum contrast)
-  // normalizedContrast = 0.0 → gamma = 1.0 (no change)
-  // normalizedContrast = -1.0 → gamma = 2.0 (reduced contrast)
-  float gamma = pow(2.0, -normalizedContrast);
-  
-  // Apply power function around grey fulcrum
+  // Apply parametric S-curve around midpoint (0.5 in linear space)
   vec3 result;
   for (int i = 0; i < 3; i++) {
-    if (color[i] <= 0.0001) {
-      result[i] = 0.0;
+    float x = color[i];
+    
+    // Basic S-curve
+    float y = (x - 0.5) * c + 0.5;
+    
+    // Sigmoid rolloff to prevent clipping
+    // Softens extreme highlights and shadows
+    if (y > 0.9) {
+      // Soft shoulder for highlights
+      float t = (y - 0.9) / 0.1;
+      y = 0.9 + 0.1 * smoothStep3(t);
+    } else if (y < 0.1) {
+      // Soft toe for shadows
+      float t = y / 0.1;
+      y = 0.1 * smoothStep3(t);
+    }
+    
+    result[i] = y;
+  }
+  
+  return result;
+}
+
+// Apply highlights (Lightroom algorithm)
+// H(x) = x - w * max(x - T, 0)
+// Regional weighted tone curve with threshold-based masking
+vec3 applyHighlights(vec3 color, float highlights) {
+  if (abs(highlights) < 0.01) {
+    return color;
+  }
+  
+  // Get luminance for threshold comparison
+  float lum = getLuminance(color);
+  
+  // Threshold: affects pixels above this value
+  // Lightroom uses ~0.5 as the midpoint
+  const float T = 0.5;
+  
+  // Weight from slider: negative recovers, positive brightens
+  // Scale to reasonable range
+  float w = (highlights / 100.0) * 0.7;
+  
+  // Apply weighted adjustment above threshold
+  float adjustment = w * max(lum - T, 0.0);
+  
+  // Apply to each channel while preserving color ratios
+  vec3 result = color - vec3(adjustment);
+  
+  return result;
+}
+
+// Apply shadows (Lightroom algorithm)
+// S(x) = x + w * max(T - x, 0)
+// Regional weighted tone curve with threshold-based masking
+vec3 applyShadows(vec3 color, float shadows) {
+  if (abs(shadows) < 0.01) {
+    return color;
+  }
+  
+  // Get luminance for threshold comparison
+  float lum = getLuminance(color);
+  
+  // Threshold: affects pixels below this value
+  // Lightroom uses ~0.5 as the midpoint
+  const float T = 0.5;
+  
+  // Weight from slider: positive lifts, negative crushes
+  // Scale to reasonable range
+  float w = (shadows / 100.0) * 0.8;
+  
+  // Apply weighted adjustment below threshold
+  float adjustment = w * max(T - lum, 0.0);
+  
+  // Apply to each channel while preserving color ratios
+  vec3 result = color + vec3(adjustment);
+  
+  return result;
+}
+
+// Apply whites (Lightroom algorithm)
+// Shifts upper tone curve endpoint with soft-clipping
+// Uses smoothstep for tapered rolloff
+vec3 applyWhites(vec3 color, float whites) {
+  if (abs(whites) < 0.01) {
+    return color;
+  }
+  
+  // Get luminance to identify bright regions
+  float lum = getLuminance(color);
+  
+  // Whites affect brightest values (above 0.75)
+  // Normalize slider to shift amount
+  float shift = (whites / 100.0) * 0.3;
+  
+  // Apply soft-clipping with smoothstep taper
+  vec3 result;
+  for (int i = 0; i < 3; i++) {
+    float x = color[i];
+    
+    if (x > 0.75) {
+      // Smoothstep taper for soft clipping
+      float t = (x - 0.75) / 0.25;
+      float smooth_t = smoothStep3(t);
+      
+      // Apply shift with taper
+      result[i] = x + shift * smooth_t;
     } else {
-      // Power function: (color / fulcrum)^gamma * fulcrum
-      result[i] = pow(color[i] / grey_fulcrum, gamma) * grey_fulcrum;
+      result[i] = x;
     }
   }
   
   return result;
 }
 
-// Apply highlights with smooth, film-like rolloff
-// Negative values compress highlights (recover detail), positive values brighten them
-vec3 applyHighlights(vec3 color, float highlights) {
-  if (abs(highlights) < 0.01) {
-    return color;
-  }
-  
-  float lum = getLuminance(color);
-  float mask = highlightMask(lum);
-  
-  // Normalize adjustment to -1.0 to 1.0 range
-  float adjustment = highlights / 100.0;
-  
-  // Apply adjustment with smooth falloff
-  // The mask ensures smooth transition from affected to unaffected areas
-  // Strength: ±0.7 (70% max adjustment for natural look)
-  float factor = 1.0 + adjustment * mask * 0.7;
-  
-  // Clamp to reasonable values (prevent complete blackout or extreme brightening)
-  factor = clamp(factor, 0.4, 1.8);
-  
-  return color * factor;
-}
-
-// Apply shadows with smooth, film-like lift
-// Positive values lift shadows (brighten dark areas), negative values crush them
-vec3 applyShadows(vec3 color, float shadows) {
-  if (abs(shadows) < 0.01) {
-    return color;
-  }
-  
-  float lum = getLuminance(color);
-  float mask = shadowMask(lum);
-  
-  // Normalize adjustment to -1.0 to 1.0 range
-  float adjustment = shadows / 100.0;
-  
-  // Apply adjustment with smooth falloff
-  // The mask ensures smooth transition from affected to unaffected areas
-  // Strength: ±0.8 (80% max adjustment for shadow lifting capability)
-  float factor = 1.0 + adjustment * mask * 0.8;
-  
-  // Clamp to reasonable values
-  factor = clamp(factor, 0.2, 2.0);
-  
-  return color * factor;
-}
-
-// Apply whites (affects brightest values - white point adjustment)
-// Adjusts the clipping point for the brightest tones
-vec3 applyWhites(vec3 color, float whites) {
-  if (abs(whites) < 0.01) {
-    return color;
-  }
-  
-  float lum = getLuminance(color);
-  float mask = whiteMask(lum);
-  
-  // Normalize adjustment
-  float adjustment = whites / 100.0;
-  
-  // Apply adjustment with smooth falloff using the mask
-  // Whites have a lighter touch than highlights for finer control
-  // Strength: ±0.5 (50% max adjustment)
-  float factor = 1.0 + adjustment * mask * 0.5;
-  
-  // Clamp to reasonable values
-  factor = clamp(factor, 0.5, 1.5);
-  
-  return color * factor;
-}
-
-// Apply blacks (affects darkest values - black point adjustment)
-// Adjusts the clipping point for the darkest tones
+// Apply blacks (Lightroom algorithm)
+// Shifts lower tone curve endpoint with soft-clipping
+// Uses smoothstep for tapered rolloff
 vec3 applyBlacks(vec3 color, float blacks) {
   if (abs(blacks) < 0.01) {
     return color;
   }
   
+  // Get luminance to identify dark regions
   float lum = getLuminance(color);
-  float mask = blackMask(lum);
   
-  // Normalize adjustment
-  float adjustment = blacks / 100.0;
+  // Blacks affect darkest values (below 0.15)
+  // Normalize slider to shift amount
+  float shift = (blacks / 100.0) * 0.25;
   
-  // Apply adjustment with smooth falloff using the mask
-  // Blacks have a lighter touch than shadows for finer control
-  // Strength: ±0.5 (50% max adjustment)
-  float factor = 1.0 + adjustment * mask * 0.5;
+  // Apply soft-clipping with smoothstep taper
+  vec3 result;
+  for (int i = 0; i < 3; i++) {
+    float x = color[i];
+    
+    if (x < 0.15) {
+      // Smoothstep taper for soft clipping
+      float t = x / 0.15;
+      float smooth_t = smoothStep3(t);
+      
+      // Apply shift with taper (inverted because we're in shadows)
+      result[i] = x + shift * (1.0 - smooth_t);
+    } else {
+      result[i] = x;
+    }
+  }
   
-  // Clamp to reasonable values
-  factor = clamp(factor, 0.4, 1.6);
-  
-  return color * factor;
+  return result;
 }
 
 void main() {
