@@ -183,11 +183,19 @@ vec3 applyExposure(vec3 color, float exposure) {
       float compressionFactor = mix(1.0, 0.5, smoothStep3(t));
       adjusted = val * (1.0 + (scale - 1.0) * compressionFactor);
     } else {
-      // Highlights: strong compression to prevent blooming
-      // Bright areas get minimal exposure increase
+      // Highlights: very strong compression to prevent blooming/flaring
+      // Bright areas get minimal exposure increase, especially at extremes
       float t = (val - 0.7) / 0.3;
-      float compressionFactor = mix(0.5, 0.15, smoothStep3(t));
+      // Even more aggressive: 50% → 8% compression
+      float compressionFactor = mix(0.5, 0.08, smoothStep3(t));
       adjusted = val * (1.0 + (scale - 1.0) * compressionFactor);
+      
+      // Extra protection for extreme highlights (> 0.9) to prevent flaring
+      if (val > 0.9) {
+        float extremeT = (val - 0.9) / 0.1;
+        float extremeFactor = mix(0.08, 0.02, smoothStep3(extremeT));
+        adjusted = val * (1.0 + (scale - 1.0) * extremeFactor);
+      }
     }
     
     result[i] = adjusted;
@@ -197,44 +205,43 @@ vec3 applyExposure(vec3 color, float exposure) {
 }
 
 // Apply contrast (Lightroom algorithm)
-// Luminance-based power curve that preserves hue and prevents color shifts
+// Power curve (gamma) around middle gray - maintains brightness/saturation
+// Unlike S-curves, this doesn't compress the tonal range or cause graying
 vec3 applyContrast(vec3 color, float contrast) {
   if (abs(contrast) < 0.01) {
     return color;
   }
   
-  // Lightroom applies contrast to luminance, then scales RGB to preserve hue
-  // This prevents color shifts (like green skin at high contrast)
+  // Lightroom uses power function (gamma) for contrast
+  // This maintains overall brightness while increasing tonal separation
+  // Normalize contrast to gamma: positive = steeper (more contrast), negative = flatter
   float normalizedContrast = contrast / 100.0 * 0.5; // Subtle for smooth response
   float gamma = pow(2.0, normalizedContrast); // gamma range: ~1.4 to ~0.7
+  // Higher contrast = lower gamma = steeper curve
   
-  // Get original luminance
-  float lum = getLuminance(color);
-  
-  if (lum < 0.00001) {
-    return vec3(0.0);
-  }
-  
-  // Apply power curve to luminance around 18% gray
+  // Apply power curve around 18% gray (photographic middle gray)
   const float pivot = 0.18;
-  float adjustedLum = pow(lum / pivot, gamma) * pivot;
   
-  // Aggressive soft-clipping to prevent flaring
-  if (adjustedLum > 0.85) {
-    float excess = adjustedLum - 0.85;
-    adjustedLum = 0.85 + excess / (1.0 + excess * 3.0);
+  vec3 result;
+  for (int i = 0; i < 3; i++) {
+    float x = color[i];
+    
+    if (x < 0.00001) {
+      result[i] = 0.0;
+    } else {
+      // Power function pivoted around middle gray
+      // This increases separation without compressing range
+      float adjusted = pow(x / pivot, gamma) * pivot;
+      
+      // Gentle soft-clipping only at extremes to prevent hard edges
+      if (adjusted > 0.95) {
+        float excess = adjusted - 0.95;
+        adjusted = 0.95 + excess / (1.0 + excess * 2.0);
+      }
+      
+      result[i] = adjusted;
+    }
   }
-  
-  // Additional protection at absolute extremes
-  if (adjustedLum > 0.98) {
-    float t = (adjustedLum - 0.98) / 0.02;
-    adjustedLum = 0.98 + 0.02 * smoothStep3(t);
-  }
-  
-  // Scale RGB by luminance ratio to preserve hue
-  // This prevents color shifts while maintaining contrast
-  float ratio = adjustedLum / lum;
-  vec3 result = color * ratio;
   
   return result;
 }
