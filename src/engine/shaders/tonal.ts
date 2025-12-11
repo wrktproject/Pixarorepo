@@ -154,16 +154,33 @@ float blackMask(float lum) {
   }
 }
 
-// Apply exposure (Lightroom algorithm)
-// Pure photographic stops: +1 EV = double brightness
-// RGB_out = RGB_in * 2^(EV)
+// Apply exposure (Lightroom algorithm with perceptual distribution)
+// Applies photographic stops but with even distribution across tonal range
+// Works in log space for perceptual uniformity
 vec3 applyExposure(vec3 color, float exposure) {
   if (abs(exposure) < 0.01) {
     return color;
   }
   
-  // Lightroom's exposure is pure linear gain - nothing fancy
-  return color * pow(2.0, exposure);
+  // Convert to log space for even perceptual distribution
+  // This makes exposure affect shadows and highlights more evenly
+  const float logMidpoint = 0.18; // 18% grey
+  
+  vec3 result;
+  for (int i = 0; i < 3; i++) {
+    if (color[i] < 0.00001) {
+      result[i] = 0.0;
+    } else {
+      // Log space calculation for even distribution
+      // log2(output) = log2(input) + EV
+      // This maintains photographic stops but applies more evenly
+      float logValue = log2(color[i] / logMidpoint);
+      float adjustedLog = logValue + exposure;
+      result[i] = pow(2.0, adjustedLog) * logMidpoint;
+    }
+  }
+  
+  return result;
 }
 
 // Apply contrast (Lightroom algorithm)
