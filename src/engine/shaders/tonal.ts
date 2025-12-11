@@ -64,55 +64,94 @@ float getLuminance(vec3 color) {
 }
 
 // ============================================================================
-// Professional Soft-Knee Curves (Darktable-inspired)
+// Professional Smooth Curves (Lightroom-style, Darktable-accurate)
 // ============================================================================
 
-// Soft knee function for smooth transitions
-// Uses a combination of sigmoid and power functions for film-like response
-float softKnee(float x, float threshold, float width) {
-  // Normalized distance from threshold
-  float d = (x - threshold) / max(width, 0.001);
-  
-  // Soft sigmoid for smooth transition (no hard edges)
-  return 1.0 / (1.0 + exp(-4.0 * d));
+// Smooth step function using smooth Hermite interpolation
+// More gradual and film-like than the sharp version
+float smoothStep3(float t) {
+  // Smoothstep formula: t^2 * (3 - 2*t) for smooth acceleration/deceleration
+  return t * t * (3.0 - 2.0 * t);
 }
 
-// Enhanced highlight mask with soft rolloff
-// Provides film-like highlight compression without harsh clipping
+// Enhanced highlight mask with Lightroom-style rolloff
+// Creates smooth, non-clipping highlight recovery that's perceptually accurate
 float highlightMask(float lum) {
-  // Start affecting at 0.5, full effect at 0.9
-  // Uses soft knee for natural rolloff
-  float mask = softKnee(lum, 0.5, 0.25);
+  // Highlights primarily affect luminance > 0.5
+  // But start transitioning around 0.4 for smooth blending
+  // Uses a smooth curve that peaks at luminance 1.0
   
-  // Additional boost for very bright areas (soft clipping zone)
-  float brightBoost = smoothstep(0.7, 1.0, lum);
+  // Start the effect at 0.4, full effect by 0.7
+  float transitionStart = 0.4;
+  float fullEffectStart = 0.7;
   
-  return mix(mask, 1.0, brightBoost * 0.3);
+  if (lum < transitionStart) {
+    return 0.0;
+  } else if (lum >= fullEffectStart) {
+    return 1.0;
+  } else {
+    // Smooth transition between start and full effect
+    float t = (lum - transitionStart) / (fullEffectStart - transitionStart);
+    // Use smooth cubic for natural film-like response
+    return smoothStep3(t);
+  }
 }
 
-// Enhanced shadow mask with soft lift
-// Preserves shadow detail while allowing luminance adjustments
+// Enhanced shadow mask with Lightroom-style lift
+// Preserves shadow detail with smooth transitions
 float shadowMask(float lum) {
-  // Full effect below 0.2, fading to 0.5
-  // Inverted soft knee for shadow region
-  float mask = 1.0 - softKnee(lum, 0.35, 0.25);
+  // Shadows primarily affect luminance < 0.5
+  // Start transitioning around 0.4, full effect by 0.15
   
-  // Protect deep blacks from complete crushing
-  float deepShadowProtect = 1.0 - smoothstep(0.0, 0.05, lum);
+  float transitionStart = 0.4;
+  float fullEffectStart = 0.15;
   
-  return mix(mask, mask * 0.7, deepShadowProtect);
+  if (lum > transitionStart) {
+    return 0.0;
+  } else if (lum <= fullEffectStart) {
+    return 1.0;
+  } else {
+    // Smooth transition between start and full effect
+    // As lum increases from 0.15 to 0.4, mask should decrease from 1 to 0
+    float t = (lum - fullEffectStart) / (transitionStart - fullEffectStart);
+    // Invert: smoothStep3(t) goes from 0 to 1, we want 1 to 0
+    return 1.0 - smoothStep3(t);
+  }
 }
 
-// White point mask - affects brightest values
+// White point mask - affects brightest values (Lightroom-style)
+// Adjustment range: luminance > 0.75
 float whiteMask(float lum) {
-  // Soft knee starting at 0.75, full effect at 1.0
-  return softKnee(lum, 0.75, 0.15);
+  // Whites affect the brightest 25% of the image
+  // Start at 0.75, full effect at 1.0
+  
+  if (lum < 0.75) {
+    return 0.0;
+  } else if (lum >= 1.0) {
+    return 1.0;
+  } else {
+    // Smooth transition for natural blend
+    float t = (lum - 0.75) / 0.25;
+    return smoothStep3(t);
+  }
 }
 
-// Black point mask - affects darkest values  
+// Black point mask - affects darkest values (Lightroom-style)
+// Adjustment range: luminance < 0.15
 float blackMask(float lum) {
-  // Inverted soft knee, affects values below 0.25
-  return 1.0 - softKnee(lum, 0.15, 0.12);
+  // Blacks affect the darkest 15% of the image
+  // Full effect at 0.0, no effect at 0.15
+  
+  if (lum > 0.15) {
+    return 0.0;
+  } else if (lum <= 0.0) {
+    return 1.0;
+  } else {
+    // Smooth transition for natural blend
+    // Inverted: as lum increases from 0 to 0.15, mask decreases from 1 to 0
+    float t = lum / 0.15;
+    return 1.0 - smoothStep3(t);
+  }
 }
 
 // Apply exposure (photographic stops: +1 = double brightness)
@@ -120,23 +159,32 @@ vec3 applyExposure(vec3 color, float exposure) {
   return color * pow(2.0, exposure);
 }
 
-// Apply contrast (Darktable/Lightroom-style)
-// Uses power function around 18% grey fulcrum for photographic accuracy
+// Apply contrast (Lightroom-style power curve)
+// Uses power function around 18% grey fulcrum for perceptually accurate contrast
+// Matches Lightroom's behavior: +contrast = increases separation
 vec3 applyContrast(vec3 color, float contrast) {
   // Grey fulcrum at 18% (photographic middle grey in linear space)
-  // This matches Darktable's approach for perceptually correct contrast
+  // This matches both Darktable and Lightroom for perceptually correct contrast
   const float grey_fulcrum = 0.1845;
   
-  // Convert -100..+100 to a more subtle range
-  // Reduce intensity by 50% for more gradual adjustments
-  // FIXED: Negate to match Lightroom behavior (right = more contrast)
-  float normalized = -(contrast / 100.0) * 0.5; // +0.5 to -0.5 (inverted)
+  // If no contrast adjustment, return original
+  if (abs(contrast) < 0.01) {
+    return color;
+  }
   
-  // Calculate gamma: smaller gamma = more contrast
-  // At 0: gamma = 1.0 (no change)
-  // At +100: gamma = 0.67 (MORE contrast - correct!)
-  // At -100: gamma = 1.5 (LESS contrast - correct!)
-  float gamma = 1.0 / (1.0 + normalized);
+  // Normalize contrast from [-100, 100] to a gamma range
+  // Contrast +100 = gamma 0.5 (maximum separation)
+  // Contrast -100 = gamma 2.0 (minimum separation)
+  // Contrast 0 = gamma 1.0 (no change)
+  float normalizedContrast = contrast / 100.0; // Range: -1.0 to 1.0
+  
+  // Power curve for gamma calculation
+  // Using: gamma = 2^(-normalizedContrast) for natural film-like response
+  // This gives us:
+  // normalizedContrast = +1.0 → gamma = 0.5 (maximum contrast)
+  // normalizedContrast = 0.0 → gamma = 1.0 (no change)
+  // normalizedContrast = -1.0 → gamma = 2.0 (reduced contrast)
+  float gamma = pow(2.0, -normalizedContrast);
   
   // Apply power function around grey fulcrum
   vec3 result;
@@ -152,95 +200,100 @@ vec3 applyContrast(vec3 color, float contrast) {
   return result;
 }
 
-// Apply highlights with soft-knee rolloff (film-like highlight recovery)
-// Negative values compress highlights, positive values expand/brighten
+// Apply highlights with smooth, film-like rolloff
+// Negative values compress highlights (recover detail), positive values brighten them
 vec3 applyHighlights(vec3 color, float highlights) {
+  if (abs(highlights) < 0.01) {
+    return color;
+  }
+  
   float lum = getLuminance(color);
   float mask = highlightMask(lum);
   
-  // Scale adjustment with soft compression curve
+  // Normalize adjustment to -1.0 to 1.0 range
   float adjustment = highlights / 100.0;
   
-  // For highlight recovery (negative), use soft compression
-  // For highlight boost (positive), use soft expansion
-  float factor;
-  if (adjustment < 0.0) {
-    // Compress: darker highlights, soft rolloff to prevent clipping
-    // Uses a gentle power curve for natural look
-    factor = 1.0 + adjustment * mask * 0.6;
-    factor = max(factor, 0.2); // Prevent complete black-out
-  } else {
-    // Expand: brighter highlights with soft knee to prevent blowout
-    factor = 1.0 + adjustment * mask * 0.8;
-  }
+  // Apply adjustment with smooth falloff
+  // The mask ensures smooth transition from affected to unaffected areas
+  // Strength: ±0.7 (70% max adjustment for natural look)
+  float factor = 1.0 + adjustment * mask * 0.7;
+  
+  // Clamp to reasonable values (prevent complete blackout or extreme brightening)
+  factor = clamp(factor, 0.4, 1.8);
   
   return color * factor;
 }
 
-// Apply shadows with soft lift (preserve detail in dark areas)
-// Negative values crush shadows, positive values lift/brighten
+// Apply shadows with smooth, film-like lift
+// Positive values lift shadows (brighten dark areas), negative values crush them
 vec3 applyShadows(vec3 color, float shadows) {
+  if (abs(shadows) < 0.01) {
+    return color;
+  }
+  
   float lum = getLuminance(color);
   float mask = shadowMask(lum);
   
+  // Normalize adjustment to -1.0 to 1.0 range
   float adjustment = shadows / 100.0;
   
-  // For shadow lift (positive), add luminance to shadows
-  // For shadow crush (negative), reduce shadow luminance
-  float factor;
-  if (adjustment > 0.0) {
-    // Lift shadows: use a soft curve that preserves deep shadows
-    // The adjustment is additive for very dark areas
-    float additive = adjustment * mask * 0.15;
-    factor = 1.0 + adjustment * mask * 0.7;
-    color = color * factor + vec3(additive * mask);
-    return max(color, vec3(0.0));
-  } else {
-    // Crush shadows: reduce shadow luminance
-    factor = 1.0 + adjustment * mask * 0.5;
-    factor = max(factor, 0.1);
-  }
+  // Apply adjustment with smooth falloff
+  // The mask ensures smooth transition from affected to unaffected areas
+  // Strength: ±0.8 (80% max adjustment for shadow lifting capability)
+  float factor = 1.0 + adjustment * mask * 0.8;
+  
+  // Clamp to reasonable values
+  factor = clamp(factor, 0.2, 2.0);
   
   return color * factor;
 }
 
-// Apply whites (affects brightest 25% of image)
-// Adjusts the white point - where highlights clip
+// Apply whites (affects brightest values - white point adjustment)
+// Adjusts the clipping point for the brightest tones
 vec3 applyWhites(vec3 color, float whites) {
+  if (abs(whites) < 0.01) {
+    return color;
+  }
+  
   float lum = getLuminance(color);
   float mask = whiteMask(lum);
   
-  float adjustment = (whites / 100.0) * 0.6;
-  float factor = 1.0 + adjustment * mask;
+  // Normalize adjustment
+  float adjustment = whites / 100.0;
   
-  // Prevent complete clipping
-  factor = clamp(factor, 0.3, 2.5);
+  // Apply adjustment with smooth falloff using the mask
+  // Whites have a lighter touch than highlights for finer control
+  // Strength: ±0.5 (50% max adjustment)
+  float factor = 1.0 + adjustment * mask * 0.5;
+  
+  // Clamp to reasonable values
+  factor = clamp(factor, 0.5, 1.5);
   
   return color * factor;
 }
 
-// Apply blacks (affects darkest 25% of image)
-// Adjusts the black point - where shadows clip
+// Apply blacks (affects darkest values - black point adjustment)
+// Adjusts the clipping point for the darkest tones
 vec3 applyBlacks(vec3 color, float blacks) {
+  if (abs(blacks) < 0.01) {
+    return color;
+  }
+  
   float lum = getLuminance(color);
   float mask = blackMask(lum);
   
+  // Normalize adjustment
   float adjustment = blacks / 100.0;
   
-  // For black lift (positive), add a bit of light to darkest areas
-  // For black crush (negative), push blacks toward zero
-  if (adjustment > 0.0) {
-    // Lift blacks: add luminance to very dark areas
-    float lift = adjustment * mask * 0.08;
-    color = color + vec3(lift);
-  } else {
-    // Crush blacks: multiply down the darkest areas
-    float crush = 1.0 + adjustment * mask * 0.7;
-    crush = max(crush, 0.0);
-    color = color * crush;
-  }
+  // Apply adjustment with smooth falloff using the mask
+  // Blacks have a lighter touch than shadows for finer control
+  // Strength: ±0.5 (50% max adjustment)
+  float factor = 1.0 + adjustment * mask * 0.5;
   
-  return max(color, vec3(0.0));
+  // Clamp to reasonable values
+  factor = clamp(factor, 0.4, 1.6);
+  
+  return color * factor;
 }
 
 void main() {
