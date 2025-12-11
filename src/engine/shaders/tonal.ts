@@ -197,49 +197,44 @@ vec3 applyExposure(vec3 color, float exposure) {
 }
 
 // Apply contrast (Lightroom algorithm)
-// Power curve (gamma) around middle gray - maintains brightness/saturation
-// Unlike S-curves, this doesn't compress the tonal range or cause graying
+// Luminance-based power curve that preserves hue and prevents color shifts
 vec3 applyContrast(vec3 color, float contrast) {
   if (abs(contrast) < 0.01) {
     return color;
   }
   
-  // Lightroom uses power function (gamma) for contrast
-  // This maintains overall brightness while increasing tonal separation
-  // Normalize contrast to gamma: positive = steeper, negative = flatter
+  // Lightroom applies contrast to luminance, then scales RGB to preserve hue
+  // This prevents color shifts (like green skin at high contrast)
   float normalizedContrast = contrast / 100.0 * 0.5; // Subtle for smooth response
   float gamma = pow(2.0, normalizedContrast); // gamma range: ~1.4 to ~0.7
   
-  // Apply power curve around 18% gray (photographic middle gray)
-  const float pivot = 0.18;
+  // Get original luminance
+  float lum = getLuminance(color);
   
-  vec3 result;
-  for (int i = 0; i < 3; i++) {
-    float x = color[i];
-    
-    if (x < 0.00001) {
-      result[i] = 0.0;
-    } else {
-      // Power function pivoted around middle gray
-      // This increases separation without compressing range
-      float adjusted = pow(x / pivot, gamma) * pivot;
-      
-      // Aggressive soft-clipping to prevent flaring at extreme contrast
-      if (adjusted > 0.85) {
-        // Strong compression for very bright values
-        float excess = adjusted - 0.85;
-        adjusted = 0.85 + excess / (1.0 + excess * 3.0);
-      }
-      
-      // Additional protection at absolute extremes
-      if (adjusted > 0.98) {
-        float t = (adjusted - 0.98) / 0.02;
-        adjusted = 0.98 + 0.02 * smoothStep3(t);
-      }
-      
-      result[i] = adjusted;
-    }
+  if (lum < 0.00001) {
+    return vec3(0.0);
   }
+  
+  // Apply power curve to luminance around 18% gray
+  const float pivot = 0.18;
+  float adjustedLum = pow(lum / pivot, gamma) * pivot;
+  
+  // Aggressive soft-clipping to prevent flaring
+  if (adjustedLum > 0.85) {
+    float excess = adjustedLum - 0.85;
+    adjustedLum = 0.85 + excess / (1.0 + excess * 3.0);
+  }
+  
+  // Additional protection at absolute extremes
+  if (adjustedLum > 0.98) {
+    float t = (adjustedLum - 0.98) / 0.02;
+    adjustedLum = 0.98 + 0.02 * smoothStep3(t);
+  }
+  
+  // Scale RGB by luminance ratio to preserve hue
+  // This prevents color shifts while maintaining contrast
+  float ratio = adjustedLum / lum;
+  vec3 result = color * ratio;
   
   return result;
 }
