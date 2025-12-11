@@ -208,7 +208,7 @@ vec3 applyContrast(vec3 color, float contrast) {
   // This maintains overall brightness while increasing tonal separation
   // Normalize contrast to gamma: positive = steeper, negative = flatter
   float normalizedContrast = contrast / 100.0 * 0.5; // Subtle for smooth response
-  float gamma = pow(2.0, -normalizedContrast); // gamma range: ~0.7 to ~1.4
+  float gamma = pow(2.0, normalizedContrast); // gamma range: ~1.4 to ~0.7
   
   // Apply power curve around 18% gray (photographic middle gray)
   const float pivot = 0.18;
@@ -224,10 +224,17 @@ vec3 applyContrast(vec3 color, float contrast) {
       // This increases separation without compressing range
       float adjusted = pow(x / pivot, gamma) * pivot;
       
-      // Gentle soft-clipping only at extremes to prevent hard edges
-      if (adjusted > 0.95) {
-        float excess = adjusted - 0.95;
-        adjusted = 0.95 + excess / (1.0 + excess * 2.0);
+      // Aggressive soft-clipping to prevent flaring at extreme contrast
+      if (adjusted > 0.85) {
+        // Strong compression for very bright values
+        float excess = adjusted - 0.85;
+        adjusted = 0.85 + excess / (1.0 + excess * 3.0);
+      }
+      
+      // Additional protection at absolute extremes
+      if (adjusted > 0.98) {
+        float t = (adjusted - 0.98) / 0.02;
+        adjusted = 0.98 + 0.02 * smoothStep3(t);
       }
       
       result[i] = adjusted;
