@@ -154,39 +154,46 @@ float blackMask(float lum) {
   }
 }
 
-// Apply exposure (Lightroom algorithm with even distribution)
-// Applies exposure with highlight protection to prevent bright spots from blooming
-// Uses luminance-based weighting for even adjustment across the tonal range
+// Apply exposure (Lightroom algorithm with strong highlight protection)
+// Applies exposure evenly across tonal range with aggressive highlight rolloff
+// Prevents bright areas from blooming while lifting shadows proportionally
 vec3 applyExposure(vec3 color, float exposure) {
   if (abs(exposure) < 0.01) {
     return color;
   }
   
-  // Calculate exposure multiplier
+  // Calculate base exposure multiplier
   float scale = pow(2.0, exposure);
   
-  // Get luminance to determine how to apply exposure
-  float lum = getLuminance(color);
-  
-  // Lightroom's highlight protection: reduce exposure effect on already-bright areas
-  // This prevents bright spots from blooming disproportionately
-  float protectionCurve;
-  if (lum < 0.5) {
-    // Below midtones: full exposure effect
-    protectionCurve = 1.0;
-  } else {
-    // Above midtones: gradually reduce exposure effect to prevent blooming
-    // Bright areas (lum > 0.5) get progressively less exposure
-    float t = (lum - 0.5) / 0.5; // 0 to 1 for lum 0.5 to 1.0
-    // Smooth reduction: bright areas get 40-100% of the exposure adjustment
-    protectionCurve = mix(1.0, 0.4, smoothStep3(t));
+  // Apply per-channel with luminance-based highlight protection
+  vec3 result;
+  for (int i = 0; i < 3; i++) {
+    float val = color[i];
+    
+    // Lightroom's approach: strong compression curve for highlights
+    // This prevents any area from blooming disproportionately
+    float adjusted;
+    
+    if (val < 0.18) {
+      // Shadows to midtones: full exposure effect
+      adjusted = val * scale;
+    } else if (val < 0.7) {
+      // Upper midtones: gradually reduce exposure response
+      float t = (val - 0.18) / (0.7 - 0.18);
+      float compressionFactor = mix(1.0, 0.5, smoothStep3(t));
+      adjusted = val * (1.0 + (scale - 1.0) * compressionFactor);
+    } else {
+      // Highlights: strong compression to prevent blooming
+      // Bright areas get minimal exposure increase
+      float t = (val - 0.7) / 0.3;
+      float compressionFactor = mix(0.5, 0.15, smoothStep3(t));
+      adjusted = val * (1.0 + (scale - 1.0) * compressionFactor);
+    }
+    
+    result[i] = adjusted;
   }
   
-  // Blend between original and exposed based on protection curve
-  // This makes bright areas respond less dramatically
-  float effectiveScale = 1.0 + (scale - 1.0) * protectionCurve;
-  
-  return color * effectiveScale;
+  return result;
 }
 
 // Apply contrast (Lightroom algorithm)
