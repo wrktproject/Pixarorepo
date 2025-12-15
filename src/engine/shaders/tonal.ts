@@ -262,22 +262,22 @@ vec3 applyContrast(vec3 color, float contrast) {
 
 // Apply highlights (Lightroom algorithm)
 // Regional weighted tone curve with progressive masking
-// Positive = recover/brighten highlights, Negative = darken highlights
+// Positive = recover/brighten highlights, Negative = burn/darken highlights
 vec3 applyHighlights(vec3 color, float highlights) {
   if (abs(highlights) < 0.01) {
     return color;
   }
   
-  // Lightroom uses per-channel processing to preserve color
+  // Lightroom applies highlights per-channel to preserve color ratios
+  // This changes intensity/glow without color shifts
   vec3 result;
   
   // Threshold: start affecting pixels above this value
-  // Lightroom uses ~0.45 for highlights
-  const float T = 0.45;
+  const float T = 0.45; // Lightroom starts around mid-tones
   
-  // Weight from slider: scale aggressively for impact like Lightroom
-  // Lightroom's highlights are very powerful (±4 stops range)
-  float w = (highlights / 100.0) * 1.5; // Much more aggressive
+  // Weight from slider: very aggressive for Lightroom-like impact
+  // Lightroom's highlights are powerful (±4 stops range)
+  float w = -(highlights / 100.0) * 1.8; // Negative because positive slider = brighten
   
   for (int i = 0; i < 3; i++) {
     float x = color[i];
@@ -287,18 +287,17 @@ vec3 applyHighlights(vec3 color, float highlights) {
       result[i] = x;
     } else {
       // Above threshold: apply progressive weighted curve
-      // Higher pixels get more adjustment
       float aboveThreshold = x - T;
-      float weight = aboveThreshold / (1.0 - T); // 0 to 1 for pixels T to 1.0
+      float normalizedPosition = aboveThreshold / (1.0 - T); // 0 to 1
       
-      // Apply power curve for smooth falloff
-      float mask = pow(weight, 0.7); // Slightly more aggressive on highlights
+      // Progressive mask: brighter pixels get more adjustment
+      float mask = pow(normalizedPosition, 0.6); // Aggressive on bright areas
       
-      // Adjustment amount: positive highlights = add (brighten/recover)
-      // The effect scales with how bright the pixel is
+      // Apply adjustment scaled by mask and position
+      // This preserves color ratios while changing intensity
       float adjustment = w * mask * aboveThreshold;
       
-      result[i] = x + adjustment; // FIXED: + not - for correct direction
+      result[i] = x + adjustment;
     }
   }
   
@@ -306,29 +305,42 @@ vec3 applyHighlights(vec3 color, float highlights) {
 }
 
 // Apply shadows (Lightroom algorithm)
-// S(x) = x + w * max(T - x, 0)
-// Regional weighted tone curve with threshold-based masking
+// Regional weighted tone curve with progressive masking
+// Positive = lift/brighten shadows, Negative = crush/darken shadows
 vec3 applyShadows(vec3 color, float shadows) {
   if (abs(shadows) < 0.01) {
     return color;
   }
   
-  // Get luminance for threshold comparison
-  float lum = getLuminance(color);
+  // Lightroom applies shadows per-channel to preserve color ratios
+  vec3 result;
   
-  // Threshold: affects pixels below this value
-  // Lightroom uses ~0.5 as the midpoint
-  const float T = 0.5;
+  // Threshold: start affecting pixels below this value
+  const float T = 0.35; // Lightroom focuses on darker tones
   
-  // Weight from slider: positive lifts, negative crushes
-  // Scale to reasonable range
-  float w = (shadows / 100.0) * 0.8;
+  // Weight from slider: aggressive for Lightroom-like impact
+  float w = (shadows / 100.0) * 1.6;
   
-  // Apply weighted adjustment below threshold
-  float adjustment = w * max(T - lum, 0.0);
-  
-  // Apply to each channel while preserving color ratios
-  vec3 result = color + vec3(adjustment);
+  for (int i = 0; i < 3; i++) {
+    float x = color[i];
+    
+    if (x > T) {
+      // Above threshold: no change
+      result[i] = x;
+    } else {
+      // Below threshold: apply progressive weighted curve
+      float belowThreshold = T - x;
+      float normalizedPosition = belowThreshold / T; // 0 to 1
+      
+      // Progressive mask: darker pixels get more adjustment
+      float mask = pow(normalizedPosition, 0.6);
+      
+      // Apply adjustment scaled by mask and position
+      float adjustment = w * mask * belowThreshold;
+      
+      result[i] = x + adjustment;
+    }
+  }
   
   return result;
 }
