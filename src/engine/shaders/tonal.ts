@@ -308,37 +308,21 @@ vec3 applyShadows(vec3 color, float shadows) {
   const float T = 0.5;
   
   // Weight from slider: positive lifts, negative crushes
-  // Lightroom is VERY subtle in both directions
-  // Positive needs to be gentler to avoid "faded" look
-  // Negative needs to be even gentler to avoid crushing
-  float baseWeight = shadows > 0.0 ? 0.18 : 0.10; // Both reduced
+  // Lightroom is EXTREMELY subtle - much more than we initially thought
+  float baseWeight = shadows > 0.0 ? 0.12 : 0.08; // Further reduced
   float w = (shadows / 100.0) * baseWeight;
   
   // Calculate how far below threshold (0 at T, 1 at black)
   float belowThreshold = max(T - lum, 0.0);
   
   // Apply smooth rolloff - effect is strongest in deep shadows, tapers near midtones
-  // This prevents the "washed out" look for positive and "crushed" look for negative
   float rolloff = smoothStep3(belowThreshold / T);
   
   // Apply weighted adjustment with rolloff
   float adjustment = w * belowThreshold * rolloff;
   
-  // CRITICAL: Preserve color saturation when lifting shadows
-  // Lightroom lifts luminance more than it desaturates
-  if (shadows > 0.0 && lum > 0.01) {
-    // For positive shadows, scale the adjustment to preserve color ratios
-    // Apply more to darker channels, less to brighter channels
-    vec3 result;
-    for (int i = 0; i < 3; i++) {
-      // Channels closer to black get more lift to preserve saturation
-      float channelRatio = color[i] / lum;
-      result[i] = color[i] + adjustment * channelRatio;
-    }
-    return result;
-  }
-  
-  // For negative shadows or very dark pixels, apply uniformly
+  // Apply uniformly to all channels (Lightroom's approach)
+  // This preserves color relationships naturally
   return color + vec3(adjustment);
 }
 
