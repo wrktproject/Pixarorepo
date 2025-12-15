@@ -320,11 +320,11 @@ vec3 applyShadows(vec3 color, float shadows) {
   // Adding a constant desaturates (adds gray), scaling preserves color ratios
   if (shadows > 0.0) {
     // Positive shadows: scale up (lighten) while preserving saturation
-    float scaleFactor = 1.0 + (w * belowThreshold * rolloff * 0.5);
+    float scaleFactor = 1.0 + (w * belowThreshold * rolloff * 0.7);
     return color * scaleFactor;
   } else {
     // Negative shadows: scale down (darken) 
-    float scaleFactor = 1.0 + (w * belowThreshold * rolloff * 0.35);
+    float scaleFactor = 1.0 + (w * belowThreshold * rolloff * 0.5);
     return color * scaleFactor;
   }
 }
