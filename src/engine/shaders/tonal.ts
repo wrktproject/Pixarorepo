@@ -205,8 +205,8 @@ vec3 applyExposure(vec3 color, float exposure) {
 }
 
 // Apply contrast (Lightroom algorithm)
-// Power curve (gamma) around middle gray with two-stage soft-clipping
-// Prevents brightness/exposure shift while increasing tonal separation
+// Power curve (gamma) around middle gray with regional masking
+// Protects bright highlights from flaring (like Lightroom does)
 vec3 applyContrast(vec3 color, float contrast) {
   if (abs(contrast) < 0.01) {
     return color;
@@ -231,26 +231,30 @@ vec3 applyContrast(vec3 color, float contrast) {
       // Power function pivoted around middle gray
       float adjusted = pow(x / pivot, gamma) * pivot;
       
-      // Two-stage soft-clipping to prevent brightness shift at high contrast
-      // Stage 1: Compress highlights progressively (prevents exposure increase)
-      if (adjusted > pivot) {
-        float excess = adjusted - pivot;
-        float maxExcess = 1.0 - pivot;
-        float t = excess / maxExcess;
-        // Apply stronger compression at higher contrast
-        float compressionStrength = max(0.0, (1.0 - gamma)) * 0.6; // 0 to ~0.18
-        float compressed = excess / (1.0 + excess * compressionStrength);
-        adjusted = pivot + compressed;
+      // CRITICAL: Regional masking to prevent highlight flaring
+      // Lightroom applies contrast strongly to midtones but barely touches bright highlights
+      // This prevents white walls from blooming
+      
+      if (x > 0.6) {
+        // Bright highlights: blend back towards original
+        // The brighter the pixel, the less contrast is applied
+        float t = (x - 0.6) / 0.4; // 0 at 0.6, 1 at 1.0
+        t = smoothStep3(t); // Smooth falloff
+        
+        // At x=0.6: full contrast effect (blend=0)
+        // At x=1.0: almost no contrast (blend=0.95)
+        float blendToOriginal = t * 0.95;
+        adjusted = mix(adjusted, x, blendToOriginal);
       }
       
-      // Stage 2: Soft-clip extremes to prevent hard edges
-      if (adjusted > 0.9) {
-        float excess = adjusted - 0.9;
-        adjusted = 0.9 + excess / (1.0 + excess * 3.0);
+      // Soft-clip extremes to prevent hard edges
+      if (adjusted > 0.95) {
+        float excess = adjusted - 0.95;
+        adjusted = 0.95 + excess / (1.0 + excess * 4.0);
       }
-      if (adjusted < 0.05) {
-        float deficit = 0.05 - adjusted;
-        adjusted = 0.05 - deficit / (1.0 + deficit * 3.0);
+      if (adjusted < 0.03) {
+        float deficit = 0.03 - adjusted;
+        adjusted = 0.03 - deficit / (1.0 + deficit * 4.0);
       }
       
       result[i] = adjusted;
