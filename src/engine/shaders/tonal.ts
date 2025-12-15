@@ -261,86 +261,57 @@ vec3 applyContrast(vec3 color, float contrast) {
 }
 
 // Apply highlights (Lightroom algorithm)
-// Regional weighted tone curve with progressive masking
-// Positive = recover/brighten highlights, Negative = burn/darken highlights
+// H(x) = x - w * max(x - T, 0)
+// Regional weighted tone curve with threshold-based masking
 vec3 applyHighlights(vec3 color, float highlights) {
   if (abs(highlights) < 0.01) {
     return color;
   }
   
-  // Lightroom applies highlights per-channel to preserve color ratios
-  // This changes intensity/glow without color shifts
-  vec3 result;
+  // Get luminance for threshold comparison
+  float lum = getLuminance(color);
   
-  // Threshold: start affecting pixels above this value
-  const float T = 0.45; // Lightroom starts around mid-tones
+  // Threshold: affects pixels above this value
+  // Lightroom uses ~0.5 as the midpoint
+  const float T = 0.5;
   
-  // Weight from slider: very aggressive for Lightroom-like impact
-  // Lightroom's highlights are powerful (±4 stops range)
-  float w = -(highlights / 100.0) * 1.8; // Negative because positive slider = brighten
+  // Weight from slider: positive recovers/brightens, negative darkens
+  // Scale to reasonable range and negate (because formula subtracts)
+  float w = -(highlights / 100.0) * 0.7;
   
-  for (int i = 0; i < 3; i++) {
-    float x = color[i];
-    
-    if (x < T) {
-      // Below threshold: no change
-      result[i] = x;
-    } else {
-      // Above threshold: apply progressive weighted curve
-      float aboveThreshold = x - T;
-      float normalizedPosition = aboveThreshold / (1.0 - T); // 0 to 1
-      
-      // Progressive mask: brighter pixels get more adjustment
-      float mask = pow(normalizedPosition, 0.6); // Aggressive on bright areas
-      
-      // Apply adjustment scaled by mask and position
-      // This preserves color ratios while changing intensity
-      float adjustment = w * mask * aboveThreshold;
-      
-      result[i] = x + adjustment;
-    }
-  }
+  // Apply weighted adjustment above threshold
+  float adjustment = w * max(lum - T, 0.0);
+  
+  // Apply to each channel while preserving color ratios
+  vec3 result = color - vec3(adjustment);
   
   return result;
 }
 
 // Apply shadows (Lightroom algorithm)
-// Regional weighted tone curve with progressive masking
-// Positive = lift/brighten shadows, Negative = crush/darken shadows
+// S(x) = x + w * max(T - x, 0)
+// Regional weighted tone curve with threshold-based masking
 vec3 applyShadows(vec3 color, float shadows) {
   if (abs(shadows) < 0.01) {
     return color;
   }
   
-  // Lightroom applies shadows per-channel to preserve color ratios
-  vec3 result;
+  // Get luminance for threshold comparison
+  float lum = getLuminance(color);
   
-  // Threshold: start affecting pixels below this value
-  const float T = 0.35; // Lightroom focuses on darker tones
+  // Threshold: affects pixels below this value
+  // Lightroom uses ~0.5 as the midpoint
+  const float T = 0.5;
   
-  // Weight from slider: aggressive for Lightroom-like impact
-  float w = (shadows / 100.0) * 1.6;
+  // Weight from slider: positive lifts, negative crushes
+  // Scale to reasonable range
+  float w = (shadows / 100.0) * 0.8;
   
-  for (int i = 0; i < 3; i++) {
-    float x = color[i];
-    
-    if (x > T) {
-      // Above threshold: no change
-      result[i] = x;
-    } else {
-      // Below threshold: apply progressive weighted curve
-      float belowThreshold = T - x;
-      float normalizedPosition = belowThreshold / T; // 0 to 1
-      
-      // Progressive mask: darker pixels get more adjustment
-      float mask = pow(normalizedPosition, 0.6);
-      
-      // Apply adjustment scaled by mask and position
-      float adjustment = w * mask * belowThreshold;
-      
-      result[i] = x + adjustment;
-    }
-  }
+  // Apply weighted adjustment below threshold
+  float adjustment = w * max(T - lum, 0.0);
+  
+  // Apply to each channel while preserving color ratios
+  vec3 result = color + vec3(adjustment);
   
   return result;
 }
