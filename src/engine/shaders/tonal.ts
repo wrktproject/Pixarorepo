@@ -205,15 +205,14 @@ vec3 applyExposure(vec3 color, float exposure) {
 }
 
 // Apply contrast (Lightroom algorithm)
-// Power curve (gamma) around middle gray - maintains brightness/saturation
-// Unlike S-curves, this doesn't compress the tonal range or cause graying
+// Power curve (gamma) around middle gray with two-stage soft-clipping
+// Prevents brightness/exposure shift while increasing tonal separation
 vec3 applyContrast(vec3 color, float contrast) {
   if (abs(contrast) < 0.01) {
     return color;
   }
   
   // Lightroom uses power function (gamma) for contrast
-  // This maintains overall brightness while increasing tonal separation
   // Normalize contrast to gamma: positive = steeper (more contrast), negative = flatter
   float normalizedContrast = contrast / 100.0 * 0.5; // Subtle for smooth response
   float gamma = pow(2.0, normalizedContrast); // gamma range: ~1.4 to ~0.7
@@ -230,13 +229,28 @@ vec3 applyContrast(vec3 color, float contrast) {
       result[i] = 0.0;
     } else {
       // Power function pivoted around middle gray
-      // This increases separation without compressing range
       float adjusted = pow(x / pivot, gamma) * pivot;
       
-      // Gentle soft-clipping only at extremes to prevent hard edges
-      if (adjusted > 0.95) {
-        float excess = adjusted - 0.95;
-        adjusted = 0.95 + excess / (1.0 + excess * 2.0);
+      // Two-stage soft-clipping to prevent brightness shift at high contrast
+      // Stage 1: Compress highlights progressively (prevents exposure increase)
+      if (adjusted > pivot) {
+        float excess = adjusted - pivot;
+        float maxExcess = 1.0 - pivot;
+        float t = excess / maxExcess;
+        // Apply stronger compression at higher contrast
+        float compressionStrength = max(0.0, (1.0 - gamma)) * 0.6; // 0 to ~0.18
+        float compressed = excess / (1.0 + excess * compressionStrength);
+        adjusted = pivot + compressed;
+      }
+      
+      // Stage 2: Soft-clip extremes to prevent hard edges
+      if (adjusted > 0.9) {
+        float excess = adjusted - 0.9;
+        adjusted = 0.9 + excess / (1.0 + excess * 3.0);
+      }
+      if (adjusted < 0.05) {
+        float deficit = 0.05 - adjusted;
+        adjusted = 0.05 - deficit / (1.0 + deficit * 3.0);
       }
       
       result[i] = adjusted;
