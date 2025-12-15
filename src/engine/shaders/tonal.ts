@@ -261,29 +261,46 @@ vec3 applyContrast(vec3 color, float contrast) {
 }
 
 // Apply highlights (Lightroom algorithm)
-// H(x) = x - w * max(x - T, 0)
-// Regional weighted tone curve with threshold-based masking
+// Regional weighted tone curve with progressive masking
+// Positive = recover/brighten highlights, Negative = darken highlights
 vec3 applyHighlights(vec3 color, float highlights) {
   if (abs(highlights) < 0.01) {
     return color;
   }
   
-  // Get luminance for threshold comparison
-  float lum = getLuminance(color);
+  // Lightroom uses per-channel processing to preserve color
+  vec3 result;
   
-  // Threshold: affects pixels above this value
-  // Lightroom uses ~0.5 as the midpoint
-  const float T = 0.5;
+  // Threshold: start affecting pixels above this value
+  // Lightroom uses ~0.45 for highlights
+  const float T = 0.45;
   
-  // Weight from slider: negative recovers, positive brightens
-  // Scale to reasonable range
-  float w = (highlights / 100.0) * 0.7;
+  // Weight from slider: scale aggressively for impact like Lightroom
+  // Lightroom's highlights are very powerful (±4 stops range)
+  float w = (highlights / 100.0) * 1.5; // Much more aggressive
   
-  // Apply weighted adjustment above threshold
-  float adjustment = w * max(lum - T, 0.0);
-  
-  // Apply to each channel while preserving color ratios
-  vec3 result = color - vec3(adjustment);
+  for (int i = 0; i < 3; i++) {
+    float x = color[i];
+    
+    if (x < T) {
+      // Below threshold: no change
+      result[i] = x;
+    } else {
+      // Above threshold: apply progressive weighted curve
+      // Higher pixels get more adjustment
+      float aboveThreshold = x - T;
+      float weight = aboveThreshold / (1.0 - T); // 0 to 1 for pixels T to 1.0
+      
+      // Apply power curve for smooth falloff
+      float mask = pow(weight, 0.7); // Slightly more aggressive on highlights
+      
+      // Adjustment amount: positive highlights = add (brighten/recover)
+      // The effect scales with how bright the pixel is
+      float adjustment = w * mask * aboveThreshold;
+      
+      result[i] = x + adjustment; // FIXED: + not - for correct direction
+    }
+  }
   
   return result;
 }
