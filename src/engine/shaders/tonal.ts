@@ -307,23 +307,26 @@ vec3 applyShadows(vec3 color, float shadows) {
   // Lightroom uses ~0.5 as the midpoint
   const float T = 0.5;
   
-  // Weight from slider: positive lifts, negative crushes
-  // Lightroom is EXTREMELY subtle - much more than we initially thought
-  float baseWeight = shadows > 0.0 ? 0.12 : 0.08; // Further reduced
-  float w = (shadows / 100.0) * baseWeight;
-  
   // Calculate how far below threshold (0 at T, 1 at black)
   float belowThreshold = max(T - lum, 0.0);
   
   // Apply smooth rolloff - effect is strongest in deep shadows, tapers near midtones
   float rolloff = smoothStep3(belowThreshold / T);
   
-  // Apply weighted adjustment with rolloff
-  float adjustment = w * belowThreshold * rolloff;
+  // Weight from slider
+  float w = (shadows / 100.0);
   
-  // Apply uniformly to all channels (Lightroom's approach)
-  // This preserves color relationships naturally
-  return color + vec3(adjustment);
+  // CRITICAL: Use multiplicative scaling to preserve saturation
+  // Adding a constant desaturates (adds gray), scaling preserves color ratios
+  if (shadows > 0.0) {
+    // Positive shadows: scale up (lighten) while preserving saturation
+    float scaleFactor = 1.0 + (w * belowThreshold * rolloff * 0.5);
+    return color * scaleFactor;
+  } else {
+    // Negative shadows: scale down (darken) 
+    float scaleFactor = 1.0 + (w * belowThreshold * rolloff * 0.35);
+    return color * scaleFactor;
+  }
 }
 
 // Apply whites (Lightroom algorithm)
