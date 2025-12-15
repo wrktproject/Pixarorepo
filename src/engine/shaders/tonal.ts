@@ -308,11 +308,18 @@ vec3 applyShadows(vec3 color, float shadows) {
   const float T = 0.5;
   
   // Weight from slider: positive lifts, negative crushes
-  // Scale to reasonable range
-  float w = (shadows / 100.0) * 0.8;
+  // Lightroom is very subtle - reduce intensity significantly
+  float w = (shadows / 100.0) * 0.25; // Reduced from 0.8 to 0.25
   
-  // Apply weighted adjustment below threshold
-  float adjustment = w * max(T - lum, 0.0);
+  // Calculate how far below threshold (0 at T, 1 at black)
+  float belowThreshold = max(T - lum, 0.0);
+  
+  // Apply smooth rolloff - effect is strongest in deep shadows, tapers near midtones
+  // This prevents the "washed out" look
+  float rolloff = smoothStep3(belowThreshold / T);
+  
+  // Apply weighted adjustment with rolloff
+  float adjustment = w * belowThreshold * rolloff;
   
   // Apply to each channel while preserving color ratios
   vec3 result = color + vec3(adjustment);
