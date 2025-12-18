@@ -377,7 +377,7 @@ vec3 applyBlacks(vec3 color, float blacks) {
   
   // Blacks affect darkest values (below 0.15)
   // Normalize slider to shift amount
-  float shift = (blacks / 100.0) * 0.25;
+  float shift = (blacks / 100.0) * 0.18;
   
   // Apply soft-clipping with smoothstep taper
   vec3 result;
