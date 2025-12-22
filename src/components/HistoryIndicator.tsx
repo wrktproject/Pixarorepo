@@ -24,7 +24,6 @@ export const HistoryIndicator: React.FC<HistoryIndicatorProps> = ({
   const dispatch = useDispatch();
   const { undo, redo, canUndo, canRedo, historyPosition } = useHistory();
   const showComparison = useSelector((state: RootState) => state.ui.showComparison);
-  const image = useSelector((state: RootState) => state.image.current);
   const [showExportDialog, setShowExportDialog] = useState(false);
 
   const handleComparisonMouseDown = () => {
