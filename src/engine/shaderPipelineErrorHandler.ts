@@ -535,6 +535,22 @@ export class ShaderPipelineErrorHandler {
   }
 
   /**
+   * Read pixels directly from the final FBO for export
+   */
+  public readPixelsForExport(): { pixels: Uint8Array; width: number; height: number } | null {
+    if (this.pipeline) {
+      try {
+        return this.pipeline.readPixelsFromFBO();
+      } catch (error) {
+        console.error('Failed to read pixels from FBO:', error);
+        return null;
+      }
+    }
+    console.warn('No WebGL pipeline available for FBO export');
+    return null;
+  }
+
+  /**
    * Dispose all resources
    */
   public dispose(): void {

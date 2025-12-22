@@ -189,7 +189,7 @@ function App() {
                 <PhotoLibrary />
               </ErrorBoundary>
             )}
-            {/* Ad in sidebar bottom - 300x250 */}
+            {/* Ad in sidebar bottom */}
             <ErrorBoundary>
               <AdContainer
                 adSlot="sidebar-bottom"
@@ -216,7 +216,7 @@ function App() {
           )}
         </main>
 
-        {/* Bottom Bar Ad - 728x90 */}
+        {/* Bottom Bar Ad */}
         <div className="app-bottom-bar">
           <ErrorBoundary>
             <AdContainer

@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photo Editing Tutorials - Pixaro</title>
+    <meta name="description" content="Learn photo editing with Pixaro through step-by-step tutorials. Master exposure, color grading, retouching, and professional editing techniques.">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif; line-height: 1.6; color: #e0e0e0; background: #1a1a1a; }
+        .container { max-width: 1100px; margin: 0 auto; padding: 40px 20px; }
+        header { background: #242424; padding: 20px 0; margin-bottom: 40px; border-bottom: 2px solid #333; }
+        header h1 { color: #fff; text-align: center; font-size: 2.5em; }
+        nav { text-align: center; margin-top: 20px; }
+        nav a { color: #4a9eff; text-decoration: none; margin: 0 15px; font-weight: 500; }
+        nav a:hover { text-decoration: underline; }
+        h2 { color: #4a9eff; margin: 40px 0 20px; font-size: 2em; border-bottom: 2px solid #333; padding-bottom: 10px; }
+        h3 { color: #7ab8ff; margin: 30px 0 15px; font-size: 1.5em; }
+        h4 { color: #99ccff; margin: 20px 0 10px; font-size: 1.2em; }
+        p { margin-bottom: 15px; color: #d0d0d0; }
+        ul, ol { margin: 15px 0 15px 30px; color: #d0d0d0; }
+        li { margin-bottom: 8px; }
+        .tutorial-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px; margin: 30px 0; }
+        .tutorial-card { background: #242424; border-radius: 8px; overflow: hidden; border: 1px solid #333; transition: transform 0.2s, box-shadow 0.2s; }
+        .tutorial-card:hover { transform: translateY(-5px); box-shadow: 0 5px 20px rgba(74, 158, 255, 0.3); }
+        .tutorial-header { background: linear-gradient(135deg, #2a4a6a 0%, #1a3a5a 100%); padding: 20px; min-height: 120px; display: flex; align-items: center; justify-content: center; }
+        .tutorial-header h3 { margin: 0; color: #fff; text-align: center; font-size: 1.3em; }
+        .tutorial-content { padding: 20px; }
+        .difficulty { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; font-weight: 600; margin-bottom: 10px; }
+        .difficulty-beginner { background: #2a4a2a; color: #6fd06f; }
+        .difficulty-intermediate { background: #4a4a2a; color: #f0d06f; }
+        .difficulty-advanced { background: #4a2a2a; color: #f06f6f; }
+        .duration { color: #999; font-size: 0.9em; margin-bottom: 10px; }
+        .steps { background: #1a1a1a; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .steps ol { margin: 10px 0 0 20px; }
+        .tip { background: #2a4a2a; padding: 15px; border-left: 4px solid #4a9eff; margin: 20px 0; border-radius: 4px; }
+        .tip strong { color: #4a9eff; }
+        footer { text-align: center; margin-top: 60px; padding: 20px 0; border-top: 1px solid #333; color: #888; }
+        .btn { display: inline-block; padding: 12px 30px; background: #4a9eff; color: white; text-decoration: none; border-radius: 5px; margin: 10px 5px; font-weight: 600; text-align: center; }
+        .btn:hover { background: #3a8eef; }
+        .category-tag { display: inline-block; background: #333; padding: 3px 10px; border-radius: 3px; font-size: 0.8em; margin: 5px 5px 5px 0; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>📚 Photo Editing Tutorials</h1>
+            <nav>
+                <a href="/">Home</a>
+                <a href="/about.html">About</a>
+                <a href="/guide.html">User Guide</a>
+                <a href="/tutorials.html">Tutorials</a>
+                <a href="/privacy.html">Privacy</a>
+                <a href="/contact.html">Contact</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <p style="text-align: center; font-size: 1.2em; margin-bottom: 40px;">
+            Master photo editing with these step-by-step tutorials. From beginner basics to advanced techniques, learn how to transform your photos like a pro.
+        </p>
+
+        <section>
+            <h2>🌟 Beginner Tutorials</h2>
+            <p>Perfect for those new to photo editing. Start here to learn the fundamentals.</p>
+            
+            <div class="tutorial-grid">
+                <div class="tutorial-card">
+                    <div class="tutorial-header">
+                        <h3>🎨 Basic Photo Enhancement</h3>
+                    </div>
+                    <div class="tutorial-content">
+                        <span class="difficulty difficulty-beginner">Beginner</span>
+                        <div class="duration">⏱️ 5 minutes</div>
+                        <p>Learn to quickly enhance any photo with essential adjustments.</p>
+                        <div class="steps">
+                            <strong>You'll Learn:</strong>
+                            <ol>
+                                <li>Setting proper exposure</li>
+                                <li>Adjusting contrast and brightness</li>
+                                <li>Basic color correction</li>
+                                <li>Sharpening for web</li>
+                            </ol>
+                        </div>
+                        <div class="category-tag">Basics</div>
+                        <div class="category-tag">Quick Edit</div>
+                    </div>
+                </div>
+
+                <div class="tutorial-card">
+                    <div class="tutorial-header">
+                        <h3>☀️ Fixing Underexposed Photos</h3>
+                    </div>
+                    <div class="tutorial-content">
+                        <span class="difficulty difficulty-beginner">Beginner</span>
+                        <div class="duration">⏱️ 7 minutes</div>
+                        <p>Rescue dark, underexposed images and bring out hidden details.</p>
+                        <div class="steps">
+                            <strong>You'll Learn:</strong>
+                            <ol>
+                                <li>Increasing exposure safely</li>
+                                <li>Lifting shadows without noise</li>
+                                <li>Recovering highlight detail</li>
+                                <li>Balancing tones</li>
+                            </ol>
+                        </div>
+                        <div class="category-tag">Exposure</div>
+                        <div class="category-tag">Recovery</div>
+                    </div>
+                </div>
+
+                <div class="tutorial-card">
+                    <div class="tutorial-header">
+                        <h3>🎨 Understanding White Balance</h3>
+                    </div>
+                    <div class="tutorial-content">
+                        <span class="difficulty difficulty-beginner">Beginner</span>
+                        <div class="duration">⏱️ 6 minutes</div>
+                        <p>Fix color casts and make your photos look natural.</p>
+                        <div class="steps">
+                            <strong>You'll Learn:</strong>
+                            <ol>
+                                <li>What white balance does</li>
+                                <li>Fixing yellow/blue color casts</li>
+                                <li>Correcting green/magenta tints</li>
+                                <li>Creative color temperature</li>
+                            </ol>
+                        </div>
+                        <div class="category-tag">Color</div>
+                        <div class="category-tag">Basics</div>
+                    </div>
+                </div>
+
+                <div class="tutorial-card">
+                    <div class="tutorial-header">
+                        <h3>✂️ Cropping for Impact</h3>
+                    </div>
+                    <div class="tutorial-content">
+                        <span class="difficulty difficulty-beginner">Beginner</span>
+                        <div class="duration">⏱️ 5 minutes</div>
+                        <p>Master composition through strategic cropping.</p>
+                        <div class="steps">
+                            <strong>You'll Learn:</strong>
+                            <ol>
+                                <li>Rule of thirds</li>
+                                <li>Aspect ratio selection</li>
+                                <li>Straightening horizons</li>
+                                <li>Improving composition</li>
+                            </ol>
+                        </div>
+                        <div class="category-tag">Composition</div>
+                        <div class="category-tag">Basics</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h2>🚀 Intermediate Tutorials</h2>
+            <p>Take your editing skills to the next level with these intermediate techniques.</p>
+
+            <div class="tutorial-grid">
+                <div class="tutorial-card">
+                    <div class="tutorial-header">
+                        <h3>🌅 Landscape Photography Editing</h3>
+                    </div>
+                    <div class="tutorial-content">
+                        <span class="difficulty difficulty-intermediate">Intermediate</span>
+                        <div class="duration">⏱️ 12 minutes</div>
+                        <p>Transform landscape photos into stunning masterpieces.</p>
+                        <div class="steps">
+                            <strong>You'll Learn:</strong>
+                            <ol>
+                                <li>Enhancing sky and foreground separately</li>
+                                <li>Boosting color selectively with HSL</li>
+                                <li>Adding depth with clarity</li>
+                                <li>Sharpening landscapes effectively</li>
+                            </ol>
+                        </div>
+                        <div class="category-tag">Landscape</div>
+                        <div class="category-tag">Color Grading</div>
+                    </div>
+                </div>
+
+                <div class="tutorial-card">
+                    <div class="tutorial-header">
+                        <h3>👤 Portrait Retouching</h3>
+                    </div>
+                    <div class="tutorial-content">
+                        <span class="difficulty difficulty-intermediate">Intermediate</span>
+                        <div class="duration">⏱️ 15 minutes</div>
+                        <p>Perfect skin tones and create flattering portraits.</p>
+                        <div class="steps">
+                            <strong>You'll Learn:</strong>
+                            <ol>
+                                <li>Removing blemishes with AI tool</li>
+                                <li>Smoothing skin naturally</li>
+                                <li>Enhancing eyes and teeth</li>
+                                <li>Perfecting skin tones</li>
+                            </ol>
+                        </div>
+                        <div class="category-tag">Portrait</div>
+                        <div class="category-tag">Retouching</div>
+                    </div>
+                </div>
+
+                <div class="tutorial-card">
+                    <div class="tutorial-header">
+                        <h3>🌈 HSL Color Mastery</h3>
+                    </div>
+                    <div class="tutorial-content">
+                        <span class="difficulty difficulty-intermediate">Intermediate</span>
+                        <div class="duration">⏱️ 10 minutes</div>
+                        <p>Target and adjust specific colors for precise control.</p>
+                        <div class="steps">
+                            <strong>You'll Learn:</strong>
+                            <ol>
+                                <li>Understanding HSL channels</li>
+                                <li>Changing color hues (e.g., blue to teal)</li>
+                                <li>Selective saturation adjustments</li>
+                                <li>Luminance for dramatic effects</li>
+                            </ol>
+                        </div>
+                        <div class="category-tag">Color</div>
+                        <div class="category-tag">Advanced Color</div>
+                    </div>
+                </div>
+
+                <div class="tutorial-card">
+                    <div class="tutorial-header">
+                        <h3>🎬 Cinematic Color Grading</h3>
+                    </div>
+                    <div class="tutorial-content">
+                        <span class="difficulty difficulty-intermediate">Intermediate</span>
+                        <div class="duration">⏱️ 14 minutes</div>
+                        <p>Achieve movie-style color grading for dramatic looks.</p>
+                        <div class="steps">
+                            <strong>You'll Learn:</strong>
+                            <ol>
+                                <li>Teal and orange look</li>
+                                <li>Split toning shadows/highlights</li>
+                                <li>Creating mood with color</li>
+                                <li>Film emulation techniques</li>
+                            </ol>
+                        </div>
+                        <div class="category-tag">Color Grading</div>
+                        <div class="category-tag">Cinematic</div>
+                    </div>
+                </div>
+
+                <div class="tutorial-card">
+                    <div class="tutorial-header">
+                        <h3>⚫⚪ Black & White Conversion</h3>
+                    </div>
+                    <div class="tutorial-content">
+                        <span class="difficulty difficulty-intermediate">Intermediate</span>
+                        <div class="duration">⏱️ 11 minutes</div>
+                        <p>Create stunning black and white images with depth.</p>
+                        <div class="steps">
+                            <strong>You'll Learn:</strong>
+                            <ol>
+                                <li>Channel mixer for B&W</li>
+                                <li>Controlling tonal separation</li>
+                                <li>Adding contrast without clipping</li>
+                                <li>Emulating classic film stocks</li>
+                            </ol>
+                        </div>
+                        <div class="category-tag">Black & White</div>
+                        <div class="category-tag">Creative</div>
+                    </div>
+                </div>
+
+                <div class="tutorial-card">
+                    <div class="tutorial-header">
+                        <h3>🔍 Detail Enhancement</h3>
+                    </div>
+                    <div class="tutorial-content">
+                        <span class="difficulty difficulty-intermediate">Intermediate</span>
+                        <div class="duration">⏱️ 9 minutes</div>
+                        <p>Bring out fine details and textures in your images.</p>
+                        <div class="steps">
+                            <strong>You'll Learn:</strong>
+                            <ol>
+                                <li>Texture vs Clarity differences</li>
+                                <li>Smart sharpening techniques</li>
+                                <li>Avoiding halos and artifacts</li>
+                                <li>Detail for different subjects</li>
+                            </ol>
+                        </div>
+                        <div class="category-tag">Sharpening</div>
+                        <div class="category-tag">Detail</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h2>🎓 Advanced Tutorials</h2>
+            <p>Professional-level techniques for experienced editors.</p>
+
+            <div class="tutorial-grid">
+                <div class="tutorial-card">
+                    <div class="tutorial-header">
+                        <h3>🎞️ Filmic RGB Tone Mapping</h3>
+                    </div>
+                    <div class="tutorial-content">
+                        <span class="difficulty difficulty-advanced">Advanced</span>
+                        <div class="duration">⏱️ 18 minutes</div>
+                        <p>Master professional tone mapping for film-like results.</p>
+                        <div class="steps">
+                            <strong>You'll Learn:</strong>
+                            <ol>
+                                <li>Understanding scene vs display referred</li>
+                                <li>Setting white and black points</li>
+                                <li>Latitude and contrast controls</li>
+                                <li>Creating custom looks</li>
+                            </ol>
+                        </div>
+                        <div class="category-tag">Advanced</div>
+                        <div class="category-tag">Tone Mapping</div>
+                    </div>
+                </div>
+
+                <div class="tutorial-card">
+                    <div class="tutorial-header">
+                        <h3>🌓 HDR Photography Workflow</h3>
+                    </div>
+                    <div class="tutorial-content">
+                        <span class="difficulty difficulty-advanced">Advanced</span>
+                        <div class="duration">⏱️ 20 minutes</div>
+                        <p>Process high dynamic range scenes with multiple exposures.</p>
+                        <div class="steps">
+                            <strong>You'll Learn:</strong>
+                            <ol>
+                                <li>Exposure blending concepts</li>
+                                <li>Recovering extreme highlights/shadows</li>
+                                <li>Natural HDR processing</li>
+                                <li>Avoiding HDR halos</li>
+                            </ol>
+                        </div>
+                        <div class="category-tag">HDR</div>
+                        <div class="category-tag">Advanced</div>
+                    </div>
+                </div>
+
+                <div class="tutorial-card">
+                    <div class="tutorial-header">
+                        <h3>🎨 Color Balance RGB</h3>
+                    </div>
+                    <div class="tutorial-content">
+                        <span class="difficulty difficulty-advanced">Advanced</span>
+                        <div class="duration">⏱️ 16 minutes</div>
+                        <p>Advanced color grading with RGB slope/offset/power.</p>
+                        <div class="steps">
+                            <strong>You'll Learn:</strong>
+                            <ol>
+                                <li>Understanding lift/gamma/gain</li>
+                                <li>Separate shadow/midtone/highlight grading</li>
+                                <li>Creating complex color relationships</li>
+                                <li>Professional color workflows</li>
+                            </ol>
+                        </div>
+                        <div class="category-tag">Color Grading</div>
+                        <div class="category-tag">Professional</div>
+                    </div>
+                </div>
+
+                <div class="tutorial-card">
+                    <div class="tutorial-header">
+                        <h3>📸 RAW Development Workflow</h3>
+                    </div>
+                    <div class="tutorial-content">
+                        <span class="difficulty difficulty-advanced">Advanced</span>
+                        <div class="duration">⏱️ 22 minutes</div>
+                        <p>Complete RAW processing from import to export.</p>
+                        <div class="steps">
+                            <strong>You'll Learn:</strong>
+                            <ol>
+                                <li>Understanding RAW advantages</li>
+                                <li>Proper workflow order</li>
+                                <li>Maximizing dynamic range</li>
+                                <li>Non-destructive editing</li>
+                            </ol>
+                        </div>
+                        <div class="category-tag">RAW</div>
+                        <div class="category-tag">Workflow</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h2>⚡ Quick Tips & Tricks</h2>
+            
+            <div class="tip">
+                <strong>💡 Editing Order Matters:</strong>
+                <p>Follow this sequence for best results:</p>
+                <ol>
+                    <li>Crop and straighten</li>
+                    <li>Exposure and white balance</li>
+                    <li>Highlights and shadows</li>
+                    <li>Color adjustments (HSL, saturation)</li>
+                    <li>Detail work (sharpening, noise reduction)</li>
+                    <li>Creative effects (vignette, grain)</li>
+                </ol>
+            </div>
+
+            <div class="tip">
+                <strong>💡 Before/After Comparison:</strong>
+                <p>Hold the <code>Spacebar</code> to temporarily view your original image. This helps you avoid over-editing!</p>
+            </div>
+
+            <div class="tip">
+                <strong>💡 Start Subtle:</strong>
+                <p>It's better to under-edit than over-edit. You can always go back and increase adjustments, but overly processed photos look unnatural.</p>
+            </div>
+
+            <div class="tip">
+                <strong>💡 Use Presets as Starting Points:</strong>
+                <p>Apply a preset you like, then fine-tune individual sliders. This speeds up your workflow while maintaining consistency.</p>
+            </div>
+
+            <div class="tip">
+                <strong>💡 Save Your Best Edits as Presets:</strong>
+                <p>When you create a look you love, save it as a custom preset. Build your own signature style library!</p>
+            </div>
+        </section>
+
+        <section>
+            <h2>📖 Learning Resources</h2>
+            <p>Expand your knowledge with these additional resources:</p>
+            
+            <ul style="font-size: 1.1em;">
+                <li><a href="/guide.html" style="color: #4a9eff;">📘 Complete User Guide</a> - Detailed documentation of all features</li>
+                <li><a href="/about.html" style="color: #4a9eff;">ℹ️ About Pixaro</a> - Learn about the technology behind Pixaro</li>
+                <li><a href="/contact.html" style="color: #4a9eff;">💬 Contact Support</a> - Get help with specific questions</li>
+            </ul>
+        </section>
+
+        <div style="background: linear-gradient(135deg, #2a4a6a 0%, #1a3a5a 100%); padding: 40px; border-radius: 8px; margin: 50px 0; text-align: center;">
+            <h3 style="color: #fff; margin-top: 0; font-size: 1.8em;">Ready to Put Your Skills to Practice?</h3>
+            <p style="color: #d0d0d0; font-size: 1.1em; margin: 20px 0;">Open Pixaro and start editing your photos with these techniques!</p>
+            <a href="/" class="btn" style="font-size: 1.1em; padding: 15px 40px;">🎨 Start Editing Now</a>
+        </div>
+
+        <section>
+            <h2>🎯 Photography Tips for Better Results</h2>
+            <p>Great editing starts with great photos. Keep these tips in mind when shooting:</p>
+            
+            <div class="tutorial-grid">
+                <div style="background: #242424; padding: 20px; border-radius: 8px; border: 1px solid #333;">
+                    <h4 style="color: #4a9eff; margin-top: 0;">📷 Shoot in RAW</h4>
+                    <p>RAW files contain more data than JPEGs, giving you far more flexibility when editing exposure and colors.</p>
+                </div>
+                <div style="background: #242424; padding: 20px; border-radius: 8px; border: 1px solid #333;">
+                    <h4 style="color: #4a9eff; margin-top: 0;">🌅 Golden Hour</h4>
+                    <p>Shoot during the first hour after sunrise or the last hour before sunset for warm, flattering light.</p>
+                </div>
+                <div style="background: #242424; padding: 20px; border-radius: 8px; border: 1px solid #333;">
+                    <h4 style="color: #4a9eff; margin-top: 0;">📏 Rule of Thirds</h4>
+                    <p>Place subjects along imaginary gridlines that divide your frame into thirds for more dynamic compositions.</p>
+                </div>
+                <div style="background: #242424; padding: 20px; border-radius: 8px; border: 1px solid #333;">
+                    <h4 style="color: #4a9eff; margin-top: 0;">💡 Watch the Histogram</h4>
+                    <p>Check your camera's histogram to avoid blown highlights or crushed shadows that can't be recovered in editing.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 Pixaro. All rights reserved.</p>
+            <p>
+                <a href="/about.html" style="color: #4a9eff; margin: 0 10px;">About</a> |
+                <a href="/privacy.html" style="color: #4a9eff; margin: 0 10px;">Privacy Policy</a> |
+                <a href="/contact.html" style="color: #4a9eff; margin: 0 10px;">Contact</a>
+            </p>
+        </div>
+    </footer>
+</body>
+</html>

@@ -8,6 +8,21 @@ import { ExportRenderer } from '../engine/exportRenderer';
 import type { AdjustmentState } from '../types/adjustments';
 
 /**
+ * Flip Y-axis (WebGL bottom-left origin → Canvas top-left origin)
+ */
+function flipY(data: Uint8Array, width: number, height: number): void {
+  const row = width * 4;
+  const temp = new Uint8Array(row);
+  for (let y = 0; y < height / 2; y++) {
+    const top = y * row;
+    const bottom = (height - y - 1) * row;
+    temp.set(data.slice(top, top + row));
+    data.copyWithin(top, bottom, bottom + row);
+    data.set(temp, bottom);
+  }
+}
+
+/**
  * Helper function to read pixels from WebGL canvas and create a 2D canvas
  */
 function readWebGLCanvas(canvas: HTMLCanvasElement): HTMLCanvasElement {
@@ -49,6 +64,10 @@ function readWebGLCanvas(canvas: HTMLCanvasElement): HTMLCanvasElement {
     // Bind to default framebuffer (the canvas)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     
+    // Force GPU to complete all pending operations
+    gl.flush();
+    gl.finish();
+    
     // Read pixels from WebGL context
     const pixels = new Uint8Array(width * height * 4);
     gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
@@ -58,19 +77,7 @@ function readWebGLCanvas(canvas: HTMLCanvasElement): HTMLCanvasElement {
       gl.bindFramebuffer(gl.FRAMEBUFFER, currentFramebuffer);
     }
     
-    // Check if we got valid data (not all zeros/black)
-    let hasData = false;
-    for (let i = 0; i < pixels.length; i += 4) {
-      if (pixels[i] !== 0 || pixels[i + 1] !== 0 || pixels[i + 2] !== 0) {
-        hasData = true;
-        break;
-      }
-    }
-    
-    if (!hasData) {
-      console.warn('WebGL canvas appears to be empty. Canvas dimensions:', width, 'x', height);
-      throw new Error('Canvas appears empty. Please ensure the image is fully loaded and rendered.');
-    }
+    console.log('📸 Read WebGL pixels, first 20 values:', Array.from(pixels.slice(0, 20)));
     
     // Flip vertically (WebGL has origin at bottom-left, canvas has top-left)
     const flippedPixels = new Uint8ClampedArray(width * height * 4);
@@ -87,6 +94,166 @@ function readWebGLCanvas(canvas: HTMLCanvasElement): HTMLCanvasElement {
     return exportCanvas;
   } catch (error) {
     throw new Error(`Failed to read WebGL pixels: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+/**
+ * Export directly from FBO pixels (correct approach for offscreen rendering)
+ * This reads pixels from the final framebuffer, not the canvas
+ */
+export async function exportFromFBO(
+  pixels: Uint8Array,
+  width: number,
+  height: number,
+  options: ExportOptions
+): Promise<void> {
+  const {
+    format = 'jpeg',
+    quality = 0.95,
+    filename = `pixaro-export-${Date.now()}`,
+  } = options;
+
+  console.log('📸 Exporting from FBO pixels...', {
+    dimensions: `${width}x${height}`,
+    format,
+    quality,
+    firstPixels: Array.from(pixels.slice(0, 20))
+  });
+
+  try {
+    // Flip Y-axis (WebGL uses bottom-left origin, canvas uses top-left)
+    flipY(pixels, width, height);
+
+    // Create a 2D canvas for encoding
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      throw new Error('Failed to create 2D context for export');
+    }
+
+    // Create ImageData and put it on canvas
+    const imageData = new ImageData(
+      new Uint8ClampedArray(pixels),
+      width,
+      height
+    );
+    ctx.putImageData(imageData, 0, 0);
+
+    // Determine MIME type
+    const mimeType = `image/${format}`;
+
+    // Convert canvas to blob and download
+    return new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            reject(new Error('Failed to create image blob'));
+            return;
+          }
+
+          // Create download link
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `${filename}.${format}`;
+
+          // Trigger download
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+
+          // Clean up
+          setTimeout(() => URL.revokeObjectURL(url), 100);
+
+          console.log(`✅ Exported image: ${link.download} (${(blob.size / 1024 / 1024).toFixed(2)} MB)`);
+          resolve();
+        },
+        mimeType,
+        format === 'png' ? undefined : quality
+      );
+    });
+  } catch (error) {
+    console.error('Export from FBO failed:', error);
+    throw error;
+  }
+}
+
+/**
+ * Export directly from a canvas element (WebGL or 2D)
+ * This is the preferred method as it exports what's already rendered on screen
+ */
+export async function exportFromCanvas(
+  canvas: HTMLCanvasElement,
+  options: ExportOptions
+): Promise<void> {
+  const {
+    format = 'jpeg',
+    quality = 0.95,
+    filename = `pixaro-export-${Date.now()}`,
+  } = options;
+
+  console.log('📸 Exporting from canvas...', {
+    canvasDimensions: `${canvas.width}x${canvas.height}`,
+    format,
+    quality
+  });
+
+  try {
+    // CRITICAL: For WebGL canvases, we need to render the final output to the canvas backing store
+    // Check if this is a WebGL canvas
+    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+    if (gl) {
+      console.log('📸 Detected WebGL canvas, rendering output to backing store...');
+      // Trigger a render to canvas - this will be handled by the Canvas component
+      // We need to dispatch an event or call a method to do this
+      // For now, let's just wait a frame
+      await new Promise(resolve => requestAnimationFrame(resolve));
+    }
+    
+    // Get export canvas (handles WebGL if needed)
+    const exportCanvas = readWebGLCanvas(canvas);
+    
+    console.log('✅ Canvas read, dimensions:', exportCanvas.width, 'x', exportCanvas.height);
+    
+    // Determine MIME type
+    const mimeType = `image/${format}`;
+    
+    // Convert canvas to blob and download
+    return new Promise((resolve, reject) => {
+      exportCanvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            reject(new Error('Failed to create image blob'));
+            return;
+          }
+
+          // Create download link
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `${filename}.${format}`;
+          
+          // Trigger download
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          // Clean up
+          setTimeout(() => URL.revokeObjectURL(url), 100);
+          
+          console.log(`✅ Exported image: ${link.download} (${(blob.size / 1024 / 1024).toFixed(2)} MB)`);
+          resolve();
+        },
+        mimeType,
+        format === 'png' ? undefined : quality
+      );
+    });
+  } catch (error) {
+    console.error('Export from canvas failed:', error);
+    throw error;
   }
 }
 
@@ -135,68 +302,40 @@ export async function exportImageWithAdjustments(
       dimensions: `${imageData.width}x${imageData.height}`,
       format,
       quality,
-      hasAdjustments: adjustments !== undefined
+      adjustments: {
+        exposure: adjustments.exposure,
+        contrast: adjustments.contrast,
+        temperature: adjustments.temperature,
+        crop: adjustments.crop,
+        rotation: adjustments.rotation
+      }
     });
 
     let renderedImageData: ImageData;
 
-    // Check if there are significant adjustments that need the full pipeline
-    const hasSignificantAdjustments = 
-      adjustments.exposure !== 0 ||
-      adjustments.contrast !== 0 ||
-      adjustments.highlights !== 0 ||
-      adjustments.shadows !== 0 ||
-      adjustments.whites !== 0 ||
-      adjustments.blacks !== 0 ||
-      adjustments.saturation !== 0 ||
-      adjustments.vibrance !== 0 ||
-      adjustments.temperature !== 6500 ||
-      adjustments.tint !== 0 ||
-      adjustments.clarity !== 0 ||
-      adjustments.crop !== null ||
-      adjustments.rotation !== 0;
-
-    if (hasSignificantAdjustments) {
-      console.log('📸 Using ExportRenderer for adjustments...');
-      try {
-        const exportRenderer = new ExportRenderer();
-        renderedImageData = await exportRenderer.renderToImageData(imageData, adjustments, {
-          enableDithering: true,
-          ditherStrength: 0.5,
-          preserveColorSpace: true,
-        });
-        console.log('✅ ExportRenderer completed');
-      } catch (renderError) {
-        console.warn('ExportRenderer failed, falling back to direct export:', renderError);
-        // Fall back to direct export without adjustments
-        renderedImageData = imageData;
-      }
-    } else {
-      console.log('📸 No significant adjustments, using direct export...');
+    // ALWAYS use ExportRenderer to ensure all adjustments are applied
+    // The renderer is smart enough to skip unnecessary operations
+    console.log('📸 Using ExportRenderer to apply all adjustments...');
+    try {
+      const exportRenderer = new ExportRenderer();
+      renderedImageData = await exportRenderer.renderToImageData(imageData, adjustments, {
+        enableDithering: true,
+        ditherStrength: 0.5,
+        preserveColorSpace: true,
+      });
+      console.log('✅ ExportRenderer completed');
+    } catch (renderError) {
+      console.error('ExportRenderer failed, using original image:', renderError);
+      // Fall back to direct export without adjustments
       renderedImageData = imageData;
     }
 
     console.log('✅ Rendered image data:', {
       width: renderedImageData.width,
       height: renderedImageData.height,
-      dataLength: renderedImageData.data.length
+      dataLength: renderedImageData.data.length,
+      firstPixels: Array.from(renderedImageData.data.slice(0, 12))
     });
-
-    // Verify the image data has content (not all zeros)
-    let hasContent = false;
-    for (let i = 0; i < Math.min(renderedImageData.data.length, 10000); i += 4) {
-      if (renderedImageData.data[i] !== 0 || 
-          renderedImageData.data[i + 1] !== 0 || 
-          renderedImageData.data[i + 2] !== 0) {
-        hasContent = true;
-        break;
-      }
-    }
-    
-    if (!hasContent) {
-      console.warn('⚠️ Rendered image appears to be empty/black, using source image...');
-      renderedImageData = imageData;
-    }
 
     // Create a canvas to convert ImageData to blob
     const canvas = document.createElement('canvas');

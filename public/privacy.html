@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy - Pixaro</title>
+    <meta name="description" content="Pixaro's privacy policy. We respect your privacy - all image processing happens locally on your device.">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif; line-height: 1.6; color: #e0e0e0; background: #1a1a1a; }
+        .container { max-width: 900px; margin: 0 auto; padding: 40px 20px; }
+        header { background: #242424; padding: 20px 0; margin-bottom: 40px; border-bottom: 2px solid #333; }
+        header h1 { color: #fff; text-align: center; font-size: 2.5em; }
+        nav { text-align: center; margin-top: 20px; }
+        nav a { color: #4a9eff; text-decoration: none; margin: 0 15px; font-weight: 500; }
+        nav a:hover { text-decoration: underline; }
+        h2 { color: #4a9eff; margin: 30px 0 15px; font-size: 1.8em; }
+        h3 { color: #7ab8ff; margin: 25px 0 12px; font-size: 1.3em; }
+        p { margin-bottom: 15px; color: #d0d0d0; }
+        ul { margin: 15px 0 15px 30px; color: #d0d0d0; }
+        li { margin-bottom: 8px; }
+        .highlight { background: #2a4a2a; padding: 15px; border-left: 4px solid #4a9eff; margin: 20px 0; border-radius: 4px; }
+        footer { text-align: center; margin-top: 60px; padding: 20px 0; border-top: 1px solid #333; color: #888; }
+        .last-updated { color: #888; font-style: italic; margin-bottom: 30px; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Privacy Policy</h1>
+            <nav>
+                <a href="/">Home</a>
+                <a href="/about.html">About</a>
+                <a href="/guide.html">User Guide</a>
+                <a href="/tutorials.html">Tutorials</a>
+                <a href="/privacy.html">Privacy</a>
+                <a href="/contact.html">Contact</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <p class="last-updated">Last Updated: December 22, 2025</p>
+
+        <div class="highlight">
+            <h3>Privacy First - Our Commitment</h3>
+            <p><strong>Pixaro is designed with privacy at its core. We never see, store, or transmit your photos. All image processing happens entirely within your web browser on your device.</strong></p>
+        </div>
+
+        <section>
+            <h2>Information We Don't Collect</h2>
+            <p>Unlike most online services, Pixaro operates with a privacy-first approach. Here's what we explicitly DO NOT collect:</p>
+            <ul>
+                <li><strong>Your Photos:</strong> Images you edit never leave your device. They are not uploaded to any server.</li>
+                <li><strong>Personal Information:</strong> No account creation means no names, emails, or passwords collected.</li>
+                <li><strong>Editing History:</strong> Your adjustments, presets, and edit history are stored locally in your browser only.</li>
+                <li><strong>Location Data:</strong> We don't track or store your geographic location.</li>
+                <li><strong>Device Information:</strong> No device fingerprinting or unique identifiers are collected.</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>How Pixaro Works</h2>
+            <h3>Client-Side Processing</h3>
+            <p>Pixaro is a single-page application that runs entirely in your browser using modern web technologies:</p>
+            <ul>
+                <li>When you load a photo, it's read directly from your computer into browser memory</li>
+                <li>All editing operations use WebGL shaders that run on your GPU</li>
+                <li>AI-powered features use TensorFlow.js running locally in your browser</li>
+                <li>When you export an image, it's saved directly to your downloads folder</li>
+            </ul>
+            <p><strong>No server communication occurs during the editing process.</strong></p>
+
+            <h3>Local Storage</h3>
+            <p>Pixaro uses your browser's local storage to save:</p>
+            <ul>
+                <li>Your custom presets (stored locally, never synced)</li>
+                <li>UI preferences (theme, panel positions)</li>
+                <li>Recent edit history (for undo/redo functionality)</li>
+            </ul>
+            <p>This data remains on your device and can be cleared at any time using your browser's settings or Pixaro's built-in clear data option.</p>
+        </section>
+
+        <section>
+            <h2>Information We May Collect</h2>
+            <h3>Anonymous Analytics (Optional)</h3>
+            <p>If analytics are enabled, we may collect anonymous usage statistics to improve the application:</p>
+            <ul>
+                <li>Page views and feature usage (no personal identification)</li>
+                <li>Browser type and version (for compatibility improvements)</li>
+                <li>Performance metrics (load times, rendering speeds)</li>
+                <li>Error logs (to fix bugs and improve stability)</li>
+            </ul>
+            <p><strong>Important:</strong> This data is completely anonymous and cannot be traced back to you or your photos.</p>
+
+            <h3>Third-Party Services</h3>
+            <p>Pixaro may use the following third-party services:</p>
+            <ul>
+                <li><strong>CDN Services:</strong> For fast delivery of application files</li>
+                <li><strong>Analytics:</strong> Google Analytics (if enabled) - see their <a href="https://policies.google.com/privacy" style="color: #4a9eff;">privacy policy</a></li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>Cookies and Tracking</h2>
+            <p>Pixaro uses minimal cookies:</p>
+            <ul>
+                <li><strong>Essential Cookies:</strong> Required for the application to function (session management)</li>
+                <li><strong>Preference Cookies:</strong> Remember your UI settings and preferences</li>
+                <li><strong>Analytics Cookies:</strong> If you consent, for anonymous usage statistics</li>
+            </ul>
+            <p>We do not use cookies for advertising or cross-site tracking.</p>
+        </section>
+
+        <section>
+            <h2>Data Security</h2>
+            <p>Since your photos never leave your device, they're as secure as your computer. We take additional security measures:</p>
+            <ul>
+                <li>HTTPS encryption for all application files</li>
+                <li>Content Security Policy (CSP) headers to prevent XSS attacks</li>
+                <li>Regular security audits and dependency updates</li>
+                <li>No third-party scripts with access to your photo data</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>Children's Privacy</h2>
+            <p>Pixaro does not collect personal information from anyone. Since no registration is required and no data is collected, users of all ages can safely use the application.</p>
+        </section>
+
+        <section>
+            <h2>Your Rights and Choices</h2>
+            <p>You have complete control over your data:</p>
+            <ul>
+                <li><strong>Clear Local Data:</strong> Delete all stored presets and preferences at any time</li>
+                <li><strong>Disable Analytics:</strong> Block analytics cookies through your browser settings</li>
+                <li><strong>Use Ad Blockers:</strong> We respect your choice to block advertisements</li>
+                <li><strong>Private Browsing:</strong> Use incognito/private mode for zero data persistence</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>Changes to This Policy</h2>
+            <p>We may update this privacy policy from time to time. Changes will be posted on this page with an updated revision date. Continued use of Pixaro after changes constitutes acceptance of the updated policy.</p>
+        </section>
+
+        <section>
+            <h2>GDPR Compliance</h2>
+            <p>For users in the European Union:</p>
+            <ul>
+                <li>No personal data is collected or processed</li>
+                <li>No data transfers outside the EU occur (everything stays on your device)</li>
+                <li>You have the right to clear all locally stored data</li>
+                <li>No profiling or automated decision-making occurs</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>Contact Us</h2>
+            <p>If you have questions about this privacy policy or Pixaro's privacy practices, please contact us at:</p>
+            <p><a href="/contact.html" style="color: #4a9eff;">Contact Page</a></p>
+        </section>
+
+        <div class="highlight" style="margin-top: 40px;">
+            <h3>Summary</h3>
+            <p><strong>Pixaro respects your privacy. Your photos never leave your device. We don't collect personal information. All processing is local. It's that simple.</strong></p>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 Pixaro. All rights reserved.</p>
+            <p>
+                <a href="/about.html" style="color: #4a9eff; margin: 0 10px;">About</a> |
+                <a href="/contact.html" style="color: #4a9eff; margin: 0 10px;">Contact Us</a>
+            </p>
+        </div>
+    </footer>
+</body>
+</html>

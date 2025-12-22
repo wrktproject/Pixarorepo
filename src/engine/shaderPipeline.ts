@@ -1241,6 +1241,76 @@ void main() {
   }
 
   /**
+   * Read pixels directly from the final framebuffer for export
+   * This is the correct approach - no canvas rendering needed
+   */
+  public readPixelsFromFBO(): { pixels: Uint8Array; width: number; height: number } {
+    // Get the final framebuffer (last FBO in the array)
+    const finalFbo = this.framebuffers[this.framebuffers.length - 1];
+    if (!finalFbo) {
+      throw new Error('No final framebuffer available for export');
+    }
+
+    // Bind the final framebuffer (not the canvas!)
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, finalFbo);
+
+    // Ensure framebuffer is complete
+    const status = this.gl.checkFramebufferStatus(this.gl.FRAMEBUFFER);
+    if (status !== this.gl.FRAMEBUFFER_COMPLETE) {
+      throw new Error(`Final export FBO is incomplete: ${status}`);
+    }
+
+    // Get dimensions
+    const width = this.previewWidth;
+    const height = this.previewHeight;
+
+    if (width === 0 || height === 0) {
+      throw new Error('Invalid texture dimensions');
+    }
+
+    // Since textures are RGBA16F, we need to read as FLOAT then convert to UNSIGNED_BYTE
+    const floatPixels = new Float32Array(width * height * 4);
+    this.gl.readPixels(
+      0,
+      0,
+      width,
+      height,
+      this.gl.RGBA,
+      this.gl.FLOAT,
+      floatPixels
+    );
+
+    // Convert float [0,1] to byte [0,255]
+    // Apply sRGB gamma correction (linear -> sRGB)
+    const pixels = new Uint8Array(width * height * 4);
+    for (let i = 0; i < floatPixels.length; i += 4) {
+      // Apply sRGB conversion to RGB channels (not alpha)
+      for (let c = 0; c < 3; c++) {
+        const linear = floatPixels[i + c];
+        // sRGB gamma correction
+        const srgb = linear <= 0.0031308
+          ? linear * 12.92
+          : 1.055 * Math.pow(linear, 1.0 / 2.4) - 0.055;
+        pixels[i + c] = Math.max(0, Math.min(255, Math.round(srgb * 255)));
+      }
+      // Alpha stays linear
+      pixels[i + 3] = Math.max(0, Math.min(255, Math.round(floatPixels[i + 3] * 255)));
+    }
+
+    // Force GPU to complete
+    this.gl.flush();
+    this.gl.finish();
+
+    console.log('✅ Read pixels from FBO:', {
+      width,
+      height,
+      firstPixels: Array.from(pixels.slice(0, 20))
+    });
+
+    return { pixels, width, height };
+  }
+
+  /**
    * Dispose all resources
    */
   public dispose(): void {

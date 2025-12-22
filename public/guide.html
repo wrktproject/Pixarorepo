@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Guide - Pixaro Photo Editor</title>
+    <meta name="description" content="Complete guide to using Pixaro - learn about all features, tools, and techniques for professional photo editing in your browser.">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif; line-height: 1.6; color: #e0e0e0; background: #1a1a1a; }
+        .container { max-width: 1000px; margin: 0 auto; padding: 40px 20px; }
+        header { background: #242424; padding: 20px 0; margin-bottom: 40px; border-bottom: 2px solid #333; }
+        header h1 { color: #fff; text-align: center; font-size: 2.5em; }
+        nav { text-align: center; margin-top: 20px; }
+        nav a { color: #4a9eff; text-decoration: none; margin: 0 15px; font-weight: 500; }
+        nav a:hover { text-decoration: underline; }
+        .toc { background: #242424; padding: 25px; border-radius: 8px; margin: 30px 0; border: 1px solid #333; }
+        .toc h2 { margin-top: 0; color: #4a9eff; font-size: 1.5em; }
+        .toc ul { list-style: none; margin: 15px 0; }
+        .toc li { margin: 8px 0; }
+        .toc a { color: #7ab8ff; text-decoration: none; }
+        .toc a:hover { text-decoration: underline; }
+        h2 { color: #4a9eff; margin: 40px 0 20px; font-size: 2em; border-bottom: 2px solid #333; padding-bottom: 10px; }
+        h3 { color: #7ab8ff; margin: 30px 0 15px; font-size: 1.5em; }
+        h4 { color: #99ccff; margin: 20px 0 10px; font-size: 1.2em; }
+        p { margin-bottom: 15px; color: #d0d0d0; }
+        ul, ol { margin: 15px 0 15px 30px; color: #d0d0d0; }
+        li { margin-bottom: 8px; }
+        code { background: #2a2a2a; padding: 2px 6px; border-radius: 3px; color: #ff9d76; font-family: 'Courier New', monospace; }
+        .tip { background: #2a4a2a; padding: 15px; border-left: 4px solid #4a9eff; margin: 20px 0; border-radius: 4px; }
+        .tip strong { color: #4a9eff; }
+        .warning { background: #4a2a2a; padding: 15px; border-left: 4px solid #ff6b6b; margin: 20px 0; border-radius: 4px; }
+        .warning strong { color: #ff6b6b; }
+        .feature-box { background: #242424; padding: 20px; border-radius: 8px; margin: 15px 0; border: 1px solid #333; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th { background: #2a2a2a; padding: 12px; text-align: left; color: #4a9eff; border: 1px solid #333; }
+        td { padding: 12px; border: 1px solid #333; }
+        tr:nth-child(even) { background: #1f1f1f; }
+        footer { text-align: center; margin-top: 60px; padding: 20px 0; border-top: 1px solid #333; color: #888; }
+        .btn { display: inline-block; padding: 12px 30px; background: #4a9eff; color: white; text-decoration: none; border-radius: 5px; margin: 10px 5px; font-weight: 600; }
+        .btn:hover { background: #3a8eef; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Pixaro User Guide</h1>
+            <nav>
+                <a href="/">Home</a>
+                <a href="/about.html">About</a>
+                <a href="/guide.html">User Guide</a>
+                <a href="/tutorials.html">Tutorials</a>
+                <a href="/privacy.html">Privacy</a>
+                <a href="/contact.html">Contact</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="toc">
+            <h2>📖 Table of Contents</h2>
+            <ul>
+                <li><a href="#getting-started">1. Getting Started</a></li>
+                <li><a href="#interface">2. Understanding the Interface</a></li>
+                <li><a href="#basic-adjustments">3. Basic Adjustments</a></li>
+                <li><a href="#color-tools">4. Color Tools</a></li>
+                <li><a href="#tone-mapping">5. Tone Mapping (Advanced)</a></li>
+                <li><a href="#detail-enhancement">6. Detail Enhancement</a></li>
+                <li><a href="#ai-removal">7. AI-Powered Removal</a></li>
+                <li><a href="#presets">8. Using Presets</a></li>
+                <li><a href="#exporting">9. Exporting Your Work</a></li>
+                <li><a href="#keyboard-shortcuts">10. Keyboard Shortcuts</a></li>
+                <li><a href="#troubleshooting">11. Troubleshooting</a></li>
+            </ul>
+        </div>
+
+        <section id="getting-started">
+            <h2>1. Getting Started</h2>
+            
+            <h3>Loading Your First Image</h3>
+            <p>There are three ways to load an image into Pixaro:</p>
+            <ol>
+                <li>Click the <strong>"Load Image"</strong> button in the center of the screen</li>
+                <li><strong>Drag and drop</strong> an image file directly onto the canvas</li>
+                <li>Use the keyboard shortcut <code>Ctrl+O</code> (Windows/Linux) or <code>Cmd+O</code> (Mac)</li>
+            </ol>
+
+            <div class="feature-box">
+                <h4>Supported File Formats</h4>
+                <ul>
+                    <li><strong>JPEG/JPG:</strong> Most common web and camera format</li>
+                    <li><strong>PNG:</strong> Lossless format with transparency support</li>
+                    <li><strong>TIFF:</strong> High-quality uncompressed format</li>
+                    <li><strong>RAW formats:</strong> CR2 (Canon), NEF (Nikon), ARW (Sony), DNG (Adobe)</li>
+                </ul>
+            </div>
+
+            <div class="tip">
+                <strong>💡 Tip:</strong> RAW files give you the most flexibility for editing as they contain unprocessed sensor data with wider dynamic range and color information.
+            </div>
+
+            <h3>Basic Workflow</h3>
+            <p>Pixaro follows a professional editing workflow:</p>
+            <ol>
+                <li><strong>Load Image:</strong> Import your photo</li>
+                <li><strong>Basic Adjustments:</strong> Set exposure, contrast, and white balance</li>
+                <li><strong>Color Grading:</strong> Adjust colors and saturation</li>
+                <li><strong>Detail Work:</strong> Apply sharpening and noise reduction</li>
+                <li><strong>Effects:</strong> Add creative touches (vignette, grain)</li>
+                <li><strong>Export:</strong> Save your edited image</li>
+            </ol>
+        </section>
+
+        <section id="interface">
+            <h2>2. Understanding the Interface</h2>
+
+            <h3>Main Areas</h3>
+            <div class="feature-box">
+                <h4>🖼️ Canvas Area (Center)</h4>
+                <p>The main workspace where your image is displayed. Features:</p>
+                <ul>
+                    <li>Real-time preview of all adjustments</li>
+                    <li>Zoom in/out with mouse wheel or pinch gesture</li>
+                    <li>Pan by clicking and dragging</li>
+                    <li>Double-click to fit image to screen</li>
+                </ul>
+            </div>
+
+            <div class="feature-box">
+                <h4>📚 Photo Library (Left Sidebar)</h4>
+                <p>Manage multiple photos in your editing session:</p>
+                <ul>
+                    <li>Switch between loaded images</li>
+                    <li>Each photo retains its own adjustment history</li>
+                    <li>Delete or export individual photos</li>
+                </ul>
+            </div>
+
+            <div class="feature-box">
+                <h4>🎨 Tools Panel (Right Side)</h4>
+                <p>Access all editing tools and adjustments:</p>
+                <ul>
+                    <li>Basic adjustments (exposure, contrast)</li>
+                    <li>Color tools (white balance, HSL, color balance)</li>
+                    <li>Detail tools (sharpening, noise reduction)</li>
+                    <li>Effects and creative tools</li>
+                    <li>AI-powered removal tool</li>
+                </ul>
+            </div>
+
+            <h3>Navigation Controls</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Action</th>
+                        <th>Mouse/Trackpad</th>
+                        <th>Keyboard</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Zoom In</td>
+                        <td>Mouse wheel up / Pinch out</td>
+                        <td><code>+</code> or <code>=</code></td>
+                    </tr>
+                    <tr>
+                        <td>Zoom Out</td>
+                        <td>Mouse wheel down / Pinch in</td>
+                        <td><code>-</code></td>
+                    </tr>
+                    <tr>
+                        <td>Pan</td>
+                        <td>Click and drag</td>
+                        <td>Arrow keys</td>
+                    </tr>
+                    <tr>
+                        <td>Fit to Screen</td>
+                        <td>Double-click canvas</td>
+                        <td><code>F</code></td>
+                    </tr>
+                    <tr>
+                        <td>100% Zoom</td>
+                        <td>-</td>
+                        <td><code>1</code></td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section id="basic-adjustments">
+            <h2>3. Basic Adjustments</h2>
+
+            <h3>Exposure</h3>
+            <p>Controls the overall brightness of your image.</p>
+            <ul>
+                <li><strong>Range:</strong> -3.0 to +3.0 EV (stops)</li>
+                <li><strong>Recommended:</strong> Use in 0.1-0.5 EV increments</li>
+                <li><strong>Tip:</strong> Adjust exposure first before other settings</li>
+            </ul>
+
+            <h3>Contrast</h3>
+            <p>Adjusts the difference between light and dark areas.</p>
+            <ul>
+                <li><strong>Range:</strong> -100 to +100</li>
+                <li><strong>Positive values:</strong> Increase contrast (more dramatic)</li>
+                <li><strong>Negative values:</strong> Decrease contrast (flatter, softer)</li>
+            </ul>
+
+            <div class="warning">
+                <strong>⚠️ Warning:</strong> Extreme contrast values can cause clipping (loss of detail) in highlights or shadows. Watch your histogram!
+            </div>
+
+            <h3>Highlights</h3>
+            <p>Recovers detail in bright areas of your image.</p>
+            <ul>
+                <li><strong>Range:</strong> -100 to +100</li>
+                <li><strong>Negative values:</strong> Darken and recover bright areas</li>
+                <li><strong>Use case:</strong> Rescue blown-out skies or overexposed areas</li>
+            </ul>
+
+            <h3>Shadows</h3>
+            <p>Reveals detail in dark areas of your image.</p>
+            <ul>
+                <li><strong>Range:</strong> -100 to +100</li>
+                <li><strong>Positive values:</strong> Brighten and reveal shadow detail</li>
+                <li><strong>Use case:</strong> Lift underexposed foregrounds or dark areas</li>
+            </ul>
+
+            <div class="tip">
+                <strong>💡 Pro Tip:</strong> For balanced exposure, try reducing highlights (-50 to -100) and increasing shadows (+30 to +60) before adjusting overall exposure.
+            </div>
+
+            <h3>Whites & Blacks</h3>
+            <p>Fine-tune the brightest and darkest points in your image.</p>
+            <ul>
+                <li><strong>Whites:</strong> Sets the white point (brightest value)</li>
+                <li><strong>Blacks:</strong> Sets the black point (darkest value)</li>
+                <li><strong>Best practice:</strong> Adjust subtly for tonal range optimization</li>
+            </ul>
+
+            <h3>Clarity</h3>
+            <p>Enhances mid-tone contrast for local detail "pop".</p>
+            <ul>
+                <li><strong>Range:</strong> -100 to +100</li>
+                <li><strong>Positive:</strong> Sharper, more defined (good for landscapes)</li>
+                <li><strong>Negative:</strong> Softer, dreamier (good for portraits)</li>
+            </ul>
+        </section>
+
+        <section id="color-tools">
+            <h2>4. Color Tools</h2>
+
+            <h3>White Balance</h3>
+            <p>Adjust the color temperature and tint of your image.</p>
+            
+            <h4>Temperature</h4>
+            <ul>
+                <li><strong>Range:</strong> 2000K to 10000K</li>
+                <li><strong>Lower values (blue):</strong> Cooler, clinical feel</li>
+                <li><strong>Higher values (yellow):</strong> Warmer, sunset feel</li>
+                <li><strong>Neutral:</strong> Around 5500K (daylight)</li>
+            </ul>
+
+            <h4>Tint</h4>
+            <ul>
+                <li><strong>Range:</strong> -100 to +100</li>
+                <li><strong>Negative (green):</strong> Removes magenta casts</li>
+                <li><strong>Positive (magenta):</strong> Removes green casts</li>
+            </ul>
+
+            <div class="tip">
+                <strong>💡 Quick Fix:</strong> For photos shot indoors under fluorescent lights, try: Temperature ~4500K, Tint +10 to +20.
+            </div>
+
+            <h3>Saturation & Vibrance</h3>
+            
+            <h4>Saturation</h4>
+            <p>Increases or decreases the intensity of ALL colors equally.</p>
+            <ul>
+                <li><strong>Range:</strong> -100 to +100</li>
+                <li><strong>At -100:</strong> Black and white image</li>
+                <li><strong>Use sparingly:</strong> Can easily look oversaturated</li>
+            </ul>
+
+            <h4>Vibrance</h4>
+            <p>Smart saturation that protects skin tones and already-saturated colors.</p>
+            <ul>
+                <li><strong>Range:</strong> -100 to +100</li>
+                <li><strong>Safer than saturation:</strong> More natural results</li>
+                <li><strong>Best for:</strong> Landscapes and portraits</li>
+            </ul>
+
+            <h3>HSL (Hue, Saturation, Luminance)</h3>
+            <p>Target specific color ranges for precise adjustments.</p>
+            
+            <div class="feature-box">
+                <h4>Available Color Channels</h4>
+                <ul>
+                    <li><strong>Red:</strong> Roses, red clothing, brick</li>
+                    <li><strong>Orange:</strong> Skin tones, sunsets, autumn leaves</li>
+                    <li><strong>Yellow:</strong> Sunflowers, gold, sand</li>
+                    <li><strong>Green:</strong> Foliage, grass, nature</li>
+                    <li><strong>Aqua:</strong> Tropical water, teal colors</li>
+                    <li><strong>Blue:</strong> Sky, water, denim</li>
+                    <li><strong>Purple:</strong> Flowers, twilight sky</li>
+                    <li><strong>Magenta:</strong> Flowers, neon lights</li>
+                </ul>
+            </div>
+
+            <h4>Hue Adjustment</h4>
+            <p>Shift a color toward a different hue (e.g., make blue skies more cyan or more purple).</p>
+
+            <h4>Saturation Adjustment</h4>
+            <p>Make specific colors more or less vivid without affecting others.</p>
+
+            <h4>Luminance Adjustment</h4>
+            <p>Brighten or darken specific color ranges (e.g., brighten blues to make sky pop).</p>
+
+            <div class="tip">
+                <strong>💡 Portrait Tip:</strong> To enhance skin tones, increase Orange Saturation (+10 to +20) and Orange Luminance (+5 to +15). Reduce Blue Saturation (-20) to calm backgrounds.
+            </div>
+        </section>
+
+        <section id="tone-mapping">
+            <h2>5. Tone Mapping (Advanced)</h2>
+            <p>Tone mapping compresses the high dynamic range of your image to fit within display limits while preserving detail and maintaining a natural look.</p>
+
+            <h3>When to Use Tone Mapping</h3>
+            <ul>
+                <li>High dynamic range scenes (bright sky + dark foreground)</li>
+                <li>When you want film-like highlight rolloff</li>
+                <li>For advanced color grading workflows</li>
+                <li>To achieve specific "looks" (cinematic, vintage, etc.)</li>
+            </ul>
+
+            <h3>Filmic RGB</h3>
+            <p>Professional tone mapper with film-like characteristics.</p>
+            <ul>
+                <li><strong>White Point:</strong> Where highlights start rolling off (higher = more highlight detail)</li>
+                <li><strong>Black Point:</strong> Where shadows compress (lower = more shadow detail)</li>
+                <li><strong>Latitude:</strong> Contrast in mid-tones</li>
+                <li><strong>Contrast:</strong> Overall tonal contrast</li>
+            </ul>
+
+            <div class="warning">
+                <strong>⚠️ Important:</strong> Only use ONE tone mapping module at a time (either Filmic RGB or Sigmoid, not both).
+            </div>
+
+            <h3>Sigmoid</h3>
+            <p>Simpler tone mapper with excellent color preservation.</p>
+            <ul>
+                <li><strong>Contrast:</strong> S-curve strength</li>
+                <li><strong>Skew:</strong> Shift midpoint lighter or darker</li>
+                <li>Easier to use with fewer parameters</li>
+                <li>Great for quick, pleasing results</li>
+            </ul>
+        </section>
+
+        <section id="detail-enhancement">
+            <h2>6. Detail Enhancement</h2>
+
+            <h3>Sharpening</h3>
+            <p>Enhances edge definition and perceived sharpness.</p>
+            <ul>
+                <li><strong>Amount:</strong> 0-200 (strength of sharpening)</li>
+                <li><strong>Radius:</strong> 0.5-5.0 pixels (size of details to sharpen)</li>
+                <li><strong>Threshold:</strong> Prevents sharpening smooth areas (avoid noise)</li>
+            </ul>
+
+            <div class="tip">
+                <strong>💡 Recommended Settings:</strong>
+                <ul>
+                    <li><strong>Portraits:</strong> Amount 40-60, Radius 1.0, Threshold 3</li>
+                    <li><strong>Landscapes:</strong> Amount 80-120, Radius 0.8, Threshold 0</li>
+                    <li><strong>Web Images:</strong> Amount 60-80, Radius 0.5, Threshold 2</li>
+                </ul>
+            </div>
+
+            <h3>Noise Reduction</h3>
+            <p>Reduces grain and digital noise, especially in underexposed areas.</p>
+            <ul>
+                <li><strong>Luminance:</strong> Reduces brightness noise</li>
+                <li><strong>Color:</strong> Reduces color speckles</li>
+                <li><strong>Warning:</strong> Too much can make images look plastic</li>
+            </ul>
+
+            <h3>Texture & Clarity</h3>
+            <ul>
+                <li><strong>Texture:</strong> Enhances fine detail without affecting larger features</li>
+                <li><strong>Clarity:</strong> Boosts mid-tone local contrast</li>
+            </ul>
+        </section>
+
+        <section id="ai-removal">
+            <h2>7. AI-Powered Removal</h2>
+            <p>Remove unwanted objects, blemishes, or distractions from your photos using AI.</p>
+
+            <h3>How to Use</h3>
+            <ol>
+                <li>Click the <strong>Removal Tool</strong> icon in the tools panel</li>
+                <li>Paint over the object you want to remove</li>
+                <li>Click <strong>"Remove"</strong> to process</li>
+                <li>Wait for AI to intelligently fill the area</li>
+            </ol>
+
+            <div class="tip">
+                <strong>💡 Best Results:</strong>
+                <ul>
+                    <li>Paint slightly beyond the object edges</li>
+                    <li>Works best on simple backgrounds</li>
+                    <li>Remove smaller objects for better results</li>
+                    <li>Multiple passes for complex removals</li>
+                </ul>
+            </div>
+
+            <h3>What Can Be Removed?</h3>
+            <ul>
+                <li>Blemishes and skin imperfections</li>
+                <li>Power lines and cables</li>
+                <li>Small distracting objects</li>
+                <li>Tourists/photobombers</li>
+                <li>Signs and text</li>
+            </ul>
+        </section>
+
+        <section id="presets">
+            <h2>8. Using Presets</h2>
+            
+            <h3>Applying Presets</h3>
+            <ol>
+                <li>Open the <strong>Preset Manager</strong></li>
+                <li>Browse built-in presets by category</li>
+                <li>Click a preset to apply it instantly</li>
+                <li>Adjust individual settings to fine-tune</li>
+            </ol>
+
+            <h3>Creating Custom Presets</h3>
+            <ol>
+                <li>Make your desired adjustments</li>
+                <li>Click <strong>"Save Preset"</strong></li>
+                <li>Name your preset</li>
+                <li>Choose which adjustments to include</li>
+            </ol>
+
+            <h3>Built-in Preset Categories</h3>
+            <ul>
+                <li><strong>Film Emulation:</strong> Kodak, Fuji, Ilford looks</li>
+                <li><strong>Portrait:</strong> Skin enhancement presets</li>
+                <li><strong>Landscape:</strong> Nature and scenery presets</li>
+                <li><strong>Black & White:</strong> Classic B&W conversions</li>
+                <li><strong>Vintage:</strong> Retro and aged looks</li>
+                <li><strong>Cinematic:</strong> Movie-style color grading</li>
+            </ul>
+        </section>
+
+        <section id="exporting">
+            <h2>9. Exporting Your Work</h2>
+
+            <h3>Export Options</h3>
+            <ol>
+                <li>Click <strong>"Export"</strong> or use <code>Ctrl+S</code> / <code>Cmd+S</code></li>
+                <li>Choose format: JPEG, PNG, or TIFF</li>
+                <li>Set quality (for JPEG) or compression (for PNG)</li>
+                <li>Click <strong>"Download"</strong></li>
+            </ol>
+
+            <h3>Format Recommendations</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Use Case</th>
+                        <th>Format</th>
+                        <th>Settings</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Web/Social Media</td>
+                        <td>JPEG</td>
+                        <td>Quality: 85-92%, sRGB</td>
+                    </tr>
+                    <tr>
+                        <td>Printing</td>
+                        <td>TIFF or JPEG</td>
+                        <td>Quality: 95-100%, High res</td>
+                    </tr>
+                    <tr>
+                        <td>Graphics/Transparency</td>
+                        <td>PNG</td>
+                        <td>Maximum quality</td>
+                    </tr>
+                    <tr>
+                        <td>Archival</td>
+                        <td>TIFF</td>
+                        <td>Uncompressed</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section id="keyboard-shortcuts">
+            <h2>10. Keyboard Shortcuts</h2>
+
+            <h3>File Operations</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Action</th>
+                        <th>Windows/Linux</th>
+                        <th>Mac</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Open Image</td>
+                        <td><code>Ctrl+O</code></td>
+                        <td><code>Cmd+O</code></td>
+                    </tr>
+                    <tr>
+                        <td>Export Image</td>
+                        <td><code>Ctrl+S</code></td>
+                        <td><code>Cmd+S</code></td>
+                    </tr>
+                    <tr>
+                        <td>Undo</td>
+                        <td><code>Ctrl+Z</code></td>
+                        <td><code>Cmd+Z</code></td>
+                    </tr>
+                    <tr>
+                        <td>Redo</td>
+                        <td><code>Ctrl+Y</code> or <code>Ctrl+Shift+Z</code></td>
+                        <td><code>Cmd+Shift+Z</code></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>View Controls</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Action</th>
+                        <th>Shortcut</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Zoom In</td>
+                        <td><code>+</code> or <code>=</code></td>
+                    </tr>
+                    <tr>
+                        <td>Zoom Out</td>
+                        <td><code>-</code></td>
+                    </tr>
+                    <tr>
+                        <td>Fit to Screen</td>
+                        <td><code>F</code></td>
+                    </tr>
+                    <tr>
+                        <td>100% Zoom</td>
+                        <td><code>1</code></td>
+                    </tr>
+                    <tr>
+                        <td>Toggle Before/After</td>
+                        <td><code>Space</code> (hold)</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section id="troubleshooting">
+            <h2>11. Troubleshooting</h2>
+
+            <h3>Image Won't Load</h3>
+            <ul>
+                <li>Check file format is supported (JPEG, PNG, TIFF, RAW)</li>
+                <li>File may be corrupted - try opening in another app first</li>
+                <li>Very large files (>50MB) may take longer to load</li>
+                <li>Try refreshing the page and loading again</li>
+            </ul>
+
+            <h3>Performance Issues</h3>
+            <ul>
+                <li>Large images (>24MP) are downsampled for preview</li>
+                <li>Close other browser tabs to free up memory</li>
+                <li>Update your graphics drivers for better WebGL performance</li>
+                <li>Use a modern browser (Chrome 100+, Firefox 100+, Safari 15+)</li>
+            </ul>
+
+            <h3>Colors Look Wrong After Export</h3>
+            <ul>
+                <li>Ensure you're exporting in sRGB color space</li>
+                <li>Some apps don't handle color profiles correctly</li>
+                <li>Try viewing in a different app or browser</li>
+            </ul>
+
+            <h3>Adjustments Not Applying</h3>
+            <ul>
+                <li>Check if WebGL is enabled in your browser</li>
+                <li>Refresh the page to reset the editing engine</li>
+                <li>Try adjusting slider by larger amounts to see effect</li>
+            </ul>
+
+            <div class="tip">
+                <strong>💡 Still Need Help?</strong> Visit our <a href="/contact.html" style="color: #4a9eff;">Contact Page</a> or check <a href="/tutorials.html" style="color: #4a9eff;">Tutorials</a> for video guides.
+            </div>
+        </section>
+
+        <div style="background: #242424; padding: 30px; border-radius: 8px; margin: 50px 0; text-align: center;">
+            <h3 style="color: #4a9eff; margin-top: 0;">Ready to Start Editing?</h3>
+            <p>Now that you understand Pixaro's features, it's time to put them into practice!</p>
+            <a href="/" class="btn">Open Pixaro Editor</a>
+            <a href="/tutorials.html" class="btn">Watch Tutorials</a>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 Pixaro. All rights reserved.</p>
+            <p>
+                <a href="/about.html" style="color: #4a9eff; margin: 0 10px;">About</a> |
+                <a href="/privacy.html" style="color: #4a9eff; margin: 0 10px;">Privacy Policy</a> |
+                <a href="/contact.html" style="color: #4a9eff; margin: 0 10px;">Contact</a>
+            </p>
+        </div>
+    </footer>
+</body>
+</html>

@@ -9,6 +9,7 @@ import type { RootState } from '../store';
 import { setShowComparison } from '../store';
 import { useHistory } from '../utils/useHistory';
 import { ExportDialog } from './ExportDialog';
+import type { ShaderPipelineErrorHandler } from '../engine/shaderPipelineErrorHandler';
 import './HistoryIndicator.css';
 
 export interface HistoryIndicatorProps {
@@ -23,6 +24,7 @@ export const HistoryIndicator: React.FC<HistoryIndicatorProps> = ({
   const dispatch = useDispatch();
   const { undo, redo, canUndo, canRedo, historyPosition } = useHistory();
   const showComparison = useSelector((state: RootState) => state.ui.showComparison);
+  const image = useSelector((state: RootState) => state.image.current);
   const [showExportDialog, setShowExportDialog] = useState(false);
 
   const handleComparisonMouseDown = () => {
@@ -31,6 +33,27 @@ export const HistoryIndicator: React.FC<HistoryIndicatorProps> = ({
 
   const handleComparisonMouseUp = () => {
     dispatch(setShowComparison(false));
+  };
+
+  // Callback to get pixels from pipeline FBO for export
+  const getPipelinePixels = () => {
+    if (!canvasRef?.current) return null;
+    
+    // @ts-expect-error - accessing custom property
+    const errorHandler = canvasRef.current.__pixaroErrorHandler as ShaderPipelineErrorHandler | undefined;
+    if (!errorHandler) {
+      console.warn('Error handler not available for export');
+      return null;
+    }
+
+    // readPixelsForExport now returns { pixels, width, height }
+    const result = errorHandler.readPixelsForExport();
+    if (!result) {
+      console.warn('Failed to read pixels from FBO');
+      return null;
+    }
+
+    return result;
   };
 
   return (
@@ -133,6 +156,7 @@ export const HistoryIndicator: React.FC<HistoryIndicatorProps> = ({
       {showExportDialog && canvasRef && (
         <ExportDialog
           canvasRef={canvasRef}
+          getPipelinePixels={getPipelinePixels}
           onClose={() => setShowExportDialog(false)}
           onExportComplete={() => {
             console.log('✅ Export successful');

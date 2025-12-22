@@ -83,6 +83,10 @@ export const Canvas: React.FC<CanvasProps> = ({ canvasRef: externalCanvasRef }) 
       // Set initial render mode
       setRenderMode(errorHandlerRef.current.getCurrentMode());
 
+      // Store reference on canvas element for export functionality
+      // @ts-expect-error - adding custom property for export
+      canvasRef.current.__pixaroErrorHandler = errorHandlerRef.current;
+
       // Connect depth map manager to the rendering pipeline
       DepthMapManager.setCallback((depthData, width, height) => {
         if (errorHandlerRef.current) {

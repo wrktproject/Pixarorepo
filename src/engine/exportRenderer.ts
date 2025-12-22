@@ -92,6 +92,13 @@ export class ExportRenderer {
       // Requirement 14.5: Minimizes color space conversions (only at input/output)
       this.pipeline.render(adjustments);
 
+      // CRITICAL: Ensure we're reading from the default framebuffer (canvas)
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      
+      // Force complete GPU execution before reading pixels
+      gl.flush();
+      gl.finish();
+      
       // Wait for render to complete
       await this.waitForRender();
 
@@ -99,6 +106,11 @@ export class ExportRenderer {
       if (fullConfig.enableDithering) {
         await this.applyDithering(fullConfig.ditherStrength);
       }
+
+      // Ensure we're still reading from canvas after dithering
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.flush();
+      gl.finish();
 
       // Read pixels from canvas
       const pixels = new Uint8ClampedArray(imageData.width * imageData.height * 4);

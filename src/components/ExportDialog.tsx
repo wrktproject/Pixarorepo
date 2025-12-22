@@ -7,7 +7,8 @@ import React, { useState } from 'react';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../store';
 import {
-  exportImageWithAdjustments,
+  exportFromCanvas,
+  exportFromFBO,
   copyCanvasToClipboard,
   getRecommendedExportSettings,
   estimateExportSize,
@@ -20,6 +21,9 @@ export interface ExportDialogProps {
   /** Canvas ref to export from */
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   
+  /** Optional: Function to get pixels directly from pipeline FBO */
+  getPipelinePixels?: () => { pixels: Uint8Array; width: number; height: number } | null;
+  
   /** Called when export is complete */
   onExportComplete?: () => void;
   
@@ -29,6 +33,7 @@ export interface ExportDialogProps {
 
 export const ExportDialog: React.FC<ExportDialogProps> = ({
   canvasRef,
+  getPipelinePixels,
   onExportComplete,
   onClose,
 }) => {
@@ -99,8 +104,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
       alert('No image to export');
       return;
     }
-
-    setIsExporting(true);
+setIsExporting(true);
 
     try {
       const options: ExportOptions = {
@@ -114,9 +118,29 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
         } : undefined,
       };
 
-      // Use the new export function that renders with adjustments
-      // image is ProcessedImage which contains the ImageData in .data property
-      await exportImageWithAdjustments(image.data, adjustments, options);
+      // Try to export directly from pipeline FBO (correct approach for offscreen rendering)
+      if (getPipelinePixels) {
+        const fboData = getPipelinePixels();
+        if (fboData) {
+          console.log('📸 Exporting from FBO pixels');
+          await exportFromFBO(fboData.pixels, fboData.width, fboData.height, options);
+          console.log('✅ Export complete');
+          onExportComplete?.();
+          onClose();
+          return;
+        } else {
+          console.warn('⚠️ Failed to get FBO pixels, falling back to canvas export');
+        }
+      }
+
+      // Fallback: Export from canvas
+      if (!canvasRef.current) {
+        throw new Error('Canvas not available');
+      }
+
+      console.log('📸 Falling back to canvas export');
+      // Export directly from the display canvas which already has adjustments applied
+      await exportFromCanvas(canvasRef.current, options);
       
       console.log('✅ Export complete');
       onExportComplete?.();
